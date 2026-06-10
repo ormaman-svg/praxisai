@@ -99,18 +99,25 @@ export async function POST(req: Request) {
     try {
       const { Resend } = await import("resend");
       const resend = new Resend(process.env.RESEND_API_KEY);
-      const { error: sendErr } = await resend.emails.send({
-        from: process.env.RESEND_FROM ?? "praxisAI <onboarding@resend.dev>",
+      const from = process.env.RESEND_FROM ?? "praxisAI <onboarding@resend.dev>";
+      const { data, error: sendErr } = await resend.emails.send({
+        from,
         to: email,
         subject: `הוזמנת להצטרף ל${clinic?.name ?? "praxisAI"} — praxisAI`,
         html: emailHtml,
       });
-      if (sendErr) throw sendErr;
+      if (sendErr) {
+        console.error("[Resend] send error:", JSON.stringify(sendErr));
+        return NextResponse.json({ ok: true, sent: false, link: actionLink, resendError: sendErr });
+      }
+      console.log("[Resend] sent ok, id:", data?.id);
       return NextResponse.json({ ok: true, sent: true });
-    } catch {
+    } catch (e) {
+      console.error("[Resend] exception:", e);
       return NextResponse.json({ ok: true, sent: false, link: actionLink });
     }
   }
+  console.warn("[Resend] RESEND_API_KEY not set");
   return NextResponse.json({ ok: true, sent: false, link: actionLink });
 }
 

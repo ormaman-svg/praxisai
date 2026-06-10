@@ -56,10 +56,13 @@ export default function UsersClient({
     setSending(false);
     if (!res.ok) return setError(json.error ?? "שליחת ההזמנה נכשלה.");
     if (json.sent) {
-      setNotice(`מייל הזמנה מעוצב נשלח אל ${form.email}.`);
+      setNotice(`מייל הזמנה נשלח אל ${form.email}.`);
       setOpen(false);
     } else {
-      setNotice("ההזמנה נוצרה. שליחת מייל אינה מוגדרת עדיין (RESEND_API_KEY) — העתיקו את הקישור ושלחו ידנית:");
+      const reason = json.resendError
+        ? `שגיאת Resend: ${JSON.stringify(json.resendError)}`
+        : "RESEND_API_KEY לא מוגדר — העתיקו את הקישור ושלחו ידנית:";
+      setNotice(`ההזמנה נוצרה. ${reason}`);
       setFallbackLink(json.link);
     }
     setForm({ email: "", fullName: "", role: "therapist" });
