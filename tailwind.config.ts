@@ -1,24 +1,25 @@
-import type { Config } from 'tailwindcss'
+import type { Config } from "tailwindcss";
+
 const config: Config = {
-  content: [
-    './pages/**/*.{js,ts,jsx,tsx,mdx}',
-    './components/**/*.{js,ts,jsx,tsx,mdx}',
-    './app/**/*.{js,ts,jsx,tsx,mdx}',
-  ],
+  content: ["./app/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./lib/**/*.{ts,tsx}"],
   theme: {
     extend: {
-      fontFamily: {
-        sans: ['Heebo', 'Inter', 'sans-serif'],
-        heading: ['Plus Jakarta Sans', 'Heebo', 'sans-serif'],
-      },
       colors: {
-        sidebar: '#0f1923',
-        accent: '#2563eb',
-        ink: { DEFAULT: '#0f172a', 2: '#475569', 3: '#94a3b8' },
-        line: { DEFAULT: '#e2e8f0', soft: '#f1f5f9' },
+        bg: "#f8fafc",
+        navy: { DEFAULT: "#0f1923", 800: "#16222e", 700: "#1d2c3a" },
+        brand: { DEFAULT: "#2563eb", 600: "#2563eb", 700: "#1d4ed8", 50: "#eff6ff", 100: "#dbeafe" },
+        line: "#e2e8f0",
+      },
+      fontFamily: {
+        sans: ['Assistant', 'Plus Jakarta Sans', 'system-ui', 'sans-serif'],
+        display: ['Plus Jakarta Sans', 'Assistant', 'sans-serif'],
+      },
+      boxShadow: {
+        card: "0 1px 2px rgba(15,23,42,.04), 0 1px 3px rgba(15,23,42,.06)",
+        pop: "0 10px 30px rgba(15,23,42,.12)",
       },
     },
   },
   plugins: [],
-}
-export default config
+};
+export default config;
