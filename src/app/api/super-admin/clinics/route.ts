@@ -1,7 +1,43 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { sendEmail } from "@/lib/email/send";
 
 const SUPER_ADMIN = "or.maman@gmail.com";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://praxisai-one.vercel.app";
+
+function ownerEmailHtml(clinicName: string, ownerName: string) {
+  return `<!DOCTYPE html>
+<html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background-color:#f1f5f9;font-family:'Segoe UI',Arial,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f1f5f9;padding:40px 16px;">
+    <tr><td align="center">
+    <table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;width:100%;">
+      <tr><td style="background:linear-gradient(135deg,#0f1923 0%,#1a2e42 100%);border-radius:16px 16px 0 0;padding:32px 40px 28px;" align="right">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+          <td><img src="${APP_URL}/logo.svg" alt="praxisAI" width="36" height="36" style="display:block;border:0;" /></td>
+          <td style="padding-right:10px;"><span style="color:#fff;font-size:20px;font-weight:700;">praxisAI</span></td>
+        </tr></table>
+      </td></tr>
+      <tr><td style="background-color:#fff;border:1px solid #e2e8f0;border-top:none;padding:44px 40px 36px;" align="right" dir="rtl">
+        <h1 style="margin:0 0 10px;font-size:22px;font-weight:700;color:#0f172a;">הקליניקה ${clinicName} נפתחה 🎉</h1>
+        <p style="margin:0 0 28px;font-size:15px;line-height:1.75;color:#475569;">
+          שלום ${ownerName}, נפתחה עבורך קליניקה חדשה ב‑praxisAI בשם <strong>${clinicName}</strong>, ואתה מוגדר כבעלים שלה.
+          תוכל להיכנס עם כתובת המייל שלך ולהתחיל להזמין את הצוות.
+        </p>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+          <td style="border-radius:12px;background-color:#2563eb;">
+            <a href="${APP_URL}/dashboard" style="display:inline-block;padding:15px 48px;color:#fff;font-size:15px;font-weight:700;text-decoration:none;border-radius:12px;">כניסה לקליניקה</a>
+          </td>
+        </tr></table>
+      </td></tr>
+      <tr><td style="background-color:#f8fafc;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 16px 16px;padding:20px 40px;" align="center">
+        <p style="margin:0;font-size:12px;color:#94a3b8;">praxisAI — פלטפורמת AI קלינית לקליניקות פיזיותרפיה</p>
+      </td></tr>
+    </table>
+    </td></tr>
+  </table>
+</body></html>`;
+}
 
 export async function POST(request: Request) {
   const supabase = createClient();
@@ -76,5 +112,9 @@ export async function POST(request: Request) {
 
   if (memberErr) return Response.json({ error: memberErr.message }, { status: 500 });
 
-  return Response.json({ ok: true, clinicId: clinic.id });
+  // Notify the owner that their clinic is ready.
+  const ownerName = owner.user_metadata?.full_name || ownerEmail;
+  const { sent } = await sendEmail(ownerEmail, `הקליניקה ${name.trim()} נפתחה — praxisAI`, ownerEmailHtml(name.trim(), ownerName));
+
+  return Response.json({ ok: true, clinicId: clinic.id, ownerNotified: sent });
 }

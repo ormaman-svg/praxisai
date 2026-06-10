@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { inviteEmailHtml } from "@/lib/email/invite-template";
+import { sendEmail } from "@/lib/email/send";
+import { SUPER_ADMIN_EMAIL } from "@/lib/auth-gate";
 import { ROLE_HE, type MemberRole } from "@/lib/types";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
@@ -10,6 +12,8 @@ async function requireAdmin(clinicId: string) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
+  // Super admin may manage any clinic.
+  if (user.email === SUPER_ADMIN_EMAIL) return user;
   const { data: member } = await supabase
     .from("clinic_members")
     .select("role")
