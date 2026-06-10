@@ -12,6 +12,7 @@ import {
   Stamp,
 } from "lucide-react";
 import Logo from "@/components/Logo";
+import RoiCalculator from "@/components/RoiCalculator";
 import {
   HeroTilt,
   TiltCard,
@@ -218,6 +219,7 @@ export default function LandingPage() {
             <a href="#flow" className="transition-colors hover:text-white">הזרימה</a>
             <a href="#features" className="transition-colors hover:text-white">יכולות</a>
             <a href="#how" className="transition-colors hover:text-white">איך זה עובד</a>
+            <a href="#roi" className="transition-colors hover:text-white">החזר השקעה</a>
             <a href="#contact" className="transition-colors hover:text-white">צור קשר</a>
           </nav>
           <a href={`${APP_URL}/login`} className="btn-primary !py-2">
@@ -456,17 +458,39 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── VALUE BAND ──────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden bg-navy text-white">
+      {/* ── ROI — time & money back ─────────────────────────────────── */}
+      <section id="roi" className="relative overflow-hidden bg-navy text-white">
         <div className="orb absolute -top-20 left-[20%] h-72 w-72 bg-violet-600/25" aria-hidden />
         <div className="orb absolute bottom-0 right-[10%] h-64 w-64 bg-brand/25" aria-hidden />
-        <div className="relative mx-auto max-w-6xl px-4 py-16 sm:px-6">
-          <div className="grid grid-cols-2 gap-6 md:grid-cols-4">
+        <div className="grid-floor absolute inset-x-[-25%] bottom-[-18%] h-[45%] opacity-50" aria-hidden />
+
+        <div className="relative mx-auto max-w-6xl px-4 py-24 sm:px-6">
+          <Reveal from="up" className="mb-6 max-w-2xl">
+            <span className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3.5 py-1.5 text-xs font-semibold text-slate-300">
+              <Sparkles className="h-3.5 w-3.5 text-brand-100" />
+              החזר השקעה — ROI
+            </span>
+            <h2 className="font-display text-3xl font-bold sm:text-4xl">
+              כמה שווה לכם
+              <span className="bg-gradient-to-l from-brand-100 via-sky-300 to-violet-300 bg-clip-text text-transparent"> כל דקת תיעוד?</span>
+            </h2>
+            <p className="mt-4 leading-relaxed text-slate-300">
+              כל רשומה ידנית גוזלת דקות יקרות — שעות שלמות בכל שבוע שלא מטפלות באף אחד.
+              הזיזו את הסליידרים לפי הקליניקה שלכם וראו כמה זמן וכסף praxisAI מחזירה לכם.
+            </p>
+          </Reveal>
+
+          <Reveal from="deep" delay={150}>
+            <RoiCalculator />
+          </Reveal>
+
+          {/* supporting value chips */}
+          <div className="mt-12 grid grid-cols-2 gap-4 md:grid-cols-4">
             {valueProps.map(({ big, small }, i) => (
-              <Reveal key={big} from="deep" delay={i * 110}>
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center backdrop-blur">
-                  <div className="font-display text-2xl font-bold text-brand-100 sm:text-3xl">{big}</div>
-                  <div className="mt-2 text-[13px] leading-relaxed text-slate-300">{small}</div>
+              <Reveal key={big} from="up" delay={i * 90}>
+                <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-4 text-center backdrop-blur">
+                  <div className="font-display text-lg font-bold text-brand-100">{big}</div>
+                  <div className="mt-1 text-[12px] leading-snug text-slate-400">{small}</div>
                 </div>
               </Reveal>
             ))}
