@@ -43,11 +43,16 @@ export default function UsersClient({
     const json = await res.json();
     setSending(false);
     if (!res.ok) return setError(json.error ?? "שליחת ההזמנה נכשלה.");
-    if (json.sent) {
-      setNotice(`מייל הזמנה מעוצב נשלח אל ${form.email}.`);
+    if (json.existed) {
+      setNotice(json.sent
+        ? `המשתמש נוסף לקליניקה ומייל עדכון נשלח אל ${form.email}.`
+        : `המשתמש נוסף לקליניקה בהצלחה.`);
+      setOpen(false);
+    } else if (json.sent) {
+      setNotice(`מייל הזמנה נשלח אל ${form.email}.`);
       setOpen(false);
     } else {
-      setNotice("ההזמנה נוצרה. שליחת מייל אינה מוגדרת עדיין (RESEND_API_KEY) — העתיקו את הקישור ושלחו ידנית:");
+      setNotice("ההזמנה נוצרה. לא ניתן היה לשלוח מייל — העתיקו את הקישור ושלחו ידנית:");
       setFallbackLink(json.link);
     }
     setForm({ email: "", fullName: "", role: "therapist" });
