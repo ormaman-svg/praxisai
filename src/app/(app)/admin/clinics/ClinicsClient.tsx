@@ -2,16 +2,28 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, X, Building2 } from "lucide-react";
+import { Plus, X, Building2, LogIn, Users } from "lucide-react";
 
-type ClinicRow = { id: string; name: string; slug: string | null; created_at: string };
+type ClinicRow = { id: string; name: string; slug: string | null; created_at: string; memberCount: number };
 
 export default function ClinicsClient({ clinics }: { clinics: ClinicRow[] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [entering, setEntering] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", slug: "", ownerEmail: "" });
+
+  async function enterClinic(clinicId: string) {
+    setEntering(clinicId);
+    await fetch("/api/clinic", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clinicId }),
+    });
+    router.push("/dashboard");
+    router.refresh();
+  }
 
   async function create(e: React.FormEvent) {
     e.preventDefault();
@@ -57,14 +69,20 @@ export default function ClinicsClient({ clinics }: { clinics: ClinicRow[] }) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="font-semibold text-slate-900">{c.name}</div>
-                  <div className="text-xs text-slate-400 mt-0.5">
-                    {c.slug && <span dir="ltr" className="ml-2">/{c.slug}</span>}
-                    <span> · נוצרה {new Date(c.created_at).toLocaleDateString("he-IL")}</span>
+                  <div className="text-xs text-slate-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                    {c.slug && <span dir="ltr">/{c.slug}</span>}
+                    <span>· נוצרה {new Date(c.created_at).toLocaleDateString("he-IL")}</span>
+                    <span className="inline-flex items-center gap-1">· <Users size={11} /> {c.memberCount} משתמשים</span>
                   </div>
                 </div>
-                <code className="text-[11px] text-slate-400 bg-slate-50 px-2 py-1 rounded" dir="ltr">
-                  {c.id.slice(0, 8)}…
-                </code>
+                <button
+                  onClick={() => enterClinic(c.id)}
+                  disabled={entering === c.id}
+                  className="btn-ghost !px-3 !py-1.5 text-xs gap-1.5"
+                  title="כניסה לקליניקה"
+                >
+                  <LogIn size={14} /> {entering === c.id ? "נכנס…" : "כניסה"}
+                </button>
               </li>
             ))}
           </ul>

@@ -16,7 +16,14 @@ export default function LoginPage() {
   const [expired, setExpired] = useState(false);
 
   useEffect(() => {
-    setExpired(new URLSearchParams(window.location.search).get("expired") === "1");
+    const params = new URLSearchParams(window.location.search);
+    setExpired(params.get("expired") === "1");
+    const err = params.get("error");
+    if (err === "not_invited") {
+      setError("הכתובת הזו לא הוזמנה למערכת. הכניסה היא בהזמנה בלבד — פנה למנהל הקליניקה.");
+    } else if (err === "auth") {
+      setError("ההתחברות נכשלה. נסה שוב.");
+    }
   }, []);
 
   async function signInWithGoogle() {
@@ -24,7 +31,13 @@ export default function LoginPage() {
     setError(null);
     await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+        // Force Google's account chooser every time so the browser's currently
+        // signed-in Google account is never used silently — prevents logging
+        // in as the wrong person.
+        queryParams: { prompt: "select_account" },
+      },
     });
   }
 

@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveClinicId } from "@/lib/clinic";
+import { SUPER_ADMIN_EMAIL } from "@/lib/auth-gate";
 import Sidebar from "@/components/Sidebar";
 import type { Membership } from "@/lib/types";
 
@@ -10,6 +12,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
+
+  const isSuperAdmin = user.email === SUPER_ADMIN_EMAIL;
 
   const [{ data: profile }, { data: memberships }] = await Promise.all([
     supabase.from("profiles").select("*").eq("id", user.id).single(),
@@ -21,7 +25,31 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       .order("created_at"),
   ]);
 
-  const list = (memberships ?? []) as Membership[];
+  let list = (memberships ?? []) as Membership[];
+
+  // Super admin can hop into any clinic, even ones they don't belong to.
+  // Synthesize membership-like entries for the rest so the switcher lists them.
+  if (isSuperAdmin) {
+    const admin = createAdminClient();
+    const { data: allClinics } = await admin
+      .from("clinics")
+      .select("id, name, slug, logo_url")
+      .order("created_at");
+    const ownIds = new Set(list.map((m) => m.clinic_id));
+    const synthetic = (allClinics ?? [])
+      .filter((c) => !ownIds.has(c.id))
+      .map((c) => ({
+        id: `super-${c.id}`,
+        clinic_id: c.id,
+        user_id: user.id,
+        role: "admin" as const,
+        status: "active" as const,
+        created_at: new Date().toISOString(),
+        clinics: c,
+      })) as Membership[];
+    list = [...list, ...synthetic];
+  }
+
   if (list.length === 0) {
     return (
       <div className="min-h-screen grid place-items-center p-6">

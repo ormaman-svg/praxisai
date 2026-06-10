@@ -22,6 +22,14 @@ function expireResponse(request: NextRequest) {
   return res;
 }
 
+// Build a redirect that preserves any cookies Supabase refreshed onto `from`,
+// so a token refresh during getUser() is never lost when we redirect.
+function redirectWith(url: URL, from: NextResponse) {
+  const redirect = NextResponse.redirect(url);
+  from.cookies.getAll().forEach((c) => redirect.cookies.set(c));
+  return redirect;
+}
+
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
 
@@ -71,13 +79,13 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.search = "";
-    return NextResponse.redirect(url);
+    return redirectWith(url, response);
   }
   if (user && pathname === "/login") {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     url.search = "";
-    return NextResponse.redirect(url);
+    return redirectWith(url, response);
   }
   return response;
 }
