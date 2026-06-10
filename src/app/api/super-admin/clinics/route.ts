@@ -16,6 +16,29 @@ export async function POST(request: Request) {
   }
 
   const admin = createAdminClient();
+  const trimmedSlug = slug?.trim() || null;
+
+  // Check for duplicate slug before inserting
+  if (trimmedSlug) {
+    const { data: existing } = await admin
+      .from("clinics")
+      .select("id")
+      .eq("slug", trimmedSlug)
+      .maybeSingle();
+    if (existing) {
+      return Response.json({ error: `קליניקה עם הכתובת "${trimmedSlug}" כבר קיימת — בחר כתובת אחרת.` }, { status: 409 });
+    }
+  }
+
+  // Check for duplicate name
+  const { data: existingName } = await admin
+    .from("clinics")
+    .select("id")
+    .ilike("name", name.trim())
+    .maybeSingle();
+  if (existingName) {
+    return Response.json({ error: `קליניקה בשם "${name.trim()}" כבר קיימת.` }, { status: 409 });
+  }
 
   // Find owner by email
   const { data: users } = await admin.auth.admin.listUsers();
@@ -27,14 +50,22 @@ export async function POST(request: Request) {
   // Create clinic
   const { data: clinic, error: clinicErr } = await admin
     .from("clinics")
-    .insert({ name: name.trim(), slug: slug?.trim() || null })
+    .insert({ name: name.trim(), slug: trimmedSlug })
     .select("id")
     .single();
 
-  if (clinicErr) return Response.json({ error: clinicErr.message }, { status: 500 });
+  if (clinicErr) {
+    if (clinicErr.code === "23505") {
+      return Response.json({ error: "קליניקה עם שם או כתובת זהים כבר קיימת." }, { status: 409 });
+    }
+    return Response.json({ error: clinicErr.message }, { status: 500 });
+  }
 
   // Ensure profile exists
-  await admin.from("profiles").upsert({ id: owner.id, full_name: owner.user_metadata?.full_name || ownerEmail }, { onConflict: "id" });
+  await admin.from("profiles").upsert(
+    { id: owner.id, full_name: owner.user_metadata?.full_name || ownerEmail },
+    { onConflict: "id" }
+  );
 
   // Add owner membership
   const { error: memberErr } = await admin.from("clinic_members").insert({
