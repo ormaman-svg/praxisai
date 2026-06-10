@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { createClient as createAdmin } from "@/lib/supabase/admin";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 const SUPER_ADMIN = "or.maman@gmail.com";
 
@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "שם הקליניקה ומייל הבעלים הם שדות חובה." }, { status: 400 });
   }
 
-  const admin = createAdmin();
+  const admin = createAdminClient();
 
   // Find owner by email
   const { data: users } = await admin.auth.admin.listUsers();

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import Logo from "@/components/Logo";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -46,7 +47,7 @@ export default function LoginPage() {
       {/* Brand panel */}
       <div className="hidden lg:flex flex-col justify-between bg-navy p-12 text-white">
         <div className="flex items-center gap-3">
-          <div className="grid h-10 w-10 place-items-center rounded-xl bg-brand text-lg font-bold font-display">P</div>
+          <Logo size={40} className="text-brand" />
           <span className="text-xl font-bold font-display tracking-tight">praxisAI</span>
         </div>
         <div>
@@ -65,7 +66,7 @@ export default function LoginPage() {
       <div className="flex items-center justify-center p-6">
         <div className="w-full max-w-sm">
           <div className="lg:hidden mb-8 flex items-center gap-3">
-            <div className="grid h-9 w-9 place-items-center rounded-lg bg-brand text-white font-bold">P</div>
+            <Logo size={32} className="text-brand" />
             <span className="text-lg font-bold">praxisAI</span>
           </div>
 

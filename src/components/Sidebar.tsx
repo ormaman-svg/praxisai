@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import ClinicSwitcher from "./ClinicSwitcher";
+import Logo from "./Logo";
 import type { Membership, MemberRole } from "@/lib/types";
 import { ROLE_HE } from "@/lib/types";
 
@@ -46,7 +47,7 @@ export default function Sidebar({
     <aside className="sticky top-0 flex h-screen w-64 shrink-0 flex-col bg-navy text-slate-300">
       {/* Logo */}
       <div className="flex items-center gap-3 px-5 pt-6 pb-4">
-        <div className="grid h-9 w-9 place-items-center rounded-lg bg-brand font-display text-base font-bold text-white">P</div>
+        <Logo size={32} className="text-brand shrink-0" />
         <span className="font-display text-lg font-bold tracking-tight text-white">praxisAI</span>
       </div>
 

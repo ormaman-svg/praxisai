@@ -8,6 +8,7 @@ import {
   ArrowLeft,
   CheckCircle2,
 } from "lucide-react";
+import Logo from "@/components/Logo";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://praxisai-one.vercel.app";
 
@@ -57,9 +58,7 @@ export default function LandingPage() {
       <header className="sticky top-0 z-50 border-b border-line bg-white/80 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
           <div className="flex items-center gap-3">
-            <div className="grid h-9 w-9 place-items-center rounded-lg bg-brand font-display text-lg font-bold text-white">
-              P
-            </div>
+            <Logo size={32} className="text-brand" />
             <span className="font-display text-lg font-bold tracking-tight text-slate-900">praxisAI</span>
           </div>
           <nav className="hidden items-center gap-8 text-sm font-semibold text-slate-600 md:flex">
@@ -186,9 +185,7 @@ export default function LandingPage() {
       <footer className="border-t border-line bg-white">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 py-8 text-sm text-slate-400 sm:flex-row sm:px-6">
           <div className="flex items-center gap-2.5">
-            <div className="grid h-7 w-7 place-items-center rounded-md bg-brand text-xs font-bold text-white">
-              P
-            </div>
+            <Logo size={24} className="text-brand" />
             <span className="font-semibold text-slate-600">praxisAI</span>
           </div>
           <p>© {new Date().getFullYear()} praxisAI — פלטפורמת ה‑AI הקלינית לפיזיותרפיה</p>
