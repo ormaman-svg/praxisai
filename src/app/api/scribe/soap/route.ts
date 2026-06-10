@@ -18,6 +18,10 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
+  if (!process.env.CL_KEY) {
+    return Response.json({ error: "CL_KEY חסר בהגדרות הסביבה של Vercel." }, { status: 500 });
+  }
+
   const { transcript } = await request.json();
   if (!transcript?.trim()) return Response.json({ error: "No transcript" }, { status: 400 });
 

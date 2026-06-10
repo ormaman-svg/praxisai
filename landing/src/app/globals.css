@@ -90,6 +90,39 @@ body { @apply bg-bg text-slate-800 antialiased; }
 .animate-cube { animation: cubespin 16s linear infinite; }
 .animate-blink { animation: blink 1.2s ease-in-out infinite; }
 
+/* ── ROI calculator range sliders ─────────────────────────────────────── */
+.roi-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 9999px;
+  background:
+    linear-gradient(90deg, #2563eb, #8b5cf6) 0 / var(--pct, 50%) 100% no-repeat,
+    rgba(255, 255, 255, 0.12);
+  outline: none;
+  cursor: pointer;
+}
+.roi-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 9999px;
+  background: #fff;
+  border: 3px solid #2563eb;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.25), 0 4px 14px rgba(0, 0, 0, 0.35);
+  transition: transform 0.15s ease;
+}
+.roi-range::-webkit-slider-thumb:hover { transform: scale(1.15); }
+.roi-range::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 9999px;
+  background: #fff;
+  border: 3px solid #2563eb;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.25), 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-float, .animate-float-sm, .animate-wave, .animate-pulsering,
   .animate-risebar, .animate-cube, .animate-blink, .beam, .beam-v {
