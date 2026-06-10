@@ -4,6 +4,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "praxisAI — פלטפורמת AI קלינית",
   description: "ניהול קליניקת פיזיותרפיה עם AI: תיעוד, מטופלים ומסמכים",
+  icons: { icon: "/logo.svg", shortcut: "/logo.svg" },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
