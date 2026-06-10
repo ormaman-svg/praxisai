@@ -1,0 +1,26 @@
+export default function Logo({ size = 36, className = "" }: { size?: number; className?: string }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 256 256"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+    >
+      <defs>
+        <mask id="praxis-cutout">
+          <rect width="256" height="256" fill="white" />
+          <path
+            d="M150 58 C150 82 166 98 190 98 C166 98 150 114 150 138 C150 114 134 98 110 98 C134 98 150 82 150 58Z"
+            fill="black"
+          />
+        </mask>
+      </defs>
+      <path
+        mask="url(#praxis-cutout)"
+        fill="currentColor"
+        d="M56 32 H132 C184 32 220 68 220 120 C220 172 184 208 132 208 H104 V224 H56 Z M104 80 V160 H132 C158 160 172 146 172 120 C172 94 158 80 132 80 Z"
+      />
+    </svg>
+  );
+}

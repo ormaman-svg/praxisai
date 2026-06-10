@@ -8,6 +8,7 @@ import {
   ArrowLeft,
   CheckCircle2,
 } from "lucide-react";
+import Logo from "@/components/Logo";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://praxisai-one.vercel.app";
 
@@ -24,8 +25,8 @@ const features = [
   },
   {
     icon: FileText,
-    title: "מסמכים בלחיצה",
-    desc: "מכתבים לביטוח לאומי, הפניות, סיכומי שחרור ודוחות סטטוס — נוצרים אוטומטית מתוך התיק הקליני.",
+    title: "דוחות ומסמכים אוטומטיים",
+    desc: "הפניות, דוחות התקדמות, סיכומי שחרור ואישורים — נוצרים אוטומטית מתוך התיק הקליני, מוכנים לחתימה.",
   },
   {
     icon: TrendingUp,
@@ -35,12 +36,12 @@ const features = [
   {
     icon: Users,
     title: "ניהול צוות וקליניקה",
-    desc: "הרשאות לפי תפקיד — בעלים, מנהל, מטפל וקבלה — עם תמיכה במספר קליניקות תחת חשבון אחד.",
+    desc: "הרשאות לפי תפקיד — בעלים, מנהל, מטפל וקבלן — כל אחד רואה בדיוק את מה שרלוונטי לו.",
   },
   {
     icon: ShieldCheck,
     title: "אבטחה ופרטיות",
-    desc: "כניסה בהזמנה בלבד, ניתוק אוטומטי אחרי 8 שעות והפרדת נתונים מלאה בין קליניקות.",
+    desc: "המידע הרפואי נשמר בארכיטקטורה מאובטחת, בהתאם לרגולציה הישראלית. הנתונים שלכם לא יוצאים לשום מקום.",
   },
 ];
 
@@ -57,9 +58,7 @@ export default function LandingPage() {
       <header className="sticky top-0 z-50 border-b border-line bg-white/80 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
           <div className="flex items-center gap-3">
-            <div className="grid h-9 w-9 place-items-center rounded-lg bg-brand font-display text-lg font-bold text-white">
-              P
-            </div>
+            <Logo size={32} className="text-brand" />
             <span className="font-display text-lg font-bold tracking-tight text-slate-900">praxisAI</span>
           </div>
           <nav className="hidden items-center gap-8 text-sm font-semibold text-slate-600 md:flex">
@@ -87,8 +86,8 @@ export default function LandingPage() {
               <span className="text-brand-100">יותר טיפול.</span>
             </h1>
             <p className="mt-6 max-w-xl text-lg leading-relaxed text-slate-300">
-              praxisAI מתמללת את הטיפול בזמן אמת, כותבת את רשומת ה‑SOAP במקומך ומפיקה את כל
-              המסמכים — כדי שתחזרו לעשות את מה שאתם הכי טובים בו: לטפל.
+              הקליטו את הטיפול — praxisAI תכתוב את הרשומה, תכין את הדוחות ותשאיר
+              אתכם פנויים למה שבאמת חשוב: להיות נוכחים עם המטופל.
             </p>
             <div className="mt-10 flex flex-wrap items-center gap-4">
               <a href={`${APP_URL}/login`} className="btn-primary !px-7 !py-3.5 !text-base">
@@ -186,9 +185,7 @@ export default function LandingPage() {
       <footer className="border-t border-line bg-white">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 py-8 text-sm text-slate-400 sm:flex-row sm:px-6">
           <div className="flex items-center gap-2.5">
-            <div className="grid h-7 w-7 place-items-center rounded-md bg-brand text-xs font-bold text-white">
-              P
-            </div>
+            <Logo size={24} className="text-brand" />
             <span className="font-semibold text-slate-600">praxisAI</span>
           </div>
           <p>© {new Date().getFullYear()} praxisAI — פלטפורמת ה‑AI הקלינית לפיזיותרפיה</p>

@@ -35,11 +35,23 @@ export default function UsersClient({
     setSending(true);
     setError(null);
     setFallbackLink(null);
-    const res = await fetch("/api/invitations", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ clinicId, email: form.email.trim(), role: form.role, fullName: form.fullName.trim() }),
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    let res: Response;
+    try {
+      res = await fetch("/api/invitations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clinicId, email: form.email.trim(), role: form.role, fullName: form.fullName.trim() }),
+        signal: controller.signal,
+      });
+    } catch {
+      setSending(false);
+      setError("הבקשה נכשלה — ודאו שמשתנה SUPABASE_SERVICE_ROLE_KEY מוגדר ב-Vercel.");
+      return;
+    } finally {
+      clearTimeout(timeout);
+    }
     const json = await res.json();
     setSending(false);
     if (!res.ok) return setError(json.error ?? "שליחת ההזמנה נכשלה.");

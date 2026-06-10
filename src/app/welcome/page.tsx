@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import Logo from "@/components/Logo";
 
 export default function WelcomePage() {
   const router = useRouter();
@@ -53,7 +54,7 @@ export default function WelcomePage() {
     <div className="min-h-screen grid place-items-center bg-bg p-6">
       <div className="card w-full max-w-md p-8">
         <div className="mb-6 flex items-center gap-3">
-          <div className="grid h-9 w-9 place-items-center rounded-lg bg-brand text-white font-bold">P</div>
+          <Logo size={32} className="text-brand" />
           <span className="text-lg font-bold">praxisAI</span>
         </div>
         <h1 className="text-xl font-bold text-slate-900 mb-1">ברוכים הבאים 👋</h1>

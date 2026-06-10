@@ -3,6 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "praxisAI — פלטפורמת ה‑AI הקלינית לפיזיותרפיה",
+  icons: { icon: "/logo.svg", shortcut: "/logo.svg" },
   description:
     "תמלול עברי בזמן אמת, רשומות SOAP אוטומטיות, מסמכי ביטוח לאומי ומעקב תוצאים — הכל במקום אחד. פלטפורמת ה‑AI הקלינית לקליניקות פיזיותרפיה בישראל.",
 };
