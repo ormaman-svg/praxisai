@@ -24,8 +24,8 @@ const features = [
   },
   {
     icon: FileText,
-    title: "מסמכים בלחיצה",
-    desc: "מכתבים לביטוח לאומי, הפניות, סיכומי שחרור ודוחות סטטוס — נוצרים אוטומטית מתוך התיק הקליני.",
+    title: "דוחות ומסמכים אוטומטיים",
+    desc: "הפניות, דוחות התקדמות, סיכומי שחרור ואישורים — נוצרים אוטומטית מתוך התיק הקליני, מוכנים לחתימה.",
   },
   {
     icon: TrendingUp,
@@ -87,8 +87,8 @@ export default function LandingPage() {
               <span className="text-brand-100">יותר טיפול.</span>
             </h1>
             <p className="mt-6 max-w-xl text-lg leading-relaxed text-slate-300">
-              praxisAI מתמללת את הטיפול בזמן אמת, כותבת את רשומת ה‑SOAP במקומך ומפיקה את כל
-              המסמכים — כדי שתחזרו לעשות את מה שאתם הכי טובים בו: לטפל.
+              הקליטו את הטיפול — praxisAI תכתוב את הרשומה, תכין את הדוחות ותשאיר
+              אתכם פנויים למה שבאמת חשוב: להיות נוכחים עם המטופל.
             </p>
             <div className="mt-10 flex flex-wrap items-center gap-4">
               <a href={`${APP_URL}/login`} className="btn-primary !px-7 !py-3.5 !text-base">
