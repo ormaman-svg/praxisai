@@ -22,6 +22,10 @@ async function requireAdmin(clinicId: string) {
 }
 
 export async function POST(req: Request) {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return NextResponse.json({ error: "SUPABASE_SERVICE_ROLE_KEY חסר בהגדרות הסביבה של Vercel." }, { status: 500 });
+  }
+
   const { clinicId, email, role, fullName } = (await req.json()) as {
     clinicId: string; email: string; role: MemberRole; fullName?: string;
   };
