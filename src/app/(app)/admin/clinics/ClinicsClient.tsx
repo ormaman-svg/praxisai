@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, X, Building2, LogIn, Users } from "lucide-react";
+import { Plus, X, Building2, LogIn, Users, Trash2, AlertTriangle } from "lucide-react";
 
 type ClinicRow = { id: string; name: string; slug: string | null; created_at: string; memberCount: number };
 
@@ -14,6 +14,12 @@ export default function ClinicsClient({ clinics }: { clinics: ClinicRow[] }) {
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", slug: "", ownerEmail: "" });
 
+  // Delete-confirmation state
+  const [toDelete, setToDelete] = useState<ClinicRow | null>(null);
+  const [confirmText, setConfirmText] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
   async function enterClinic(clinicId: string) {
     setEntering(clinicId);
     await fetch("/api/clinic", {
@@ -22,6 +28,28 @@ export default function ClinicsClient({ clinics }: { clinics: ClinicRow[] }) {
       body: JSON.stringify({ clinicId }),
     });
     router.push("/dashboard");
+    router.refresh();
+  }
+
+  function openDelete(c: ClinicRow) {
+    setToDelete(c);
+    setConfirmText("");
+    setDeleteError(null);
+  }
+
+  async function confirmDelete() {
+    if (!toDelete) return;
+    setDeleting(true);
+    setDeleteError(null);
+    const res = await fetch("/api/super-admin/clinics", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clinicId: toDelete.id, confirmName: confirmText.trim() }),
+    });
+    const json = await res.json();
+    setDeleting(false);
+    if (!res.ok) { setDeleteError(json.error ?? "מחיקת הקליניקה נכשלה."); return; }
+    setToDelete(null);
     router.refresh();
   }
 
@@ -83,6 +111,13 @@ export default function ClinicsClient({ clinics }: { clinics: ClinicRow[] }) {
                 >
                   <LogIn size={14} /> {entering === c.id ? "נכנס…" : "כניסה"}
                 </button>
+                <button
+                  onClick={() => openDelete(c)}
+                  title="מחיקת קליניקה"
+                  className="rounded-md p-2 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                >
+                  <Trash2 size={16} />
+                </button>
               </li>
             ))}
           </ul>
@@ -114,6 +149,54 @@ export default function ClinicsClient({ clinics }: { clinics: ClinicRow[] }) {
                 {loading ? "יוצר…" : "צור קליניקה"}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete confirmation */}
+      {toDelete && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/40 p-4" onClick={() => setToDelete(null)}>
+          <div className="card w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-4 flex items-center gap-3">
+              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-red-50 text-red-600">
+                <AlertTriangle size={20} />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">מחיקת קליניקה</h2>
+                <p className="text-xs text-slate-500">הפעולה בלתי הפיכה.</p>
+              </div>
+            </div>
+
+            <p className="text-[13.5px] leading-relaxed text-slate-600">
+              מחיקת <strong className="text-slate-900">{toDelete.name}</strong> תמחק לצמיתות את כל המטופלים,
+              הטיפולים, המסמכים, ההזמנות ו-{toDelete.memberCount} המשתמשים המשויכים אליה.
+            </p>
+
+            <p className="mt-4 mb-1.5 text-[13px] text-slate-600">
+              להמשך, הקלד את שם הקליניקה: <strong className="text-slate-900">{toDelete.name}</strong>
+            </p>
+            <input
+              autoFocus
+              className="input"
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              placeholder={toDelete.name}
+            />
+
+            {deleteError && (
+              <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3.5 py-2.5 text-[13px] text-red-700">{deleteError}</div>
+            )}
+
+            <div className="mt-5 flex gap-3">
+              <button onClick={() => setToDelete(null)} className="btn-ghost flex-1">ביטול</button>
+              <button
+                onClick={confirmDelete}
+                disabled={deleting || confirmText.trim() !== toDelete.name.trim()}
+                className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Trash2 size={15} /> {deleting ? "מוחק…" : "מחק לצמיתות"}
+              </button>
+            </div>
           </div>
         </div>
       )}
