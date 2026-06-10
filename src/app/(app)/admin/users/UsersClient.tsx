@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Mail, Plus, X, Copy, Check, UserX, UserCheck } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 import { ROLE_HE, type MemberRole } from "@/lib/types";
 
 type MemberRow = {
@@ -21,7 +20,6 @@ export default function UsersClient({
   members: MemberRow[]; invitations: InviteRow[];
 }) {
   const router = useRouter();
-  const supabase = createClient();
   const [open, setOpen] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -77,14 +75,20 @@ export default function UsersClient({
   }
 
   async function setRole(memberId: string, role: MemberRole) {
-    await supabase.from("clinic_members").update({ role }).eq("id", memberId);
+    await fetch("/api/clinic-members", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ memberId, clinicId, role }),
+    });
     router.refresh();
   }
 
   async function toggleStatus(m: MemberRow) {
-    await supabase.from("clinic_members")
-      .update({ status: m.status === "active" ? "disabled" : "active" })
-      .eq("id", m.id);
+    await fetch("/api/clinic-members", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ memberId: m.id, clinicId, status: m.status === "active" ? "disabled" : "active" }),
+    });
     router.refresh();
   }
 
