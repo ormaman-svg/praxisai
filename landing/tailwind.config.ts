@@ -17,6 +17,7 @@ const config: Config = {
       boxShadow: {
         card: "0 1px 2px rgba(15,23,42,.04), 0 1px 3px rgba(15,23,42,.06)",
         pop: "0 10px 30px rgba(15,23,42,.12)",
+        glow: "0 0 0 1px rgba(96,165,250,.12), 0 14px 44px rgba(37,99,235,.28)",
       },
     },
   },
