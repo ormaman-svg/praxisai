@@ -118,3 +118,29 @@ export async function POST(request: Request) {
 
   return Response.json({ ok: true, clinicId: clinic.id, ownerNotified: sent });
 }
+
+// Delete a clinic and all its data (cascade). Super admin only, and the
+// caller must echo back the exact clinic name as a confirmation.
+export async function DELETE(request: Request) {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user || user.email !== SUPER_ADMIN) {
+    return Response.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const { clinicId, confirmName } = await request.json();
+  if (!clinicId) return Response.json({ error: "חסר מזהה קליניקה." }, { status: 400 });
+
+  const admin = createAdminClient();
+  const { data: clinic } = await admin.from("clinics").select("name").eq("id", clinicId).single();
+  if (!clinic) return Response.json({ error: "הקליניקה לא נמצאה." }, { status: 404 });
+
+  if ((confirmName ?? "").trim() !== clinic.name.trim()) {
+    return Response.json({ error: "שם האישור אינו תואם לשם הקליניקה." }, { status: 400 });
+  }
+
+  const { error } = await admin.from("clinics").delete().eq("id", clinicId);
+  if (error) return Response.json({ error: error.message }, { status: 500 });
+
+  return Response.json({ ok: true });
+}

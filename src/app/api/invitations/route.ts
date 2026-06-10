@@ -25,48 +25,6 @@ async function requireAdmin(clinicId: string) {
   return user;
 }
 
-async function sendEmail(to: string, subject: string, html: string): Promise<{ sent: boolean }> {
-  if (process.env.RESEND_API_KEY) {
-    try {
-      const { Resend } = await import("resend");
-      const resend = new Resend(process.env.RESEND_API_KEY);
-      const from = process.env.RESEND_FROM ?? "praxisAI <onboarding@resend.dev>";
-      const { error: sendErr } = await resend.emails.send({ from, to, subject, html });
-      if (!sendErr) return { sent: true };
-      console.error("[Resend] send error:", JSON.stringify(sendErr));
-    } catch (e) {
-      console.error("[Resend] exception:", e);
-    }
-  }
-
-  if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
-    try {
-      const nodemailer = await import("nodemailer");
-      const transporter = nodemailer.createTransport({
-        service: "gmail",
-        auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD },
-      });
-      await transporter.sendMail({
-        from: `"praxisAI" <${process.env.GMAIL_USER}>`,
-        to,
-        subject,
-        html,
-        headers: {
-          "X-Mailer": "praxisAI",
-          "X-Entity-Ref-ID": Date.now().toString(),
-          "List-Unsubscribe": `<mailto:${process.env.GMAIL_USER}?subject=unsubscribe>`,
-        },
-      });
-      console.log("[Gmail] sent ok to:", to);
-      return { sent: true };
-    } catch (e) {
-      console.error("[Gmail] exception:", e);
-    }
-  }
-
-  return { sent: false };
-}
-
 export async function POST(req: Request) {
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return NextResponse.json({ error: "SUPABASE_SERVICE_ROLE_KEY חסר בהגדרות הסביבה של Vercel." }, { status: 500 });
