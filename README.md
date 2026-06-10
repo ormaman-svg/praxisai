@@ -1,51 +1,64 @@
-# praxisAI
+# praxisAI v2 — Real DB · Invitations · Multi-Tenant
 
-Hebrew-first AI clinical platform for physiotherapy clinics in Israel.
+פלטפורמת AI קלינית לקליניקות פיזיותרפיה. גרסה זו מחליפה את `praxisai-next.zip`:
+תפריט מימין (RTL), חיבור אמיתי ל-Supabase, כניסה בהזמנה בלבד, ניהול משתמשים ומעבר בין קליניקות.
 
-## Stack
-- **Next.js 14** (App Router, TypeScript)
-- **Supabase** (Auth + PostgreSQL + RLS)
-- **Tailwind CSS** (RTL-first)
-- **Deepgram Nova-2** (Hebrew transcription)
-- **Claude API** (SOAP notes, documents, chat)
+## התקנה — 15 דקות
 
-## Setup
+### 1. Supabase
+1. צרו פרויקט ב-[supabase.com](https://supabase.com) (אזור: Frankfurt).
+2. **SQL Editor** → הריצו את `sql/02_auth_and_data.sql` (טבלאות, RLS, טריגר הזמנות).
+3. **Authentication → Providers → Email**: כבו **"Allow new users to sign up"** ← זה מה שחוסם הרשמה חופשית. כניסה רק דרך הזמנות.
+4. **Authentication → Users → Add user**: צרו את עצמכם (מייל + סיסמה, Auto-confirm).
+5. ערכו את המייל ב-`sql/03_bootstrap.sql` והריצו — נוצרת הקליניקה הראשונה ואתם owner.
 
-### 1. Clone & install
+### 2. אפליקציה
 ```bash
-git clone https://github.com/ormaman-svg/praxisai.git
-cd praxisai
+cp .env.example .env.local   # מלאו URL + anon key + service role (Settings → API)
 npm install
-```
-
-### 2. Environment variables
-```bash
-cp .env.local.example .env.local
-# Fill in your keys
-```
-
-### 3. Supabase — enable Google Auth
-1. Create project at [supabase.com](https://supabase.com)
-2. Authentication → Providers → Google → Enable
-3. Add your Google OAuth Client ID + Secret
-4. Set redirect URL to: `https://your-domain.com/auth/callback`
-
-### 4. Google Cloud Console
-1. [console.cloud.google.com](https://console.cloud.google.com) → APIs → OAuth 2.0
-2. Authorized redirect URIs: `https://<your-project>.supabase.co/auth/v1/callback`
-
-### 5. Run locally
-```bash
 npm run dev
 ```
 
-### 6. Deploy on Vercel
-Connect the repo, add env vars, deploy.
+### 3. מיילים מעוצבים (Resend)
+1. חשבון ב-[resend.com](https://resend.com) → אימות דומיין → API key.
+2. מלאו `RESEND_API_KEY` ו-`RESEND_FROM` ב-env.
+3. **בלי Resend המערכת עדיין עובדת**: ההזמנה נוצרת והמסך מציג קישור להעתקה ידנית.
 
-## Environment variables
-| Key | Description |
+### 4. Vercel
+פרסמו את הריפו ל-Vercel, הוסיפו את כל משתני ה-env, ועדכנו `NEXT_PUBLIC_APP_URL` לדומיין הסופי.
+ב-Supabase → Authentication → URL Configuration הוסיפו את הדומיין ל-Redirect URLs (`https://your-app.vercel.app/**`).
+
+## סשן והתחברות
+מדיניות קשיחה: **8 שעות מרגע ההתחברות**, ללא חידוש הזחה. ה-middleware חותם את זמן
+ההתחברות ומנתק אוטומטית אחרי 8 שעות (עם הודעה במסך הכניסה). חותמת הזמן נשמרת
+ב-session cookie, כך שסגירת הדפדפן מסיימת אותה גם כן. שינוי המשך: `MAX_SESSION_MS`
+ב-`src/middleware.ts` ו-`SESSION_MAX_AGE` ב-`src/lib/supabase/client.ts`.
+
+## זרימת הזמנה
+1. אדמין → "משתמשים והרשאות" → "הזמנת משתמש" (מייל + תפקיד).
+2. נשלח מייל ממותג (RTL, צבעי המוצר) עם כפתור "הצטרפות לקליניקה".
+3. לחיצה → Supabase מאמת → `/welcome` → המשתמש קובע שם וסיסמה.
+4. טריגר DB מצרף אותו אוטומטית לקליניקה בתפקיד שהוגדר.
+5. הזמנת מייל שכבר קיים במערכת → צירוף מיידי לקליניקה הנוספת + magic link.
+
+## הרשאות
+| תפקיד | יכולות |
 |---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key |
-| `DG_KEY` | Deepgram API key |
-| `CL_KEY` | Anthropic API key |
+| owner | הכל, כולל מינוי אדמינים |
+| admin | ניהול משתמשים והזמנות, כל הנתונים הקליניים |
+| therapist / receptionist | מטופלים, טיפולים ומסמכים בקליניקה שלהם |
+
+RLS אוכף הכל ברמת ה-DB — אין שאילתה שעוקפת את בידוד הקליניקות.
+
+## Multi-tenant switching
+משתמש החבר ביותר מקליניקה אחת מקבל בורר קליניקות בראש הסיידבר.
+המעבר מאומת בשרת (`/api/clinic`) ונשמר ב-cookie — כל המסכים מסתננים לפי הקליניקה הפעילה.
+
+## אנליטיקות
+לשונית "אנליטיקות" בסיידבר: KPI (טיפולים, מגמת VAS, מטופלים, מסמכים) וארבעה גרפים —
+טיפולים שבועיים, מגמת VAS, התפלגות סוגי טיפול, ומטופלים לפי קופה.
+**סינון לפי מטופל** מחליף את התצוגה לרמת מטופל: VAS לפי טיפול וגרף ROM למפרק הנמדד ביותר.
+
+## מה הלאה
+המודולים Scribe ו-Chat מסומנים "בקרוב" בסיידבר — הפורט שלהם מה-HTML prototype לתוך
+המבנה הזה (עם שמירת תמלולים ו-SOAP ל-`treatments`) הוא הצעד הבא.
