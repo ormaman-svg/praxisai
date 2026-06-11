@@ -13,11 +13,26 @@ type InviteRow = { id: string; email: string; role: MemberRole; created_at: stri
 
 const INVITABLE: MemberRole[] = ["admin", "therapist", "receptionist"];
 
+function lastSeenLabel(iso: string | null | undefined): string {
+  if (!iso) return "לא התחבר/ה עדיין";
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60_000);
+  if (mins < 2) return "עכשיו מחובר/ת";
+  if (mins < 60) return `לפני ${mins} דק׳`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `לפני ${hours} שע׳`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return "אתמול";
+  if (days < 30) return `לפני ${days} ימים`;
+  return new Date(iso).toLocaleDateString("he-IL");
+}
+
 export default function UsersClient({
-  clinicId, myUserId, myRole, members, invitations,
+  clinicId, myUserId, myRole, members, invitations, lastSeen,
 }: {
   clinicId: string; myUserId: string; myRole: MemberRole;
   members: MemberRow[]; invitations: InviteRow[];
+  lastSeen: Record<string, string | null>;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -153,8 +168,10 @@ export default function UsersClient({
                   <div className="text-[13.5px] font-semibold text-slate-800">
                     {m.profiles?.full_name || "משתמש"} {isSelf && <span className="text-xs font-normal text-slate-400">(אני)</span>}
                   </div>
-                  <div className="text-xs text-slate-400">
-                    הצטרף/ה {new Date(m.created_at).toLocaleDateString("he-IL")}
+                  <div className="flex flex-wrap gap-x-3 text-xs text-slate-400">
+                    <span>הצטרף/ה {new Date(m.created_at).toLocaleDateString("he-IL")}</span>
+                    <span className="text-slate-300">·</span>
+                    <span>{lastSeenLabel(lastSeen[m.user_id])}</span>
                   </div>
                 </div>
 
