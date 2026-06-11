@@ -48,3 +48,25 @@ export async function PATCH(req: Request) {
   if (error) return NextResponse.json({ error: "העדכון נכשל" }, { status: 500 });
   return NextResponse.json({ ok: true });
 }
+
+// Remove a member from the clinic entirely.
+export async function DELETE(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const memberId = searchParams.get("memberId");
+  const clinicId = searchParams.get("clinicId");
+  if (!memberId || !clinicId) return NextResponse.json({ error: "בקשה לא תקינה" }, { status: 400 });
+
+  const actor = await requireAdmin(clinicId);
+  if (!actor) return NextResponse.json({ error: "אין הרשאה" }, { status: 403 });
+
+  const admin = createAdminClient();
+  const { data: target } = await admin
+    .from("clinic_members").select("role, user_id").eq("id", memberId).eq("clinic_id", clinicId).single();
+  if (!target) return NextResponse.json({ error: "המשתמש לא נמצא" }, { status: 404 });
+  if (target.role === "owner") return NextResponse.json({ error: "לא ניתן להסיר את בעל הקליניקה" }, { status: 403 });
+  if (target.user_id === actor.id) return NextResponse.json({ error: "לא ניתן להסיר את עצמך" }, { status: 403 });
+
+  const { error } = await admin.from("clinic_members").delete().eq("id", memberId).eq("clinic_id", clinicId);
+  if (error) return NextResponse.json({ error: "המחיקה נכשלה" }, { status: 500 });
+  return NextResponse.json({ ok: true });
+}

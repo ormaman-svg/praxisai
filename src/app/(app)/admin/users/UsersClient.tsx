@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Mail, Plus, X, Copy, Check, UserX, UserCheck } from "lucide-react";
+import { Mail, Plus, X, Copy, Check, UserX, UserCheck, Trash2 } from "lucide-react";
 import { ROLE_HE, type MemberRole } from "@/lib/types";
 
 type MemberRow = {
@@ -92,6 +92,17 @@ export default function UsersClient({
     router.refresh();
   }
 
+  async function removeMember(m: MemberRow) {
+    const name = m.profiles?.full_name || "משתמש זה";
+    if (!confirm(`האם למחוק את ${name} מהקליניקה? פעולה זו אינה הפיכה.`)) return;
+    const res = await fetch(`/api/clinic-members?memberId=${m.id}&clinicId=${clinicId}`, { method: "DELETE" });
+    if (!res.ok) {
+      const json = await res.json();
+      setError(json.error ?? "המחיקה נכשלה.");
+    }
+    router.refresh();
+  }
+
   async function copyLink() {
     if (!fallbackLink) return;
     await navigator.clipboard.writeText(fallbackLink);
@@ -162,13 +173,22 @@ export default function UsersClient({
                 )}
 
                 {canEdit && (
-                  <button
-                    onClick={() => toggleStatus(m)}
-                    title={m.status === "active" ? "השבתת גישה" : "הפעלת גישה"}
-                    className={`rounded-md p-2 transition-colors ${m.status === "active" ? "text-slate-400 hover:bg-red-50 hover:text-red-600" : "text-slate-400 hover:bg-emerald-50 hover:text-emerald-600"}`}
-                  >
-                    {m.status === "active" ? <UserX size={16} /> : <UserCheck size={16} />}
-                  </button>
+                  <>
+                    <button
+                      onClick={() => toggleStatus(m)}
+                      title={m.status === "active" ? "השבתת גישה" : "הפעלת גישה"}
+                      className={`rounded-md p-2 transition-colors ${m.status === "active" ? "text-slate-400 hover:bg-red-50 hover:text-red-600" : "text-slate-400 hover:bg-emerald-50 hover:text-emerald-600"}`}
+                    >
+                      {m.status === "active" ? <UserX size={16} /> : <UserCheck size={16} />}
+                    </button>
+                    <button
+                      onClick={() => removeMember(m)}
+                      title="הסרה מהקליניקה"
+                      className="rounded-md p-2 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </>
                 )}
               </li>
             );
