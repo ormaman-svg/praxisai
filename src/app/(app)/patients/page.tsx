@@ -18,7 +18,7 @@ export default async function PatientsPage() {
 
   const [{ data: patients }, { data: therapists }] = await Promise.all([
     supabase.from("patients").select("*").eq("clinic_id", clinicId).order("created_at", { ascending: false }),
-    supabase.from("clinic_members").select("user_id, profiles(id, full_name)").eq("clinic_id", clinicId).eq("status", "active"),
+    supabase.from("clinic_members").select("user_id, profiles!clinic_members_user_id_fkey(id, full_name)").eq("clinic_id", clinicId).eq("status", "active"),
   ]);
 
   return (
