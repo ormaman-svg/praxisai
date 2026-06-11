@@ -507,13 +507,13 @@ export default function LandingPage() {
             <div className="grid-floor absolute inset-x-[-30%] bottom-[-30%] h-[70%] opacity-60" aria-hidden />
 
             {/* floating mini artifacts */}
-            <div className="animate-float absolute right-8 top-10 hidden lg:block" style={{ animationDelay: ".4s" }}>
+            <div className="animate-float pointer-events-none absolute right-8 top-10 hidden lg:block" style={{ animationDelay: ".4s" }}>
               <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 backdrop-blur">
                 <Mic className="h-3.5 w-3.5 text-red-400" />
                 <Waveform bars={8} className="text-brand-100" />
               </div>
             </div>
-            <div className="animate-float-sm absolute left-8 bottom-12 hidden lg:block" style={{ animationDelay: "1s" }}>
+            <div className="animate-float-sm pointer-events-none absolute left-8 bottom-12 hidden lg:block" style={{ animationDelay: "1s" }}>
               <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[11px] font-semibold text-emerald-400 backdrop-blur">
                 <CheckCircle2 className="h-3.5 w-3.5" />
                 רשומה נחתמה
@@ -527,7 +527,7 @@ export default function LandingPage() {
                 לתיאום הדגמה אישית.
               </p>
               <div className="mt-9 flex flex-wrap items-center justify-center gap-4">
-                <a href="mailto:hello@praxisai.co.il" className="btn-primary !px-7 !py-3.5 !text-base shadow-glow">
+                <a href="mailto:or.maman@gmail.com" className="btn-primary !px-7 !py-3.5 !text-base shadow-glow">
                   תיאום הדגמה
                 </a>
                 <a

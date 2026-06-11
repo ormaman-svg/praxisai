@@ -23,6 +23,7 @@ body { @apply bg-bg text-slate-800 antialiased; }
   transform-origin: top center;
   -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.9), transparent 78%);
   mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.9), transparent 78%);
+  pointer-events: none;
 }
 
 /* Soft glowing orbs for ambient depth */

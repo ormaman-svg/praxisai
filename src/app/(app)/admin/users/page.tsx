@@ -38,7 +38,7 @@ export default async function AdminUsersPage() {
   // other members of the clinic from the manager.
   const [{ data: members }, { data: invitations }] = await Promise.all([
     admin.from("clinic_members")
-      .select("*, profiles(id, full_name)")
+      .select("*, profiles!clinic_members_user_id_fkey(id, full_name)")
       .eq("clinic_id", clinicId).order("created_at"),
     admin.from("invitations")
       .select("*")
