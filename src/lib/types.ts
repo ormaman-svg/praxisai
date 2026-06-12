@@ -17,10 +17,14 @@ export interface Patient {
   primary_therapist_id: string | null; status: "active" | "discharged" | "on_hold"; created_at: string;
 }
 
+export type TreatmentNoteSection = { key: string; label: string; letter: string; content: string };
+export type TreatmentNote = { template_id: string; template_name: string; sections: TreatmentNoteSection[] };
+
 export interface Treatment {
   id: string; clinic_id: string; patient_id: string; therapist_id: string | null;
   treated_at: string; type: string; subjective: string | null; objective: string | null;
   assessment: string | null; plan: string | null; vas: number | null;
+  note: TreatmentNote | null; template_id: string | null;
 }
 
 export interface Doc {

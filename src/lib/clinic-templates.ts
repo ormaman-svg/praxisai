@@ -341,6 +341,48 @@ export const TEMPLATE_MAP: Record<string, ClinicalTemplate> = Object.fromEntries
 
 export const DEFAULT_TEMPLATE_ID = "ortho_outpatient";
 
+const FALLBACK_COLORS = [
+  { color: "bg-sky-500", ring: "focus-within:ring-sky-200" },
+  { color: "bg-emerald-500", ring: "focus-within:ring-emerald-200" },
+  { color: "bg-amber-500", ring: "focus-within:ring-amber-200" },
+  { color: "bg-violet-500", ring: "focus-within:ring-violet-200" },
+  { color: "bg-rose-500", ring: "focus-within:ring-rose-200" },
+  { color: "bg-indigo-500", ring: "focus-within:ring-indigo-200" },
+];
+
+/** Resolve a ClinicalTemplate from raw clinics.settings JSONB (client-safe). */
+export function resolveTemplateFromSettings(settings: unknown): ClinicalTemplate {
+  const s = settings as Record<string, any> | null | undefined;
+  const id: string = s?.template_id ?? DEFAULT_TEMPLATE_ID;
+
+  if (id === "custom") {
+    const raw: unknown[] = Array.isArray(s?.template_sections) ? s!.template_sections : [];
+    const sections: TemplateSection[] = raw
+      .filter((r): r is Record<string, any> => !!r && typeof r === "object" && typeof (r as any).key === "string" && typeof (r as any).label === "string")
+      .map((r, i) => ({
+        key: r.key,
+        label: r.label,
+        letter: r.letter ?? r.key.slice(0, 2).toUpperCase(),
+        color: r.color ?? FALLBACK_COLORS[i % FALLBACK_COLORS.length].color,
+        ring: r.ring ?? FALLBACK_COLORS[i % FALLBACK_COLORS.length].ring,
+        placeholder: r.placeholder ?? "",
+        guidance: r.guidance ?? r.label,
+      }));
+    if (sections.length > 0) {
+      return {
+        id: "custom",
+        name: s?.template_name ?? "תבנית מותאמת אישית",
+        description: "תבנית מותאמת אישית",
+        icon: "📋",
+        sections,
+        systemContext: s?.template_system_context ?? "",
+      };
+    }
+  }
+
+  return TEMPLATE_MAP[id] ?? TEMPLATE_MAP[DEFAULT_TEMPLATE_ID];
+}
+
 /** Build the Claude system prompt for a given template */
 export function buildSoapPrompt(template: ClinicalTemplate): string {
   const fieldDefs = template.sections
