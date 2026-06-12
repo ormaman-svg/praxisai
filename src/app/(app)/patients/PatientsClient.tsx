@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Plus, Search, X } from "lucide-react";
+import { Plus, Search, X, Upload, AlertCircle, CheckCircle2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { Patient } from "@/lib/types";
 
@@ -20,8 +20,17 @@ export default function PatientsClient({
   const supabase = createClient();
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  /* ── CSV import state ── */
+  type CsvRow = Record<string, string>;
+  const [csvRows, setCsvRows] = useState<CsvRow[]>([]);
+  const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
+  const [colMap, setColMap] = useState<Record<string, string>>({});
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{ inserted: number } | { error: string } | null>(null);
   const [form, setForm] = useState({
     first_name: "", last_name: "", national_id: "", phone: "", email: "",
     kupah: "כללית", diagnosis: "", dob: "", primary_therapist_id: "", bituach_leumi_case: false,
@@ -34,6 +43,85 @@ export default function PatientsClient({
       `${p.first_name} ${p.last_name} ${p.national_id ?? ""} ${p.phone ?? ""}`.includes(s)
     );
   }, [q, initialPatients]);
+
+  /* ── CSV helpers ── */
+  function parseCSV(text: string): { headers: string[]; rows: CsvRow[] } {
+    const lines = text.split(/\r?\n/).filter((l) => l.trim());
+    if (lines.length < 2) return { headers: [], rows: [] };
+    const split = (line: string) =>
+      line.split(",").map((c) => c.replace(/^"|"$/g, "").trim());
+    const headers = split(lines[0]);
+    const rows = lines.slice(1).map((l) => {
+      const vals = split(l);
+      return Object.fromEntries(headers.map((h, i) => [h, vals[i] ?? ""]));
+    });
+    return { headers, rows };
+  }
+
+  function guessColMap(headers: string[]): Record<string, string> {
+    const lower = (s: string) => s.toLowerCase();
+    const guess = (targets: string[]) =>
+      headers.find((h) => targets.some((t) => lower(h).includes(t))) ?? "";
+    return {
+      first_name: guess(["first", "שם פרטי", "פרטי", "fname"]),
+      last_name: guess(["last", "שם משפחה", "משפחה", "lname", "family"]),
+      national_id: guess(["national", "ת.ז", "תז", "id", "מספר"]),
+      phone: guess(["phone", "טלפון", "mobile", "cell"]),
+      email: guess(["email", "אימייל", "מייל"]),
+      dob: guess(["birth", "dob", "לידה", "תאריך"]),
+      kupah: guess(["kupah", "קופה", "insur"]),
+      diagnosis: guess(["diagno", "אבחנה", "diagnosis", "chief"]),
+    };
+  }
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      const { headers, rows } = parseCSV(text);
+      setCsvHeaders(headers);
+      setCsvRows(rows);
+      setColMap(guessColMap(headers));
+      setImportResult(null);
+    };
+    reader.readAsText(file, "UTF-8");
+  }
+
+  async function runImport() {
+    const patients = csvRows
+      .filter((r) => (colMap.first_name ? r[colMap.first_name] : "") && (colMap.last_name ? r[colMap.last_name] : ""))
+      .map((r) => ({
+        first_name: colMap.first_name ? r[colMap.first_name] : "",
+        last_name: colMap.last_name ? r[colMap.last_name] : "",
+        national_id: colMap.national_id ? r[colMap.national_id] || null : null,
+        phone: colMap.phone ? r[colMap.phone] || null : null,
+        email: colMap.email ? r[colMap.email] || null : null,
+        dob: colMap.dob ? r[colMap.dob] || null : null,
+        kupah: colMap.kupah ? r[colMap.kupah] || null : null,
+        diagnosis: colMap.diagnosis ? r[colMap.diagnosis] || null : null,
+      }));
+    if (!patients.length) return;
+    setImporting(true);
+    const res = await fetch("/api/patients/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ patients }),
+    });
+    setImporting(false);
+    const d = await res.json().catch(() => null);
+    setImportResult(d);
+    if (res.ok) router.refresh();
+  }
+
+  function closeImport() {
+    setImportOpen(false);
+    setCsvRows([]);
+    setCsvHeaders([]);
+    setColMap({});
+    setImportResult(null);
+  }
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -66,9 +154,14 @@ export default function PatientsClient({
           <h1 className="text-2xl font-bold text-slate-900">מטופלים</h1>
           <p className="mt-1 text-sm text-slate-500">{initialPatients.length} מטופלים בקליניקה</p>
         </div>
-        <button onClick={() => setOpen(true)} className="btn-primary">
-          <Plus size={16} /> מטופל חדש
-        </button>
+        <div className="flex gap-2">
+          <button onClick={() => setImportOpen(true)} className="btn-ghost !border !border-line">
+            <Upload size={16} /> ייבוא מ‑CRM
+          </button>
+          <button onClick={() => setOpen(true)} className="btn-primary">
+            <Plus size={16} /> מטופל חדש
+          </button>
+        </div>
       </div>
 
       <div className="relative max-w-sm">
@@ -159,6 +252,129 @@ export default function PatientsClient({
                 <button type="submit" disabled={saving} className="btn-primary">{saving ? "שומר…" : "שמירת מטופל"}</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── CSV Import modal ── */}
+      {importOpen && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/40 p-4" onClick={closeImport}>
+          <div className="card flex max-h-[88vh] w-full max-w-3xl flex-col p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-5 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">ייבוא מטופלים מ‑CRM</h2>
+                <p className="mt-0.5 text-xs text-slate-500">העלו קובץ CSV מהמערכת הקיימת — המערכת תזהה את השדות אוטומטית</p>
+              </div>
+              <button onClick={closeImport} className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100"><X size={18} /></button>
+            </div>
+
+            {importResult && "inserted" in importResult ? (
+              <div className="flex flex-col items-center gap-4 py-10 text-center">
+                <CheckCircle2 size={48} className="text-emerald-500" />
+                <div>
+                  <div className="text-xl font-bold text-slate-900">הייבוא הצליח!</div>
+                  <div className="mt-1 text-sm text-slate-500">{importResult.inserted} מטופלים נוספו לקליניקה.</div>
+                </div>
+                <button onClick={closeImport} className="btn-primary mt-2">סגירה</button>
+              </div>
+            ) : (
+              <div className="min-h-0 flex-1 overflow-y-auto space-y-5">
+                {/* File upload */}
+                <label className="flex cursor-pointer flex-col items-center gap-3 rounded-xl border-2 border-dashed border-slate-300 px-6 py-8 transition-colors hover:border-brand hover:bg-brand-50/30">
+                  <Upload size={28} className="text-slate-400" />
+                  <div className="text-center">
+                    <div className="text-[13.5px] font-semibold text-slate-700">לחצו לבחירת קובץ CSV</div>
+                    <div className="mt-0.5 text-[11.5px] text-slate-400">ייצאו את רשימת המטופלים מהמערכת הקיימת, שמרו כ‑CSV ותעלו כאן</div>
+                  </div>
+                  <input type="file" accept=".csv,text/csv" className="hidden" onChange={handleFileChange} />
+                </label>
+
+                {importResult && "error" in importResult && (
+                  <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">
+                    <AlertCircle size={15} className="mt-0.5 shrink-0" /> {importResult.error}
+                  </div>
+                )}
+
+                {csvRows.length > 0 && (
+                  <>
+                    <div>
+                      <h3 className="mb-3 text-[12px] font-bold uppercase tracking-wider text-slate-500">מיפוי עמודות</h3>
+                      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                        {(["first_name", "last_name", "national_id", "phone", "email", "dob", "kupah", "diagnosis"] as const).map((field) => {
+                          const labels: Record<string, string> = {
+                            first_name: "שם פרטי *", last_name: "שם משפחה *",
+                            national_id: "ת.ז", phone: "טלפון", email: "אימייל",
+                            dob: "תאריך לידה", kupah: "קופה", diagnosis: "אבחנה",
+                          };
+                          return (
+                            <div key={field}>
+                              <label className="label">{labels[field]}</label>
+                              <select
+                                className="input"
+                                value={colMap[field] ?? ""}
+                                onChange={(e) => setColMap({ ...colMap, [field]: e.target.value })}
+                              >
+                                <option value="">— לא ממופה —</option>
+                                {csvHeaders.map((h) => <option key={h} value={h}>{h}</option>)}
+                              </select>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Preview */}
+                    <div>
+                      <h3 className="mb-2 text-[12px] font-bold uppercase tracking-wider text-slate-500">
+                        תצוגה מקדימה — {csvRows.length} שורות
+                      </h3>
+                      <div className="max-h-48 overflow-auto rounded-lg border border-line">
+                        <table className="w-full text-[11.5px]">
+                          <thead className="sticky top-0 bg-slate-50 text-[11px] font-semibold text-slate-500">
+                            <tr>
+                              <th className="px-3 py-2 text-right">שם פרטי</th>
+                              <th className="px-3 py-2 text-right">שם משפחה</th>
+                              <th className="px-3 py-2 text-right">ת.ז</th>
+                              <th className="px-3 py-2 text-right">טלפון</th>
+                              <th className="px-3 py-2 text-right">אבחנה</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-line">
+                            {csvRows.slice(0, 10).map((row, i) => (
+                              <tr key={i} className="hover:bg-slate-50">
+                                <td className="px-3 py-1.5">{colMap.first_name ? row[colMap.first_name] : "—"}</td>
+                                <td className="px-3 py-1.5">{colMap.last_name ? row[colMap.last_name] : "—"}</td>
+                                <td className="px-3 py-1.5 font-mono">{colMap.national_id ? row[colMap.national_id] || "—" : "—"}</td>
+                                <td className="px-3 py-1.5 font-mono">{colMap.phone ? row[colMap.phone] || "—" : "—"}</td>
+                                <td className="max-w-[140px] truncate px-3 py-1.5 text-slate-500">{colMap.diagnosis ? row[colMap.diagnosis] || "—" : "—"}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                        {csvRows.length > 10 && (
+                          <div className="border-t border-line px-3 py-2 text-center text-[11px] text-slate-400">
+                            ו‑{csvRows.length - 10} שורות נוספות…
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end gap-2 pb-1">
+                      <button onClick={closeImport} className="btn-ghost">ביטול</button>
+                      <button
+                        onClick={runImport}
+                        disabled={importing || !colMap.first_name || !colMap.last_name}
+                        className="btn-primary"
+                      >
+                        {importing
+                          ? "מייבא…"
+                          : `ייבוא ${csvRows.filter((r) => colMap.first_name ? r[colMap.first_name] : false).length} מטופלים`}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}

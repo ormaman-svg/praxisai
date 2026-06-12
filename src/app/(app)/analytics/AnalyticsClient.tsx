@@ -117,9 +117,11 @@ function Donut({ data }: { data: { label: string; value: number }[] }) {
 /* ---------- page ---------- */
 export default function AnalyticsClient({
   patients, treatments, measurements, docs, therapists, isManager,
+  scaleLabel, scaleImprovementLower, templateName,
 }: {
   patients: P[]; treatments: T[]; measurements: M[]; docs: D[];
   therapists: { id: string; name: string }[]; isManager: boolean;
+  scaleLabel: string; scaleImprovementLower: boolean; templateName: string;
 }) {
   const [patientId, setPatientId] = useState<string>("");
 
@@ -237,13 +239,16 @@ export default function AnalyticsClient({
     };
   }, [isManager, patients, treatments, monthAgo, therapistRows]);
 
+  const isImprovement = scaleImprovementLower ? vasDelta <= 0 : vasDelta >= 0;
   const kpis = [
     { label: "טיפולים ב‑30 הימים האחרונים", value: tMonth, icon: Activity, tint: "bg-brand-50 text-brand" },
     {
-      label: "VAS ממוצע (מגמה)",
+      label: `${scaleLabel} ממוצע`,
       value: vasValues.length ? vasRecent.toFixed(1) : "—",
-      sub: vasValues.length >= 4 ? (vasDelta <= 0 ? `▼ ${Math.abs(vasDelta).toFixed(1)} שיפור` : `▲ ${vasDelta.toFixed(1)} החמרה`) : undefined,
-      subClass: vasDelta <= 0 ? "text-emerald-600" : "text-red-500",
+      sub: vasValues.length >= 4
+        ? (isImprovement ? `${scaleImprovementLower ? "▼" : "▲"} ${Math.abs(vasDelta).toFixed(1)} שיפור` : `${scaleImprovementLower ? "▲" : "▼"} ${Math.abs(vasDelta).toFixed(1)} החמרה`)
+        : undefined,
+      subClass: isImprovement ? "text-emerald-600" : "text-red-500",
       icon: TrendingDown, tint: "bg-emerald-50 text-emerald-600",
     },
     { label: patientId ? "מטופל בסינון" : "מטופלים פעילים", value: activePatients, icon: Users, tint: "bg-violet-50 text-violet-600" },
@@ -255,7 +260,7 @@ export default function AnalyticsClient({
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">אנליטיקות</h1>
-          <p className="mt-1 text-sm text-slate-500">מדדים ומגמות — 6 החודשים האחרונים, בזמן אמת מהמערכת.</p>
+          <p className="mt-1 text-sm text-slate-500">מדדים ומגמות — 6 החודשים האחרונים · <span className="text-slate-400">{templateName}</span></p>
         </div>
         <div className="w-64">
           <label className="label">סינון לפי מטופל</label>
@@ -324,7 +329,7 @@ export default function AnalyticsClient({
                       <th className="px-4 py-2.5">טיפולים</th>
                       <th className="px-4 py-2.5">ב‑30 ימים</th>
                       <th className="px-4 py-2.5">מטופלים</th>
-                      <th className="px-4 py-2.5">מגמת VAS</th>
+                      <th className="px-4 py-2.5">מגמת {scaleLabel}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-line">
@@ -342,10 +347,10 @@ export default function AnalyticsClient({
                         <td className="px-4 py-3">
                           {r.vasDelta === null ? (
                             <span className="text-slate-300">—</span>
-                          ) : r.vasDelta <= 0 ? (
-                            <span className="font-semibold text-emerald-600">▼ {Math.abs(r.vasDelta).toFixed(1)} שיפור</span>
+                          ) : (scaleImprovementLower ? r.vasDelta <= 0 : r.vasDelta >= 0) ? (
+                            <span className="font-semibold text-emerald-600">{scaleImprovementLower ? "▼" : "▲"} {Math.abs(r.vasDelta).toFixed(1)} שיפור</span>
                           ) : (
-                            <span className="font-semibold text-red-500">▲ {r.vasDelta.toFixed(1)}</span>
+                            <span className="font-semibold text-red-500">{scaleImprovementLower ? "▲" : "▼"} {Math.abs(r.vasDelta).toFixed(1)}</span>
                           )}
                         </td>
                       </tr>
@@ -371,7 +376,7 @@ export default function AnalyticsClient({
 
           <div className="card p-5">
             <h2 className="mb-3 text-sm font-bold text-slate-900">
-              מגמת כאב VAS {patientId ? "(לפי טיפול)" : "(ממוצע שבועי)"}
+              מגמת {scaleLabel} {patientId ? "(לפי טיפול)" : "(ממוצע שבועי)"}
             </h2>
             {vasLine.length >= 2 ? <Line points={vasLine} yMax={10} /> : (
               <p className="py-10 text-center text-[13px] text-slate-400">נדרשים לפחות שני תיעודי VAS.</p>

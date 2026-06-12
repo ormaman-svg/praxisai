@@ -22,7 +22,7 @@ const PLANS: {
   },
   {
     id: "pro",
-    price: "₪149",
+    price: "₪299",
     priceSub: "למטפל / לחודש",
     tagline: "לקליניקות בצמיחה",
     highlight: true,
@@ -38,7 +38,7 @@ const PLANS: {
   },
   {
     id: "clinic",
-    price: "₪99",
+    price: "₪199",
     priceSub: "למטפל / לחודש · מ‑5 מטפלים",
     tagline: "לרשתות ומרפאות גדולות",
     features: [

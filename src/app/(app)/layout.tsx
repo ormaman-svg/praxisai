@@ -138,6 +138,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         steps={onboardingSteps}
         initialTourDone={onboardingRow.data?.tour_done ?? false}
         initialDismissed={!!(onboardingRow.data?.dismissed_at)}
+        isAdmin={isManager}
+        hasTemplate={hasTemplate}
       />
     </div>
   );

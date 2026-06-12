@@ -14,6 +14,8 @@ export type ClinicalTemplate = {
   description: string;
   icon: string;
   profession: string; // Hebrew profession group label
+  scale_label: string; // label for the 0–10 outcome measure shown in analytics
+  scale_improvement_lower: boolean; // true = lower score is better (pain), false = higher is better (function)
   sections: TemplateSection[];
   systemContext: string; // extra Claude context (terminology, phrasing expectations)
 };
@@ -25,6 +27,8 @@ export const TEMPLATES: ClinicalTemplate[] = [
     description: "לכאבי שלד-שריר, לאחר ניתוח, פציעות ספורט, עמוד שדרה ועוד",
     icon: "🦴",
     profession: "פיזיותרפיה",
+    scale_label: "VAS כאב",
+    scale_improvement_lower: true,
     systemContext: "קליניקה אורטופדית אמבולטורית. השתמש בטרמינולוגיה כגון ROM, MMT, palpation, ספציפי לבדיקות אורטופדיות (Lachman, SLR, Hawkins, וכדומה). ציין דרגות כאב, טווחי תנועה בדרגות, ועוצמת שריר בסולם Oxford.",
     sections: [
       {
@@ -71,6 +75,8 @@ export const TEMPLATES: ClinicalTemplate[] = [
     description: "שבץ מוחי, טרשת נפוצה, פרקינסון, TBI, פגיעות עמוד שדרה",
     icon: "🧠",
     profession: "פיזיותרפיה",
+    scale_label: "ציון תפקוד (FIM)",
+    scale_improvement_lower: false,
     systemContext: "קליניקה נוירולוגית אמבולטורית. השתמש בסולמות: Barthel, FIM, Berg, MAS (Modified Ashworth), MMSE/MoCA כרלוונטי. ציין תפקוד לפי ICF.",
     sections: [
       {
@@ -117,6 +123,8 @@ export const TEMPLATES: ClinicalTemplate[] = [
     description: "אבחון והתערבות התפתחותית, שיתוק מוחין, עיכוב מוטורי, ספורט ילדים",
     icon: "🧒",
     profession: "פיזיותרפיה",
+    scale_label: "ציון התפתחות",
+    scale_improvement_lower: false,
     systemContext: "פיזיותרפיה ילדים. השתמש בציוני מיילסטונים התפתחותיים, GMFCS, GMFM, PEDI. כתוב ביחס לגיל הכרונולוגי וגיל מתוקן כשרלוונטי. כלול גישה Family-Centered Care.",
     sections: [
       {
@@ -163,6 +171,8 @@ export const TEMPLATES: ClinicalTemplate[] = [
     description: "שיקום רב-מקצועי אחרי אשפוז, ניתוח, שבץ, פציעה",
     icon: "🔄",
     profession: "פיזיותרפיה",
+    scale_label: "ציון תפקוד (Barthel)",
+    scale_improvement_lower: false,
     systemContext: "מסגרת שיקומית. עבוד עם FIM, Barthel, ציוני ניידות, יעדי STG/LTG מדידים. ציין מעורבות צוות רב-מקצועי כרלוונטי (ריפוי בעיסוק, קלינאי תקשורת, סייעת שיקום).",
     sections: [
       {
@@ -209,6 +219,8 @@ export const TEMPLATES: ClinicalTemplate[] = [
     description: "הערכה וטיפול בביה\"ח: לאחר ניתוח, מחלה חריפה, ICU step-down",
     icon: "🏥",
     profession: "פיזיותרפיה",
+    scale_label: "VAS כאב",
+    scale_improvement_lower: true,
     systemContext: "מסגרת אשפוז חריפה. ציין הנחיות הרמת עומס, מגבלות רפואיות, ציוד קצה המיטה, ציון תפקוד עם ספציפיות מירבית (עצמאי/עצמאי עם ציוד/פיקוח/עזרה מינימלית-מקסימלית/תלוי מלא). ציין סיכון נפילות.",
     sections: [
       {
@@ -255,6 +267,8 @@ export const TEMPLATES: ClinicalTemplate[] = [
     description: "אי שליטה בשתן/צואה, כאבי אגן, שיקום לאחר לידה, שיקום סרטן",
     icon: "🌸",
     profession: "פיזיותרפיה",
+    scale_label: "VAS כאב",
+    scale_improvement_lower: true,
     systemContext: "פיזיותרפיה של רצפת האגן. השתמש בסולמות PISQ, PFDI, ICQ כרלוונטי. ציין ממצאי בדיקה פנימית בשפה מקצועית ומכבדת. כלול: טונוס (היפרטוני/היפוטוני), כוח (Oxford 0-5), coordinated relaxation.",
     sections: [
       {
@@ -301,6 +315,8 @@ export const TEMPLATES: ClinicalTemplate[] = [
     description: "BPPV, וסטיבולר יוניל/ביל, neuritis, פוסט-קונקוסיה, ראש-סחרחורת",
     icon: "🌀",
     profession: "פיזיותרפיה",
+    scale_label: "ציון תסמינים (DHI)",
+    scale_improvement_lower: true,
     systemContext: "שיקום וסטיבולרי. ציין תוצאות בדיקות: Dix-Hallpike (ימין/שמאל, latency, nystagmus type, duration), Roll test, head impulse test, HINTS. ציין DHI ציון, סוג nystagmus (geotropic/apogeotropic), ואיזה תמרון CRT בוצע.",
     sections: [
       {
@@ -348,6 +364,8 @@ export const TEMPLATES: ClinicalTemplate[] = [
     description: "אפזיה, דיספגיה, הפרעות קול, דיסארתריה, קוגניציה-תקשורת",
     icon: "🗣️",
     profession: "קלינאות תקשורת",
+    scale_label: "ציון תפקוד תקשורת",
+    scale_improvement_lower: false,
     systemContext: "קליניקת קלינאות תקשורת — מבוגרים. השתמש בסולמות: WAB-R, BDAE, ASHA NOMS, VHI, DOSS, MBS/FEES כרלוונטי. ציין רמת חומרה, אמצעי תקשורת חלופית (AAC) אם רלוונטי, ורמת תפקוד לפי ICF.",
     sections: [
       {
@@ -394,6 +412,8 @@ export const TEMPLATES: ClinicalTemplate[] = [
     description: "עיכוב שפה, הפרעות דיבור, ASD, גמגום, קשיי קריאה",
     icon: "🌱",
     profession: "קלינאות תקשורת",
+    scale_label: "ציון התפתחות שפה",
+    scale_improvement_lower: false,
     systemContext: "קלינאות תקשורת ילדים. השתמש בציוני מיילסטונים שפתיים (CDI, MCDI), סולמות: PLS-5, GFTA-3, CELF, ADOS-2 כרלוונטי. ציין גיל כרונולוגי ורמת שפה מתקדמת ביחס לגיל. גישת Family-Centered Care.",
     sections: [
       {
@@ -441,6 +461,8 @@ export const TEMPLATES: ClinicalTemplate[] = [
     description: "שיקום יד, ADL, קוגניציה, חזרה לעבודה, אדפטציה סביבתית",
     icon: "🤲",
     profession: "ריפוי בעיסוק",
+    scale_label: "ציון עצמאות תפקודית",
+    scale_improvement_lower: false,
     systemContext: "ריפוי בעיסוק מבוגרים. השתמש ב-MOHO, COPM, FIM, AMPS, כוח אחיזה (דינמומטר), Pinch כרלוונטי. ציין תפקוד לפי ICF — body function, activity, participation. כלול הערכת סיכון נפילות/בטיחות בית כרלוונטי.",
     sections: [
       {
@@ -487,6 +509,8 @@ export const TEMPLATES: ClinicalTemplate[] = [
     description: "עיבוד חושי, DCD, כתיבה, השתתפות בגן/בית ספר, ADL ילדים",
     icon: "🎨",
     profession: "ריפוי בעיסוק",
+    scale_label: "ציון עצמאות תפקודית",
+    scale_improvement_lower: false,
     systemContext: "ריפוי בעיסוק ילדים. השתמש ב-SPM, Sensory Profile, VMI, Peabody, MABC-2, BOT-2 כרלוונטי. ציין רמת השתתפות בגן/בית ספר, גישת Sensory Integration (SI), Family-Centered Care.",
     sections: [
       {
@@ -534,6 +558,8 @@ export const TEMPLATES: ClinicalTemplate[] = [
     description: "הערכה תזונתית, תכנון תפריט, ניהול מחלות כרוניות, ירידה/עלייה במשקל",
     icon: "🥗",
     profession: "תזונה קלינית",
+    scale_label: "מדד היצמדות לתוכנית",
+    scale_improvement_lower: false,
     systemContext: "קליניקת תזונה קלינית. השתמש ב-BMI, %IBW, SGA, MNA, Harris-Benedict/Mifflin-St Jeor לחישוב צרכים קלוריים. ציין מדדים אנתרופומטריים, ממצאי בדיקות דם רלוונטיות, ורמת פעילות גופנית.",
     sections: [
       {
@@ -581,6 +607,8 @@ export const TEMPLATES: ClinicalTemplate[] = [
     description: "ביקורי בית, טיפול בפצעים, ניהול תרופות, ניטור כרוני, קשישים",
     icon: "💊",
     profession: "סיעוד",
+    scale_label: "ציון מצב כללי",
+    scale_improvement_lower: false,
     systemContext: "סיעוד קהילתי. ציין סימנים חיוניים בערכים מדויקים, מצב פצע לפי סולם PUSH, רמת תפקוד לפי Barthel/Katz, ורמת ביצוע ADL. השתמש בטרמינולוגיה NANDA לאבחנות סיעודיות.",
     sections: [
       {
@@ -628,6 +656,8 @@ export const TEMPLATES: ClinicalTemplate[] = [
     description: "CBT, DBT, חרדה, דיכאון, PTSD, הערכה פסיכולוגית, פסיכותרפיה",
     icon: "🧩",
     profession: "פסיכולוגיה קלינית",
+    scale_label: "ציון מצוקה נפשית",
+    scale_improvement_lower: true,
     systemContext: "פסיכולוגיה קלינית. השתמש בסולמות: PHQ-9, GAD-7, PCL-5, BDI, BAI, MSE כרלוונטי. ציין ניקוד מדד סיכון לפגיעה עצמית (C-SSRS). ערוך הערכת MSE בשפה פסיכיאטרית מקצועית.",
     sections: [
       {
@@ -675,6 +705,8 @@ export const TEMPLATES: ClinicalTemplate[] = [
     description: "הערכה עמוד שדרה, מניפולציה, כאבי גב/צוואר, עצב כלוא, כאבי ראש",
     icon: "🔧",
     profession: "כירופרקטיקה",
+    scale_label: "VAS כאב",
+    scale_improvement_lower: true,
     systemContext: "קליניקה כירופרקטית. ציין בדיקות אורטופדיות-נוירולוגיות ספציפיות (SLR, Kemp, Spurling, Ortolani), רמת subluxation, וסוג ומיקום מניפולציה (HVLA, mobilization, drop). ציין ROM בדרגות, ממצאי ציר שדרה.",
     sections: [
       {
@@ -757,6 +789,8 @@ export function resolveTemplateFromSettings(settings: unknown): ClinicalTemplate
         description: "תבנית מותאמת אישית",
         icon: "📋",
         profession: s?.template_profession ?? "אחר",
+        scale_label: s?.template_scale_label ?? "ציון מדד",
+        scale_improvement_lower: s?.template_scale_improvement_lower ?? true,
         sections,
         systemContext: s?.template_system_context ?? "",
       };
