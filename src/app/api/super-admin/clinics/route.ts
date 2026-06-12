@@ -1,8 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email/send";
+import { isSuperAdminEmail } from "@/lib/super-admins";
 
-const SUPER_ADMIN = "or.maman@gmail.com";
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://praxisai-one.vercel.app";
 
 function ownerEmailHtml(clinicName: string, ownerName: string) {
@@ -42,7 +42,7 @@ function ownerEmailHtml(clinicName: string, ownerName: string) {
 export async function POST(request: Request) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user || user.email !== SUPER_ADMIN) {
+  if (!user || !isSuperAdminEmail(user.email)) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -124,7 +124,7 @@ export async function POST(request: Request) {
 export async function DELETE(request: Request) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user || user.email !== SUPER_ADMIN) {
+  if (!user || !isSuperAdminEmail(user.email)) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 

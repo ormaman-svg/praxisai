@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveClinicId } from "@/lib/clinic";
-import { SUPER_ADMIN_EMAIL } from "@/lib/auth-gate";
+import { isSuperAdminEmail } from "@/lib/super-admins";
 import TemplateClient from "./TemplateClient";
 
 export const dynamic = "force-dynamic";
@@ -11,15 +11,15 @@ export default async function TemplatePage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const isSuperAdmin = user.email === SUPER_ADMIN_EMAIL;
+  // Documentation template defines the clinic's character — platform super admins only.
+  if (!isSuperAdminEmail(user.email)) redirect("/dashboard");
 
   let clinicId = getActiveClinicId();
   if (!clinicId) {
     const { data: m } = await supabase
-      .from("clinic_members").select("clinic_id, role")
+      .from("clinic_members").select("clinic_id")
       .eq("user_id", user.id).eq("status", "active").limit(1).single();
     if (!m) redirect("/dashboard");
-    if (!isSuperAdmin && !["owner", "admin"].includes(m.role)) redirect("/dashboard");
     clinicId = m.clinic_id;
   }
 

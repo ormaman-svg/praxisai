@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { ACTIVE_CLINIC_COOKIE } from "@/lib/clinic";
-import { SUPER_ADMIN_EMAIL } from "@/lib/auth-gate";
+import { isSuperAdminEmail } from "@/lib/super-admins";
 
 // Switch active clinic — verifies membership before setting the cookie
 export async function POST(req: Request) {
@@ -12,7 +12,7 @@ export async function POST(req: Request) {
   if (!user) return NextResponse.json({ error: "לא מחובר" }, { status: 401 });
 
   // Super admin may enter any clinic; everyone else must be an active member.
-  if (user.email !== SUPER_ADMIN_EMAIL) {
+  if (!isSuperAdminEmail(user.email)) {
     const { data: member } = await supabase
       .from("clinic_members")
       .select("id")

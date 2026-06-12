@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveClinicId } from "@/lib/clinic";
-import { SUPER_ADMIN_EMAIL } from "@/lib/auth-gate";
+import { isSuperAdminEmail } from "@/lib/super-admins";
 import Sidebar from "@/components/Sidebar";
 import OnboardingCenter, { type OnboardingStep } from "@/components/onboarding/OnboardingCenter";
 import type { Membership } from "@/lib/types";
@@ -14,7 +14,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const isSuperAdmin = user.email === SUPER_ADMIN_EMAIL;
+  const isSuperAdmin = isSuperAdminEmail(user.email);
 
   const [{ data: profile }, { data: memberships }] = await Promise.all([
     supabase.from("profiles").select("*").eq("id", user.id).single(),
@@ -103,7 +103,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       href: "/documents",
       done: (docs.count ?? 0) > 0,
     },
-    ...(isManager
+    ...(isSuperAdmin
       ? [
           {
             key: "template",
@@ -112,6 +112,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             href: "/settings/template",
             done: hasTemplate,
           },
+        ]
+      : []),
+    ...(isManager
+      ? [
           {
             key: "team",
             label: "הזמנת איש צוות",
@@ -138,7 +142,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         steps={onboardingSteps}
         initialTourDone={onboardingRow.data?.tour_done ?? false}
         initialDismissed={!!(onboardingRow.data?.dismissed_at)}
-        isAdmin={isManager}
+        isAdmin={isSuperAdmin}
         hasTemplate={hasTemplate}
       />
     </div>

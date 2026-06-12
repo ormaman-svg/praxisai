@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { SUPER_ADMIN_EMAIL } from "@/lib/auth-gate";
+import { isSuperAdminEmail } from "@/lib/super-admins";
 import ClinicsClient from "./ClinicsClient";
 
 export const dynamic = "force-dynamic";
@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export default async function ClinicsPage() {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user || user.email !== SUPER_ADMIN_EMAIL) redirect("/dashboard");
+  if (!user || !isSuperAdminEmail(user.email)) redirect("/dashboard");
 
   // Use the admin client so RLS doesn't hide clinics the super admin
   // isn't a member of — they must see every clinic in the system.

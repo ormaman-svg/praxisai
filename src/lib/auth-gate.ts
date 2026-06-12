@@ -3,12 +3,16 @@
 // admin, already belong to a clinic, or have a pending invitation.
 import { createAdminClient } from "@/lib/supabase/admin";
 
-export const SUPER_ADMIN_EMAIL = "or.maman@gmail.com";
+import { SUPER_ADMIN_EMAILS, isSuperAdminEmail } from "@/lib/super-admins";
+
+export { SUPER_ADMIN_EMAILS, isSuperAdminEmail };
+// Kept for backwards compatibility with single-email checks.
+export const SUPER_ADMIN_EMAIL = SUPER_ADMIN_EMAILS[0];
 
 export async function isEmailAllowed(email: string, userId?: string): Promise<boolean> {
   const e = email.trim().toLowerCase();
   if (!e) return false;
-  if (e === SUPER_ADMIN_EMAIL) return true;
+  if (isSuperAdminEmail(e)) return true;
 
   const admin = createAdminClient();
 

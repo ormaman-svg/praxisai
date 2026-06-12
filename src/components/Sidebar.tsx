@@ -10,8 +10,7 @@ import ClinicSwitcher from "./ClinicSwitcher";
 import Logo from "./Logo";
 import type { Membership, MemberRole } from "@/lib/types";
 import { ROLE_HE } from "@/lib/types";
-
-const SUPER_ADMIN = "or.maman@gmail.com";
+import { isSuperAdminEmail } from "@/lib/super-admins";
 
 const NAV = [
   { href: "/dashboard", label: "לוח בקרה", icon: LayoutDashboard },
@@ -35,7 +34,7 @@ export default function Sidebar({
   const pathname = usePathname();
   const router = useRouter();
   const isAdmin = role === "owner" || role === "admin";
-  const isSuperAdmin = userEmail === SUPER_ADMIN;
+  const isSuperAdmin = isSuperAdminEmail(userEmail);
 
   async function signOut() {
     await createClient().auth.signOut();
@@ -88,15 +87,6 @@ export default function Sidebar({
               משתמשים והרשאות
             </Link>
             <Link
-              href="/settings/template"
-              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13.5px] font-medium transition-colors ${
-                pathname.startsWith("/settings/template") ? "bg-brand text-white" : "hover:bg-navy-700 hover:text-white"
-              }`}
-            >
-              <Settings size={17} strokeWidth={2} />
-              תבנית תיעוד
-            </Link>
-            <Link
               href="/settings/billing"
               className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13.5px] font-medium transition-colors ${
                 pathname.startsWith("/settings/billing") ? "bg-brand text-white" : "hover:bg-navy-700 hover:text-white"
@@ -119,6 +109,15 @@ export default function Sidebar({
             >
               <Building2 size={17} strokeWidth={2} />
               קליניקות
+            </Link>
+            <Link
+              href="/settings/template"
+              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13.5px] font-medium transition-colors ${
+                pathname.startsWith("/settings/template") ? "bg-brand text-white" : "hover:bg-navy-700 hover:text-white"
+              }`}
+            >
+              <Settings size={17} strokeWidth={2} />
+              תבנית תיעוד
             </Link>
           </>
         )}
