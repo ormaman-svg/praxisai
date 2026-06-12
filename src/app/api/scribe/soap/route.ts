@@ -1,17 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
-
-const SYSTEM = `אתה עוזר קליני לפיזיותרפיסטים בישראל. קיבלת תמלול של שיחת טיפול פיזיותרפי.
-תפקידך לחלץ את המידע ולהחזיר רשומת SOAP מובנית בעברית.
-
-החזר JSON בלבד בפורמט הבא:
-{
-  "subjective": "תיאור הסימפטומים מנקודת המבט של המטופל, כולל כאב, תפקוד ומגבלות",
-  "objective": "ממצאים אובייקטיביים — ROM, חוזק שרירים, בדיקות ספציפיות, תצפיות",
-  "assessment": "הערכה קלינית של המטפל, התקדמות, אבחנה",
-  "plan": "תוכנית הטיפול, תרגילים שנקבעו, תדירות, יעדים"
-}
-
-אם מידע חסר בתמלול, השאר את השדה ריק. אל תמציא מידע.`;
+import { getActiveClinicId } from "@/lib/clinic";
+import { TEMPLATE_MAP, DEFAULT_TEMPLATE_ID, buildSoapPrompt } from "@/lib/clinic-templates";
 
 export async function POST(request: Request) {
   const supabase = createClient();
@@ -25,6 +14,22 @@ export async function POST(request: Request) {
   const { transcript } = await request.json();
   if (!transcript?.trim()) return Response.json({ error: "No transcript" }, { status: 400 });
 
+  // Resolve clinic template from clinic settings
+  let clinicId = getActiveClinicId();
+  if (!clinicId) {
+    const { data: m } = await supabase
+      .from("clinic_members").select("clinic_id").eq("user_id", user.id).eq("status", "active").limit(1).single();
+    clinicId = m?.clinic_id ?? null;
+  }
+  let templateId = DEFAULT_TEMPLATE_ID;
+  if (clinicId) {
+    const { data: clinic } = await supabase.from("clinics").select("settings").eq("id", clinicId).single();
+    templateId = (clinic?.settings as any)?.template_id ?? DEFAULT_TEMPLATE_ID;
+  }
+
+  const template = TEMPLATE_MAP[templateId] ?? TEMPLATE_MAP[DEFAULT_TEMPLATE_ID];
+  const systemPrompt = buildSoapPrompt(template);
+
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -35,23 +40,25 @@ export async function POST(request: Request) {
     body: JSON.stringify({
       model: "claude-sonnet-4-6",
       max_tokens: 2048,
-      system: SYSTEM,
+      system: systemPrompt,
       messages: [{ role: "user", content: `תמלול הטיפול:\n\n${transcript}` }],
     }),
   });
 
   if (!res.ok) {
     console.error("Claude error:", await res.text());
-    return Response.json({ error: "SOAP generation failed" }, { status: 500 });
+    return Response.json({ error: "יצירת הרשומה נכשלה." }, { status: 500 });
   }
 
   const data = await res.json();
   const text = data.content?.[0]?.text ?? "{}";
 
   try {
-    const soap = JSON.parse(text.match(/\{[\s\S]*\}/)?.[0] ?? text);
-    return Response.json(soap);
+    const note = JSON.parse(text.match(/\{[\s\S]*\}/)?.[0] ?? text);
+    return Response.json({ ...note, _template_id: templateId });
   } catch {
-    return Response.json({ subjective: text, objective: "", assessment: "", plan: "" });
+    const fallback: Record<string, string> = { _template_id: templateId };
+    if (template.sections[0]) fallback[template.sections[0].key] = text;
+    return Response.json(fallback);
   }
 }

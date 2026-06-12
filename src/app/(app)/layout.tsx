@@ -70,13 +70,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Live progress for the onboarding center — cheap head-count queries.
   const cid = active.clinic_id;
   const isManager = ["owner", "admin"].includes(active.role);
-  const [patients, treatments, docs, members, invites] = await Promise.all([
+  const [patients, treatments, docs, members, invites, clinicSettings] = await Promise.all([
     supabase.from("patients").select("id", { count: "exact", head: true }).eq("clinic_id", cid),
     supabase.from("treatments").select("id", { count: "exact", head: true }).eq("clinic_id", cid),
     supabase.from("documents").select("id", { count: "exact", head: true }).eq("clinic_id", cid),
     supabase.from("clinic_members").select("id", { count: "exact", head: true }).eq("clinic_id", cid).eq("status", "active"),
     supabase.from("invitations").select("id", { count: "exact", head: true }).eq("clinic_id", cid),
+    supabase.from("clinics").select("settings").eq("id", cid).single(),
   ]);
+  const hasTemplate = !!(clinicSettings.data?.settings as any)?.template_id;
 
   const onboardingSteps: OnboardingStep[] = [
     {
@@ -101,13 +103,22 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       done: (docs.count ?? 0) > 0,
     },
     ...(isManager
-      ? [{
-          key: "team",
-          label: "הזמנת איש צוות",
-          desc: "מזמינים מטפל או מנהל במייל",
-          href: "/admin/users",
-          done: (members.count ?? 0) > 1 || (invites.count ?? 0) > 0,
-        }]
+      ? [
+          {
+            key: "template",
+            label: "הגדרת תבנית תיעוד",
+            desc: "בחרו פורמט קליני — אורטופדי, נוירולוגי ועוד",
+            href: "/settings/template",
+            done: hasTemplate,
+          },
+          {
+            key: "team",
+            label: "הזמנת איש צוות",
+            desc: "מזמינים מטפל או מנהל במייל",
+            href: "/admin/users",
+            done: (members.count ?? 0) > 1 || (invites.count ?? 0) > 0,
+          },
+        ]
       : []),
   ];
 

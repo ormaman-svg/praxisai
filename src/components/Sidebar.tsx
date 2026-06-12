@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  LayoutDashboard, Users, FileText, BarChart3, LogOut, Mic, MessageSquare, ShieldCheck, Building2,
+  LayoutDashboard, Users, FileText, BarChart3, LogOut, Mic, MessageSquare, ShieldCheck, Building2, Settings,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import ClinicSwitcher from "./ClinicSwitcher";
@@ -85,6 +85,15 @@ export default function Sidebar({
             >
               <ShieldCheck size={17} strokeWidth={2} />
               משתמשים והרשאות
+            </Link>
+            <Link
+              href="/settings/template"
+              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13.5px] font-medium transition-colors ${
+                pathname.startsWith("/settings") ? "bg-brand text-white" : "hover:bg-navy-700 hover:text-white"
+              }`}
+            >
+              <Settings size={17} strokeWidth={2} />
+              תבנית תיעוד
             </Link>
           </>
         )}
