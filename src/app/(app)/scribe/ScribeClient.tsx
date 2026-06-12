@@ -73,18 +73,23 @@ export default function ScribeClient({ template }: { template: ClinicalTemplate 
   const rafRef     = useRef<number>(0);
   const srRef      = useRef<any>(null); // SpeechRecognition instance
   const phaseRef   = useRef<Phase>("standby"); // readable in SR callbacks
+  const mountedRef = useRef(true); // guards SR auto-restart after unmount
 
   phaseRef.current = phase;
 
-  /* load patients */
+  /* load patients + cleanup all resources on unmount */
   useEffect(() => {
     supabase.from("patients").select("id, first_name, last_name").eq("status", "active").order("last_name")
       .then(({ data }) => { if (data) setPatients(data); });
     return () => {
+      mountedRef.current = false;
       stopSR();
       if (timerRef.current) clearInterval(timerRef.current);
       cancelAnimationFrame(rafRef.current);
       audioCtxRef.current?.close().catch(() => {});
+      // Release microphone — stop all tracks on the active MediaRecorder stream
+      mediaRef.current?.stream?.getTracks().forEach((t) => t.stop());
+      try { if (mediaRef.current?.state === "recording") mediaRef.current.stop(); } catch {}
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -110,11 +115,12 @@ export default function ScribeClient({ template }: { template: ClinicalTemplate 
     sr.onstart = () => { setListening(true); setCmdStatus("ממתין לפקודה…"); };
     sr.onend   = () => {
       setListening(false);
+      if (!mountedRef.current) return; // component unmounted — don't restart
       // Auto-restart unless we intentionally stopped
       if (phaseRef.current !== "idle" && phaseRef.current !== "transcribing" &&
           phaseRef.current !== "generating" && phaseRef.current !== "review") {
         srRef.current = null;
-        setTimeout(() => startSR(), 300);
+        setTimeout(() => { if (mountedRef.current) startSR(); }, 300);
       }
     };
     sr.onerror = (e: any) => {
@@ -304,7 +310,7 @@ export default function ScribeClient({ template }: { template: ClinicalTemplate 
   /* ── render ─────────────────────────────────────────────────── */
 
   const SRSupported = typeof window !== "undefined" &&
-    !!(window as any).SpeechRecognition || !!(window as any).webkitSpeechRecognition;
+    (!!(window as any).SpeechRecognition || !!(window as any).webkitSpeechRecognition);
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
