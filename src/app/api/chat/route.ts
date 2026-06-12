@@ -1,14 +1,25 @@
 import { createClient } from "@/lib/supabase/server";
+import { resolveClinicId, getClinicTemplate } from "@/lib/clinic-template-server";
 
-const SYSTEM = `אתה עוזר AI קליני מתמחה בפיזיותרפיה, עובד עם פיזיותרפיסטים בישראל.
+const BASE_SYSTEM = `אתה עוזר AI קליני מתמחה בפיזיותרפיה, עובד עם פיזיותרפיסטים בישראל.
 אתה עונה בעברית תמיד, אלא אם המשתמש פנה באנגלית.
-אתה מכיר פרוטוקולי שיקום, אנטומיה, פתולוגיות שכיחות בפיזיותרפיה, ותהליכי תיעוד קליני כולל רשומות SOAP.
+אתה מכיר פרוטוקולי שיקום, אנטומיה, פתולוגיות שכיחות בפיזיותרפיה, ותהליכי תיעוד קליני.
 ענה תמיד בצורה מקצועית, ממוקדת ומועילה. אם שאלה חורגת מתחום הפיזיותרפיה, הפנה בעדינות בחזרה לנושאים קליניים.`;
 
 export async function POST(request: Request) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  let SYSTEM = BASE_SYSTEM;
+  try {
+    const clinicId = await resolveClinicId(supabase, user.id);
+    const template = await getClinicTemplate(supabase, clinicId);
+    SYSTEM += `\nהקליניקה מתעדת בפורמט "${template.name}" עם הסעיפים: ${template.sections.map((s) => s.label).join(", ")}.`;
+    if (template.systemContext) SYSTEM += `\n${template.systemContext}`;
+  } catch {
+    // non-critical — proceed with base system prompt
+  }
 
   const { messages } = await request.json();
 

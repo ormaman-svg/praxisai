@@ -3,38 +3,37 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 import { TREATMENT_TYPE_HE } from "@/lib/types";
+import type { ClinicalTemplate } from "@/lib/clinic-templates";
 
-export default function TreatmentForm({ clinicId, patientId }: { clinicId: string; patientId: string }) {
+export default function TreatmentForm({ patientId, template }: { patientId: string; template: ClinicalTemplate }) {
   const router = useRouter();
-  const supabase = createClient();
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState({
-    type: "follow_up", vas: "", subjective: "", objective: "", assessment: "", plan: "",
-  });
+  const [type, setType] = useState("follow_up");
+  const [vas, setVas] = useState("");
+  const [sections, setSections] = useState<Record<string, string>>(() =>
+    Object.fromEntries(template.sections.map((s) => [s.key, ""]))
+  );
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
     setError(null);
-    const { data: { user } } = await supabase.auth.getUser();
-    const { error } = await supabase.from("treatments").insert({
-      clinic_id: clinicId,
-      patient_id: patientId,
-      therapist_id: user?.id ?? null,
-      type: form.type,
-      vas: form.vas === "" ? null : Number(form.vas),
-      subjective: form.subjective || null,
-      objective: form.objective || null,
-      assessment: form.assessment || null,
-      plan: form.plan || null,
+    const r = await fetch("/api/scribe/save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ patientId, type, vas: vas === "" ? null : Number(vas), sections }),
     });
     setSaving(false);
-    if (error) return setError("שמירת הטיפול נכשלה.");
-    setForm({ type: "follow_up", vas: "", subjective: "", objective: "", assessment: "", plan: "" });
+    if (!r.ok) {
+      const j = await r.json().catch(() => null);
+      return setError(j?.error ?? "שמירת הטיפול נכשלה.");
+    }
+    setSections(Object.fromEntries(template.sections.map((s) => [s.key, ""])));
+    setType("follow_up");
+    setVas("");
     setOpen(false);
     router.refresh();
   }
@@ -49,28 +48,36 @@ export default function TreatmentForm({ clinicId, patientId }: { clinicId: strin
 
   return (
     <div className="card p-5">
-      <h2 className="mb-4 text-sm font-bold text-slate-900">תיעוד טיפול חדש</h2>
+      <h2 className="mb-4 text-sm font-bold text-slate-900">
+        תיעוד טיפול חדש — <span className="font-normal text-slate-500">{template.name}</span>
+      </h2>
       <form onSubmit={save} className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="label">סוג טיפול</label>
-            <select className="input" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
+            <select className="input" value={type} onChange={(e) => setType(e.target.value)}>
               {Object.entries(TREATMENT_TYPE_HE).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
           </div>
           <div>
             <label className="label">VAS (0–10)</label>
-            <input dir="ltr" type="number" min={0} max={10} className="input" value={form.vas}
-                   onChange={(e) => setForm({ ...form, vas: e.target.value })} placeholder="—" />
+            <input dir="ltr" type="number" min={0} max={10} className="input" value={vas}
+                   onChange={(e) => setVas(e.target.value)} placeholder="—" />
           </div>
         </div>
-        {([["subjective", "S — סובייקטיבי"], ["objective", "O — אובייקטיבי"], ["assessment", "A — הערכה"], ["plan", "P — תוכנית"]] as const).map(([key, label]) => (
-          <div key={key}>
-            <label className="label">{label}</label>
-            <textarea rows={2} className="input resize-y" value={form[key]}
-                      onChange={(e) => setForm({ ...form, [key]: e.target.value })} />
+
+        {template.sections.map((s) => (
+          <div key={s.key}>
+            <label className="label">
+              <span className={`inline-grid h-5 w-5 place-items-center rounded text-[10px] font-bold text-white ${s.color} me-1.5`}>{s.letter}</span>
+              {s.label}
+            </label>
+            <textarea rows={2} className="input resize-y" value={sections[s.key] ?? ""}
+                      placeholder={s.placeholder}
+                      onChange={(e) => setSections({ ...sections, [s.key]: e.target.value })} />
           </div>
         ))}
+
         {error && <div className="rounded-lg border border-red-200 bg-red-50 px-3.5 py-2.5 text-[13px] text-red-700">{error}</div>}
         <div className="flex justify-end gap-2">
           <button type="button" onClick={() => setOpen(false)} className="btn-ghost">ביטול</button>

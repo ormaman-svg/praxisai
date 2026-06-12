@@ -6,7 +6,6 @@ import {
   AudioLines, ClipboardCheck, CheckCircle2, Ear, ToggleLeft, ToggleRight,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { TEMPLATE_MAP, DEFAULT_TEMPLATE_ID } from "@/lib/clinic-templates";
 import type { ClinicalTemplate } from "@/lib/clinic-templates";
 
 /* ── types ────────────────────────────────────────────────────────── */
@@ -47,10 +46,8 @@ const fmt = (s: number) =>
 
 /* ══════════════════════════════════════════════════════════════════ */
 
-export default function ScribeClient({ templateId }: { templateId: string }) {
+export default function ScribeClient({ template }: { template: ClinicalTemplate }) {
   const supabase = createClient();
-  const template: ClinicalTemplate =
-    TEMPLATE_MAP[templateId] ?? TEMPLATE_MAP[DEFAULT_TEMPLATE_ID];
 
   /* state */
   const [mode, setMode] = useState<Mode>("command");
@@ -285,7 +282,7 @@ export default function ScribeClient({ templateId }: { templateId: string }) {
     const r = await fetch("/api/scribe/save", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ patientId, ...note, vas: vas === "" ? null : Number(vas) }),
+      body: JSON.stringify({ patientId, sections: note, vas: vas === "" ? null : Number(vas) }),
     });
     setSaving(false);
     if (!r.ok) { setError("שמירה נכשלה — נסו שוב."); return; }

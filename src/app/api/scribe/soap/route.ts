@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
-import { getActiveClinicId } from "@/lib/clinic";
-import { TEMPLATE_MAP, DEFAULT_TEMPLATE_ID, buildSoapPrompt } from "@/lib/clinic-templates";
+import { resolveClinicId, getClinicTemplate } from "@/lib/clinic-template-server";
+import { buildSoapPrompt } from "@/lib/clinic-templates";
 
 export async function POST(request: Request) {
   const supabase = createClient();
@@ -14,20 +14,8 @@ export async function POST(request: Request) {
   const { transcript } = await request.json();
   if (!transcript?.trim()) return Response.json({ error: "No transcript" }, { status: 400 });
 
-  // Resolve clinic template from clinic settings
-  let clinicId = getActiveClinicId();
-  if (!clinicId) {
-    const { data: m } = await supabase
-      .from("clinic_members").select("clinic_id").eq("user_id", user.id).eq("status", "active").limit(1).single();
-    clinicId = m?.clinic_id ?? null;
-  }
-  let templateId = DEFAULT_TEMPLATE_ID;
-  if (clinicId) {
-    const { data: clinic } = await supabase.from("clinics").select("settings").eq("id", clinicId).single();
-    templateId = (clinic?.settings as any)?.template_id ?? DEFAULT_TEMPLATE_ID;
-  }
-
-  const template = TEMPLATE_MAP[templateId] ?? TEMPLATE_MAP[DEFAULT_TEMPLATE_ID];
+  const clinicId = await resolveClinicId(supabase, user.id);
+  const template = await getClinicTemplate(supabase, clinicId);
   const systemPrompt = buildSoapPrompt(template);
 
   const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -55,9 +43,9 @@ export async function POST(request: Request) {
 
   try {
     const note = JSON.parse(text.match(/\{[\s\S]*\}/)?.[0] ?? text);
-    return Response.json({ ...note, _template_id: templateId });
+    return Response.json({ ...note, _template_id: template.id });
   } catch {
-    const fallback: Record<string, string> = { _template_id: templateId };
+    const fallback: Record<string, string> = { _template_id: template.id };
     if (template.sections[0]) fallback[template.sections[0].key] = text;
     return Response.json(fallback);
   }

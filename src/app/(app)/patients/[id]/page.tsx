@@ -3,6 +3,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { ArrowRight } from "lucide-react";
 import { DOC_TYPE_HE, TREATMENT_TYPE_HE } from "@/lib/types";
+import { getClinicTemplate } from "@/lib/clinic-template-server";
 import TreatmentForm from "./TreatmentForm";
 import VasChart from "./VasChart";
 
@@ -14,11 +15,12 @@ export default async function PatientPage({ params }: { params: { id: string } }
   const { data: patient } = await supabase.from("patients").select("*").eq("id", params.id).single();
   if (!patient) notFound();
 
-  const [{ data: treatments }, { data: docs }] = await Promise.all([
+  const [{ data: treatments }, { data: docs }, template] = await Promise.all([
     supabase.from("treatments")
       .select("*, profiles:therapist_id(full_name)")
       .eq("patient_id", patient.id).order("treated_at", { ascending: false }),
     supabase.from("documents").select("*").eq("patient_id", patient.id).order("created_at", { ascending: false }),
+    getClinicTemplate(supabase, patient.clinic_id),
   ]);
 
   const vasSeries = (treatments ?? [])
@@ -54,7 +56,7 @@ export default async function PatientPage({ params }: { params: { id: string } }
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Treatments */}
         <div className="space-y-6 lg:col-span-2">
-          <TreatmentForm clinicId={patient.clinic_id} patientId={patient.id} />
+          <TreatmentForm patientId={patient.id} template={template} />
 
           <div className="card">
             <div className="border-b border-line px-5 py-4">
@@ -76,12 +78,22 @@ export default async function PatientPage({ params }: { params: { id: string } }
                         {t.profiles?.full_name ? ` · ${t.profiles.full_name}` : ""}
                       </span>
                     </div>
-                    {(t.subjective || t.assessment || t.plan) && (
+                    {(t.note?.sections?.length || t.subjective || t.assessment || t.plan) && (
                       <div className="space-y-1 text-[13px] leading-relaxed text-slate-600">
-                        {t.subjective && <p><span className="font-semibold text-slate-700">S:</span> {t.subjective}</p>}
-                        {t.objective && <p><span className="font-semibold text-slate-700">O:</span> {t.objective}</p>}
-                        {t.assessment && <p><span className="font-semibold text-slate-700">A:</span> {t.assessment}</p>}
-                        {t.plan && <p><span className="font-semibold text-slate-700">P:</span> {t.plan}</p>}
+                        {t.note?.sections?.length
+                          ? t.note.sections.map((s: any) => (
+                              <p key={s.key}>
+                                <span className="font-semibold text-slate-700">{s.letter}:</span> {s.content}
+                              </p>
+                            ))
+                          : (
+                            <>
+                              {t.subjective && <p><span className="font-semibold text-slate-700">S:</span> {t.subjective}</p>}
+                              {t.objective && <p><span className="font-semibold text-slate-700">O:</span> {t.objective}</p>}
+                              {t.assessment && <p><span className="font-semibold text-slate-700">A:</span> {t.assessment}</p>}
+                              {t.plan && <p><span className="font-semibold text-slate-700">P:</span> {t.plan}</p>}
+                            </>
+                          )}
                       </div>
                     )}
                   </li>
