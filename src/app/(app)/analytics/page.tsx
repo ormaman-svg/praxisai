@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getActiveClinicId } from "@/lib/clinic";
+import { resolveTemplateFromSettings } from "@/lib/clinic-templates";
 import AnalyticsClient from "./AnalyticsClient";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +19,7 @@ export default async function AnalyticsPage() {
 
   const since = new Date(Date.now() - 180 * 864e5).toISOString(); // last 6 months
 
-  const [{ data: patients }, { data: treatments }, { data: measurements }, { data: docs }, { data: members }, { data: myMembership }] = await Promise.all([
+  const [{ data: patients }, { data: treatments }, { data: measurements }, { data: docs }, { data: members }, { data: myMembership }, { data: clinicRow }] = await Promise.all([
     supabase.from("patients")
       .select("id, first_name, last_name, kupah, status, created_at")
       .eq("clinic_id", clinicId),
@@ -36,6 +37,7 @@ export default async function AnalyticsPage() {
       .eq("clinic_id", clinicId).eq("status", "active"),
     supabase.from("clinic_members")
       .select("role").eq("clinic_id", clinicId).eq("user_id", user!.id).eq("status", "active").single(),
+    supabase.from("clinics").select("settings").eq("id", clinicId).single(),
   ]);
 
   const therapists = (members ?? [])
@@ -46,6 +48,7 @@ export default async function AnalyticsPage() {
     }));
 
   const isManager = ["owner", "admin"].includes(myMembership?.role ?? "");
+  const template = resolveTemplateFromSettings(clinicRow?.settings);
 
   return (
     <AnalyticsClient
@@ -55,6 +58,9 @@ export default async function AnalyticsPage() {
       docs={docs ?? []}
       therapists={therapists}
       isManager={isManager}
+      scaleLabel={template.scale_label}
+      scaleImprovementLower={template.scale_improvement_lower}
+      templateName={template.name}
     />
   );
 }

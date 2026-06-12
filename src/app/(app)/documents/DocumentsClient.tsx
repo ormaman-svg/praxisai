@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, X, FileText, Sparkles, Loader2, PenLine, BadgeCheck } from "lucide-react";
+import { Plus, X, FileText, Sparkles, Loader2, PenLine, BadgeCheck, Download, FileDown } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { DOC_TYPE_HE } from "@/lib/types";
 import SignaturePad from "@/components/SignaturePad";
@@ -32,6 +32,7 @@ export default function DocumentsClient({
   const [viewDoc, setViewDoc] = useState<DocRow | null>(null);
   const [signing, setSigning] = useState(false);
   const [signature, setSignature] = useState<string | null>(null);
+  const [exporting, setExporting] = useState<"pdf" | "word" | null>(null);
 
   async function generateAI() {
     if (!form.patient_id) { setError("בחרו מטופל כדי לייצר מסמך עם AI."); return; }
@@ -87,6 +88,28 @@ export default function DocumentsClient({
     setSignature(null);
     setViewDoc(null);
     router.refresh();
+  }
+
+  async function exportWord(doc: DocRow) {
+    setExporting("word");
+    const a = document.createElement("a");
+    a.href = `/api/documents/export?id=${doc.id}&format=word`;
+    a.download = `${doc.title}.doc`;
+    a.click();
+    setTimeout(() => setExporting(null), 800);
+  }
+
+  function exportPDF(doc: DocRow) {
+    setExporting("pdf");
+    const url = `/api/documents/export?id=${doc.id}&format=pdf-html`;
+    const win = window.open(url, "_blank", "width=900,height=700");
+    if (win) {
+      win.addEventListener("load", () => {
+        win.focus();
+        win.print();
+      });
+    }
+    setTimeout(() => setExporting(null), 1200);
   }
 
   function closeView() {
@@ -218,7 +241,27 @@ export default function DocumentsClient({
                   {new Date(viewDoc.created_at).toLocaleDateString("he-IL")}
                 </p>
               </div>
-              <button onClick={closeView} className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100"><X size={18} /></button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => exportPDF(viewDoc)}
+                  disabled={exporting !== null}
+                  title="ייצוא PDF"
+                  className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[12px] font-medium text-slate-600 border border-line hover:bg-slate-100 disabled:opacity-50 transition-colors"
+                >
+                  {exporting === "pdf" ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
+                  PDF
+                </button>
+                <button
+                  onClick={() => exportWord(viewDoc)}
+                  disabled={exporting !== null}
+                  title="ייצוא Word"
+                  className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[12px] font-medium text-slate-600 border border-line hover:bg-slate-100 disabled:opacity-50 transition-colors"
+                >
+                  {exporting === "word" ? <Loader2 size={13} className="animate-spin" /> : <FileDown size={13} />}
+                  Word
+                </button>
+                <button onClick={closeView} className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100"><X size={18} /></button>
+              </div>
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto rounded-lg border border-line bg-slate-50 p-5 text-sm leading-relaxed text-slate-700 whitespace-pre-wrap">

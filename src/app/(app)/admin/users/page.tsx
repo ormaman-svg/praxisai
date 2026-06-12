@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveClinicId } from "@/lib/clinic";
-import { SUPER_ADMIN_EMAIL } from "@/lib/auth-gate";
+import { isSuperAdminEmail } from "@/lib/super-admins";
 import UsersClient from "./UsersClient";
 import type { MemberRole } from "@/lib/types";
 
@@ -13,7 +13,7 @@ export default async function AdminUsersPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const isSuperAdmin = user.email === SUPER_ADMIN_EMAIL;
+  const isSuperAdmin = isSuperAdminEmail(user.email);
   const admin = createAdminClient();
 
   let clinicId = getActiveClinicId();

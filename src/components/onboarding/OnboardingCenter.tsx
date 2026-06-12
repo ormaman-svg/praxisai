@@ -4,8 +4,9 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  X, Check, ChevronLeft, ChevronRight, Sparkles, Mic, Users, Compass, PartyPopper, Rocket,
+  X, Check, ChevronLeft, ChevronRight, Sparkles, Mic, Users, Compass, PartyPopper, Rocket, Loader2,
 } from "lucide-react";
+import { TEMPLATES } from "@/lib/clinic-templates";
 
 export type OnboardingStep = {
   key: string;
@@ -75,17 +76,44 @@ export default function OnboardingCenter({
   steps: dataSteps,
   initialTourDone,
   initialDismissed,
+  isAdmin = false,
+  hasTemplate = true,
 }: {
   steps: OnboardingStep[];
   initialTourDone: boolean;
   initialDismissed: boolean;
+  isAdmin?: boolean;
+  hasTemplate?: boolean;
 }) {
   const router = useRouter();
   const [tourDone, setTourDone] = useState(initialTourDone);
   const [dismissed, setDismissed] = useState(initialDismissed);
-  const [tourOpen, setTourOpen] = useState(!initialTourDone && !initialDismissed);
+  /* Show clinic setup for admins who haven't set a template yet and haven't dismissed */
+  const [setupOpen, setSetupOpen] = useState(isAdmin && !hasTemplate && !initialTourDone && !initialDismissed);
+  const [tourOpen, setTourOpen] = useState(!initialTourDone && !initialDismissed && !(isAdmin && !hasTemplate));
   const [slide, setSlide] = useState(0);
   const [panelOpen, setPanelOpen] = useState(false);
+
+  /* Setup state */
+  const [selectedTemplate, setSelectedTemplate] = useState("");
+  const [savingTemplate, setSavingTemplate] = useState(false);
+  const [setupError, setSetupError] = useState<string | null>(null);
+
+  async function saveSetup() {
+    if (!selectedTemplate) return;
+    setSavingTemplate(true);
+    setSetupError(null);
+    const r = await fetch("/api/clinic/settings", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ template_id: selectedTemplate }),
+    });
+    setSavingTemplate(false);
+    if (!r.ok) { setSetupError("שמירה נכשלה — נסו שוב."); return; }
+    setSetupOpen(false);
+    setTourOpen(true);
+    router.refresh();
+  }
 
   if (dismissed) return null;
 
@@ -120,6 +148,68 @@ export default function OnboardingCenter({
 
   return (
     <>
+      {/* ── Admin clinic setup ── */}
+      {setupOpen && (
+        <div className="fixed inset-0 z-[60] grid place-items-center bg-slate-900/60 p-4 backdrop-blur-sm">
+          <div className="card w-full max-w-xl overflow-hidden">
+            <div className="bg-gradient-to-l from-brand to-violet-500 px-8 pb-8 pt-10 text-center text-white">
+              <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-white/15 backdrop-blur text-2xl">🏥</div>
+              <h2 className="mt-4 text-xl font-bold">הגדרת הקליניקה שלכם</h2>
+              <p className="mt-2 text-sm text-white/80 max-w-sm mx-auto">
+                בחרו את תבנית התיעוד הקלינית — ה‑AI יתאים את כל הרשומות, הגרפים והאנליטיקות לתחום שלכם
+              </p>
+            </div>
+
+            <div className="max-h-[50vh] overflow-y-auto px-6 pt-5 pb-3 space-y-4">
+              {Array.from(new Set(TEMPLATES.map((t) => t.profession))).map((profession) => (
+                <div key={profession}>
+                  <h3 className="mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">{profession}</h3>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    {TEMPLATES.filter((t) => t.profession === profession).map((t) => (
+                      <button
+                        key={t.id}
+                        onClick={() => setSelectedTemplate(t.id)}
+                        className={`rounded-xl border-2 p-3 text-right transition-all ${
+                          selectedTemplate === t.id
+                            ? "border-brand bg-brand-50"
+                            : "border-line bg-white hover:border-slate-300"
+                        }`}
+                      >
+                        <div className="text-xl">{t.icon}</div>
+                        <div className="mt-1.5 text-[11.5px] font-semibold text-slate-800 leading-tight">{t.name}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {setupError && (
+              <div className="mx-6 rounded-lg border border-red-200 bg-red-50 px-3.5 py-2.5 text-[13px] text-red-700">{setupError}</div>
+            )}
+
+            <div className="px-6 py-4 flex items-center justify-between border-t border-line">
+              <button
+                onClick={() => { setSetupOpen(false); setTourOpen(true); }}
+                className="text-[12px] text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                דלג — אגדיר בהגדרות
+              </button>
+              <button
+                onClick={saveSetup}
+                disabled={!selectedTemplate || savingTemplate}
+                className="btn-primary disabled:opacity-50"
+              >
+                {savingTemplate ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
+                {selectedTemplate
+                  ? `בחירה: ${TEMPLATES.find((t) => t.id === selectedTemplate)?.name.split(" ")[0] ?? ""}`
+                  : "בחרו תבנית להמשך"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── First-entry guided tour ── */}
       {tourOpen && (
         <div className="fixed inset-0 z-[60] grid place-items-center bg-slate-900/60 p-4 backdrop-blur-sm">

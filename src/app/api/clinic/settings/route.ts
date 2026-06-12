@@ -2,14 +2,14 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveClinicId } from "@/lib/clinic";
-import { SUPER_ADMIN_EMAIL } from "@/lib/auth-gate";
+import { isSuperAdminEmail } from "@/lib/super-admins";
 
 export async function PATCH(req: Request) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const isSuperAdmin = user.email === SUPER_ADMIN_EMAIL;
+  const isSuperAdmin = isSuperAdminEmail(user.email);
 
   let clinicId = getActiveClinicId();
   if (!clinicId) {
@@ -32,6 +32,12 @@ export async function PATCH(req: Request) {
   }
 
   const patch = await req.json(); // { template_id: string, ... }
+
+  // Documentation template keys define the clinic's character — super admins only.
+  const touchesTemplate = Object.keys(patch ?? {}).some((k) => k.startsWith("template_"));
+  if (touchesTemplate && !isSuperAdmin) {
+    return NextResponse.json({ error: "רק מנהל המערכת יכול לשנות את תבנית התיעוד." }, { status: 403 });
+  }
 
   // Merge with existing settings
   const admin = createAdminClient();

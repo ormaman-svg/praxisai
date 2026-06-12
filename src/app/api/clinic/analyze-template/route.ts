@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { isSuperAdminEmail } from "@/lib/super-admins";
 
 const SECTION_COLORS = [
   { color: "bg-sky-500", ring: "focus-within:ring-sky-200" },
@@ -14,6 +15,9 @@ export async function POST(req: Request) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isSuperAdminEmail(user.email)) {
+    return NextResponse.json({ error: "רק מנהל המערכת יכול לשנות את תבנית התיעוד." }, { status: 403 });
+  }
 
   if (!process.env.CL_KEY) return NextResponse.json({ error: "CL_KEY חסר" }, { status: 500 });
 
