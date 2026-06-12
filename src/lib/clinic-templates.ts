@@ -13,6 +13,7 @@ export type ClinicalTemplate = {
   name: string;
   description: string;
   icon: string;
+  profession: string; // Hebrew profession group label
   sections: TemplateSection[];
   systemContext: string; // extra Claude context (terminology, phrasing expectations)
 };
@@ -23,6 +24,7 @@ export const TEMPLATES: ClinicalTemplate[] = [
     name: "פיזיותרפיה אורטופדית אמבולטורית",
     description: "לכאבי שלד-שריר, לאחר ניתוח, פציעות ספורט, עמוד שדרה ועוד",
     icon: "🦴",
+    profession: "פיזיותרפיה",
     systemContext: "קליניקה אורטופדית אמבולטורית. השתמש בטרמינולוגיה כגון ROM, MMT, palpation, ספציפי לבדיקות אורטופדיות (Lachman, SLR, Hawkins, וכדומה). ציין דרגות כאב, טווחי תנועה בדרגות, ועוצמת שריר בסולם Oxford.",
     sections: [
       {
@@ -68,6 +70,7 @@ export const TEMPLATES: ClinicalTemplate[] = [
     name: "פיזיותרפיה נוירולוגית אמבולטורית",
     description: "שבץ מוחי, טרשת נפוצה, פרקינסון, TBI, פגיעות עמוד שדרה",
     icon: "🧠",
+    profession: "פיזיותרפיה",
     systemContext: "קליניקה נוירולוגית אמבולטורית. השתמש בסולמות: Barthel, FIM, Berg, MAS (Modified Ashworth), MMSE/MoCA כרלוונטי. ציין תפקוד לפי ICF.",
     sections: [
       {
@@ -113,6 +116,7 @@ export const TEMPLATES: ClinicalTemplate[] = [
     name: "פיזיותרפיה ילדים והתפתחות",
     description: "אבחון והתערבות התפתחותית, שיתוק מוחין, עיכוב מוטורי, ספורט ילדים",
     icon: "🧒",
+    profession: "פיזיותרפיה",
     systemContext: "פיזיותרפיה ילדים. השתמש בציוני מיילסטונים התפתחותיים, GMFCS, GMFM, PEDI. כתוב ביחס לגיל הכרונולוגי וגיל מתוקן כשרלוונטי. כלול גישה Family-Centered Care.",
     sections: [
       {
@@ -158,6 +162,7 @@ export const TEMPLATES: ClinicalTemplate[] = [
     name: "שיקום",
     description: "שיקום רב-מקצועי אחרי אשפוז, ניתוח, שבץ, פציעה",
     icon: "🔄",
+    profession: "פיזיותרפיה",
     systemContext: "מסגרת שיקומית. עבוד עם FIM, Barthel, ציוני ניידות, יעדי STG/LTG מדידים. ציין מעורבות צוות רב-מקצועי כרלוונטי (ריפוי בעיסוק, קלינאי תקשורת, סייעת שיקום).",
     sections: [
       {
@@ -203,6 +208,7 @@ export const TEMPLATES: ClinicalTemplate[] = [
     name: "פיזיותרפיה בבית חולים — אקוטי",
     description: "הערכה וטיפול בביה\"ח: לאחר ניתוח, מחלה חריפה, ICU step-down",
     icon: "🏥",
+    profession: "פיזיותרפיה",
     systemContext: "מסגרת אשפוז חריפה. ציין הנחיות הרמת עומס, מגבלות רפואיות, ציוד קצה המיטה, ציון תפקוד עם ספציפיות מירבית (עצמאי/עצמאי עם ציוד/פיקוח/עזרה מינימלית-מקסימלית/תלוי מלא). ציין סיכון נפילות.",
     sections: [
       {
@@ -248,6 +254,7 @@ export const TEMPLATES: ClinicalTemplate[] = [
     name: "פיזיותרפיה רצפת אגן",
     description: "אי שליטה בשתן/צואה, כאבי אגן, שיקום לאחר לידה, שיקום סרטן",
     icon: "🌸",
+    profession: "פיזיותרפיה",
     systemContext: "פיזיותרפיה של רצפת האגן. השתמש בסולמות PISQ, PFDI, ICQ כרלוונטי. ציין ממצאי בדיקה פנימית בשפה מקצועית ומכבדת. כלול: טונוס (היפרטוני/היפוטוני), כוח (Oxford 0-5), coordinated relaxation.",
     sections: [
       {
@@ -293,6 +300,7 @@ export const TEMPLATES: ClinicalTemplate[] = [
     name: "שיקום וסטיבולרי",
     description: "BPPV, וסטיבולר יוניל/ביל, neuritis, פוסט-קונקוסיה, ראש-סחרחורת",
     icon: "🌀",
+    profession: "פיזיותרפיה",
     systemContext: "שיקום וסטיבולרי. ציין תוצאות בדיקות: Dix-Hallpike (ימין/שמאל, latency, nystagmus type, duration), Roll test, head impulse test, HINTS. ציין DHI ציון, סוג nystagmus (geotropic/apogeotropic), ואיזה תמרון CRT בוצע.",
     sections: [
       {
@@ -330,6 +338,380 @@ export const TEMPLATES: ClinicalTemplate[] = [
         ring: "focus-within:ring-violet-200",
         placeholder: "CRT שבוצע, תרגילי VOR/habituation, HEP, הגבלות, מעקב",
         guidance: "טיפול: CRT שבוצע (Epley/Semont/BBQ roll — תיאור מלא), תגובת המטופל, תרגילי VOR/habituation/balance HEP, הגבלות (נהיגה, שינה), תדירות, מתי לחזור אם חוזר",
+      },
+    ],
+  },
+  // ── קלינאות תקשורת ────────────────────────────────────────────────────
+  {
+    id: "slp_adult",
+    name: "קלינאות תקשורת — מבוגרים",
+    description: "אפזיה, דיספגיה, הפרעות קול, דיסארתריה, קוגניציה-תקשורת",
+    icon: "🗣️",
+    profession: "קלינאות תקשורת",
+    systemContext: "קליניקת קלינאות תקשורת — מבוגרים. השתמש בסולמות: WAB-R, BDAE, ASHA NOMS, VHI, DOSS, MBS/FEES כרלוונטי. ציין רמת חומרה, אמצעי תקשורת חלופית (AAC) אם רלוונטי, ורמת תפקוד לפי ICF.",
+    sections: [
+      {
+        key: "subjective",
+        label: "דיווח סובייקטיבי",
+        letter: "S",
+        color: "bg-sky-500",
+        ring: "focus-within:ring-sky-200",
+        placeholder: "תלונות המטופל/משפחה, שינויים מהטיפול הקודם, מוטיבציה, תפקוד תקשורתי יומי",
+        guidance: "דיווח: תלונות תקשורתיות עיקריות (שפה, דיבור, קול, בליעה), שינויים מהטיפול הקודם, תפקוד תקשורתי בסביבה הטבעית, מוטיבציה, תמיכה משפחתית",
+      },
+      {
+        key: "objective",
+        label: "הערכה תקשורתית",
+        letter: "O",
+        color: "bg-emerald-500",
+        ring: "focus-within:ring-emerald-200",
+        placeholder: "שפה קולטת/מבטאת, דיבור, קול, בליעה, קוגניציה-תקשורת, ממצאי סולמות",
+        guidance: "ממצאים: שפה קולטת ומבטאת (מילים/משפטים/שיח), דיבור (ארטיקולציה, פלואנטיות, קצב), קול (איכות, עוצמה, טווח), בליעה (רמת מרקם לפי IDDSI), קוגניציה-תקשורת (זיכרון, קשב, ביצוע), ציוני סולמות",
+      },
+      {
+        key: "assessment",
+        label: "הערכה קלינית",
+        letter: "A",
+        color: "bg-amber-500",
+        ring: "focus-within:ring-amber-200",
+        placeholder: "אבחנה תקשורתית, חוזקות וקשיים, פרוגנוזה, השפעה תפקודית",
+        guidance: "הערכה: אבחנה תקשורתית (סוג וחומרה), תחומי חוזק ומאתגר, התקדמות ביחס ליעדים, גורמים תורמים, פרוגנוזה, השפעה על השתתפות חברתית",
+      },
+      {
+        key: "plan",
+        label: "תוכנית טיפול",
+        letter: "P",
+        color: "bg-violet-500",
+        ring: "focus-within:ring-violet-200",
+        placeholder: "גישות טיפוליות, יעדי STG/LTG, HEP, AAC, הדרכת משפחה, תדירות",
+        guidance: "תוכנית: גישות טיפוליות (CILT, LSVT, SFA, VitalStim וכדומה), יעדי STG/LTG מדידים, תרגול עצמאי (HEP), AAC אם נדרש, הדרכת משפחה/מטפלים, תדירות",
+      },
+    ],
+  },
+  {
+    id: "slp_pediatric",
+    name: "קלינאות תקשורת — ילדים",
+    description: "עיכוב שפה, הפרעות דיבור, ASD, גמגום, קשיי קריאה",
+    icon: "🌱",
+    profession: "קלינאות תקשורת",
+    systemContext: "קלינאות תקשורת ילדים. השתמש בציוני מיילסטונים שפתיים (CDI, MCDI), סולמות: PLS-5, GFTA-3, CELF, ADOS-2 כרלוונטי. ציין גיל כרונולוגי ורמת שפה מתקדמת ביחס לגיל. גישת Family-Centered Care.",
+    sections: [
+      {
+        key: "subjective",
+        label: "דיווח הורים",
+        letter: "S",
+        color: "bg-pink-500",
+        ring: "focus-within:ring-pink-200",
+        placeholder: "חששות הורים, תפקוד תקשורתי בבית/גן, שינויים, מוטיבציה, סביבה לשונית",
+        guidance: "דיווח הורים: חששות תקשורתיים, שינויים מהטיפול הקודם, תפקוד בגן/בית ספר, אינטראקציה חברתית, שפות בסביבה הביתית, מוטיבציה וסביבת תקשורת",
+      },
+      {
+        key: "objective",
+        label: "הערכת שפה ודיבור",
+        letter: "O",
+        color: "bg-emerald-500",
+        ring: "focus-within:ring-emerald-200",
+        placeholder: "שפה קולטת/מבטאת, פונולוגיה, פרגמטיקה, משחק תקשורתי, ממצאי סולמות",
+        guidance: "ממצאים: שפה קולטת (הבנת מילים/משפטים/שיח), שפה מבטאת (אוצר מילים, מבנה משפטי, שיח), פונולוגיה (תהליכים פונולוגיים, intelligibility), פרגמטיקה (יוזמה, תורנות, עין), ציוני סולמות",
+      },
+      {
+        key: "assessment",
+        label: "הערכה",
+        letter: "A",
+        color: "bg-amber-500",
+        ring: "focus-within:ring-amber-200",
+        placeholder: "רמת שפה ביחס לגיל, תחומי קושי, השפעה על השתתפות, פרוגנוזה",
+        guidance: "הערכה: רמת שפה ודיבור ביחס לגיל כרונולוגי, תחומי חוזק ומאתגר, השפעה על השתתפות בגן/בית ספר, גורמים תורמים, פרוגנוזה, המלצות לאנשי מקצוע נוספים",
+      },
+      {
+        key: "plan",
+        label: "תוכנית ויעדים",
+        letter: "P",
+        color: "bg-violet-500",
+        ring: "focus-within:ring-violet-200",
+        placeholder: "גישות טיפוליות, יעדי Family-Centered Care, הנחיות הורים, HEP, תדירות",
+        guidance: "תוכנית: גישות (DIR/Floortime, PRT, Hanen, Articulation Therapy), יעדי STG/LTG עם ביצוע מדיד, הנחיית הורים לתרגול בבית, תדירות, שיתוף עם גן/בית ספר",
+      },
+    ],
+  },
+  // ── ריפוי בעיסוק ──────────────────────────────────────────────────────
+  {
+    id: "ot_adult",
+    name: "ריפוי בעיסוק — מבוגרים",
+    description: "שיקום יד, ADL, קוגניציה, חזרה לעבודה, אדפטציה סביבתית",
+    icon: "🤲",
+    profession: "ריפוי בעיסוק",
+    systemContext: "ריפוי בעיסוק מבוגרים. השתמש ב-MOHO, COPM, FIM, AMPS, כוח אחיזה (דינמומטר), Pinch כרלוונטי. ציין תפקוד לפי ICF — body function, activity, participation. כלול הערכת סיכון נפילות/בטיחות בית כרלוונטי.",
+    sections: [
+      {
+        key: "subjective",
+        label: "פרופיל עיסוקי",
+        letter: "S",
+        color: "bg-orange-500",
+        ring: "focus-within:ring-orange-200",
+        placeholder: "תפקידים עיסוקיים, יעדי המטופל (COPM), תחומי קושי, סביבה ביתית/תעסוקתית",
+        guidance: "פרופיל עיסוקי: תפקידים משמעותיים (עבודה, פנאי, ADL), יעדי המטופל (COPM — ביצוע ושביעות רצון), שינויים מהטיפול הקודם, סביבה ביתית ותמיכה חברתית",
+      },
+      {
+        key: "objective",
+        label: "הערכת ביצוע עיסוקי",
+        letter: "O",
+        color: "bg-emerald-500",
+        ring: "focus-within:ring-emerald-200",
+        placeholder: "ADL/IADL, כוח יד, ROM, קוגניציה, ממצאי סולמות תפקודיים",
+        guidance: "ממצאים: ADL (רחצה, לבוש, האכלה, רמת עצמאות), IADL (בישול, ניקיון, תרופות), כוח אחיזה/פינצ׳, ROM יד/מרפק/כתף, קוגניציה (זיכרון, קשב, ביצוע, orientiation), AMPS/FIM ציון",
+      },
+      {
+        key: "assessment",
+        label: "הערכה תפקודית",
+        letter: "A",
+        color: "bg-amber-500",
+        ring: "focus-within:ring-amber-200",
+        placeholder: "מצב תפקודי, חסמים לביצוע עיסוקי, התקדמות ביחס ליעדים",
+        guidance: "הערכה: מצב תפקודי ביחס לתפקידים עיסוקיים, גורמים מגבילים (גופניים, קוגניטיביים, סביבתיים), התקדמות ביחס ל-COPM ויעדים, פרוגנוזה לעצמאות",
+      },
+      {
+        key: "plan",
+        label: "תוכנית התערבות",
+        letter: "I",
+        color: "bg-violet-500",
+        ring: "focus-within:ring-violet-200",
+        placeholder: "התערבויות, אדפטציה, ציוד מסייע, HEP, יעדים, תדירות",
+        guidance: "תוכנית: התערבויות (splinting, exercise, cognitive rehab, sensory integration), אדפטציה סביבתית, ציוד מסייע (עזרי ADL), HEP, יעדי STG/LTG מדידים, תדירות",
+      },
+    ],
+  },
+  {
+    id: "ot_pediatric",
+    name: "ריפוי בעיסוק — ילדים",
+    description: "עיבוד חושי, DCD, כתיבה, השתתפות בגן/בית ספר, ADL ילדים",
+    icon: "🎨",
+    profession: "ריפוי בעיסוק",
+    systemContext: "ריפוי בעיסוק ילדים. השתמש ב-SPM, Sensory Profile, VMI, Peabody, MABC-2, BOT-2 כרלוונטי. ציין רמת השתתפות בגן/בית ספר, גישת Sensory Integration (SI), Family-Centered Care.",
+    sections: [
+      {
+        key: "subjective",
+        label: "דיווח הורים",
+        letter: "S",
+        color: "bg-pink-500",
+        ring: "focus-within:ring-pink-200",
+        placeholder: "חששות הורים, תפקוד בבית/גן/בית ספר, ADL ילדים, קשיים חברתיים",
+        guidance: "דיווח הורים: קשיים עיקריים (לבישה, כתיבה, משחק, חברתי), תפקוד בגן/בית ספר, התנהגות חושית (רגישות/חיפוש), שינויים מהטיפול הקודם, סביבה ותמיכה",
+      },
+      {
+        key: "objective",
+        label: "הערכה תפקודית",
+        letter: "O",
+        color: "bg-emerald-500",
+        ring: "focus-within:ring-emerald-200",
+        placeholder: "עיבוד חושי, מוטוריקה עדינה/גסה, כתיבה, ADL, השתתפות, ממצאי סולמות",
+        guidance: "ממצאים: עיבוד חושי (Sensory Profile/SPM ממצאים), מוטוריקה עדינה (grip, dexterity, VMI), מוטוריקה גסה (MABC-2), כתיבה (מהירות, קריאות), ADL (לבישה, היגיינה), השתתפות בגן/כיתה",
+      },
+      {
+        key: "assessment",
+        label: "הערכה",
+        letter: "A",
+        color: "bg-amber-500",
+        ring: "focus-within:ring-amber-200",
+        placeholder: "פרופיל חושי, קשיי ביצוע, השפעה על השתתפות, שינויים מהטיפול",
+        guidance: "הערכה: פרופיל חושי (under/over-responsive), קשיי ביצוע (praxis, bilateral coordination), השפעה על השתתפות (גן/בית ספר/חברתי), התקדמות ביחס ליעדים, המלצות לאנשי מקצוע נוספים",
+      },
+      {
+        key: "plan",
+        label: "תוכנית ויעדים",
+        letter: "P",
+        color: "bg-violet-500",
+        ring: "focus-within:ring-violet-200",
+        placeholder: "SI, תרגולי ADL, הנחיות הורים/מורים, HEP, תדירות, שיתוף בית ספר",
+        guidance: "תוכנית: גישות SI/occupation-based, תרגולי ADL ספציפיים, הנחיות הורים ומורים, HEP, יעדי STG/LTG עם ביצוע מדיד, תדירות, שיתוף עם גן/בית ספר",
+      },
+    ],
+  },
+  // ── תזונה קלינית ──────────────────────────────────────────────────────
+  {
+    id: "dietetics",
+    name: "תזונה קלינית",
+    description: "הערכה תזונתית, תכנון תפריט, ניהול מחלות כרוניות, ירידה/עלייה במשקל",
+    icon: "🥗",
+    profession: "תזונה קלינית",
+    systemContext: "קליניקת תזונה קלינית. השתמש ב-BMI, %IBW, SGA, MNA, Harris-Benedict/Mifflin-St Jeor לחישוב צרכים קלוריים. ציין מדדים אנתרופומטריים, ממצאי בדיקות דם רלוונטיות, ורמת פעילות גופנית.",
+    sections: [
+      {
+        key: "subjective",
+        label: "היסטוריה תזונתית",
+        letter: "S",
+        color: "bg-lime-500",
+        ring: "focus-within:ring-lime-200",
+        placeholder: "תלונות, שינויי משקל, הרגלי אכילה, אלרגיות, תרופות, מוטיבציה",
+        guidance: "היסטוריה: תלונות ומטרת פנייה, שינויי משקל (כמה ק\"ג, בכמה זמן), הרגלי אכילה ושתייה, אלרגיות ואי-סבילות, תרופות משפיעות על תזונה, פעילות גופנית, מוטיבציה ומכשולים",
+      },
+      {
+        key: "objective",
+        label: "הערכה תזונתית",
+        letter: "O",
+        color: "bg-emerald-500",
+        ring: "focus-within:ring-emerald-200",
+        placeholder: "אנתרופומטריה (BMI, היקפים), בדיקות דם רלוונטיות, צריכה תזונתית",
+        guidance: "ממצאים: אנתרופומטריה (משקל, גובה, BMI, היקף מותן/ירך, % שומן), בדיקות דם (גלוקוז, HbA1c, שומנים, סידן, ויטמין D, ברזל וכדומה), ניתוח צריכה תזונתית (קלוריות, מאקרו, מיקרו), SGA/MNA",
+      },
+      {
+        key: "assessment",
+        label: "הערכה ותחשיב תזונתי",
+        letter: "A",
+        color: "bg-amber-500",
+        ring: "focus-within:ring-amber-200",
+        placeholder: "אבחנה תזונתית, צרכים קלוריים מחושבים, חסרים תזונתיים, יעדים",
+        guidance: "הערכה: אבחנה תזונתית (תת-תזונה/השמנה/חסר ספציפי), צרכים קלוריים מחושבים (מחושב בנוסחה), חסרי ויטמינים/מינרלים, עומסים גליקמיים, התקדמות ביחס ליעדים",
+      },
+      {
+        key: "plan",
+        label: "תוכנית תזונה",
+        letter: "P",
+        color: "bg-violet-500",
+        ring: "focus-within:ring-violet-200",
+        placeholder: "תפריט ממליץ, יעד קלורי, תוספים, יעד משקל, מעקב, מעורבות רב-מקצועית",
+        guidance: "תוכנית: יעד קלורי ויחס מאקרונוטריאנטים, תפריט לדוגמה, תוספי תזונה מומלצים, יעד משקל ותזמון, המלצות לפעילות גופנית, תדירות מעקב, שיתוף עם רופא/דיאטנית נוספת",
+      },
+    ],
+  },
+  // ── סיעוד קהילתי ──────────────────────────────────────────────────────
+  {
+    id: "nursing_community",
+    name: "סיעוד קהילתי",
+    description: "ביקורי בית, טיפול בפצעים, ניהול תרופות, ניטור כרוני, קשישים",
+    icon: "💊",
+    profession: "סיעוד",
+    systemContext: "סיעוד קהילתי. ציין סימנים חיוניים בערכים מדויקים, מצב פצע לפי סולם PUSH, רמת תפקוד לפי Barthel/Katz, ורמת ביצוע ADL. השתמש בטרמינולוגיה NANDA לאבחנות סיעודיות.",
+    sections: [
+      {
+        key: "subjective",
+        label: "תלונות ומצב נוכחי",
+        letter: "S",
+        color: "bg-sky-500",
+        ring: "focus-within:ring-sky-200",
+        placeholder: "תלונות עדכניות, ציות לתרופות, שינויים, תמיכה משפחתית, סביבה ביתית",
+        guidance: "דיווח: תלונות עיקריות מאז ביקור קודם, ציות לתרופות (מי נותן, האם לוקח), שינויים במצב הכללי, תמיכה משפחתית ומטפל עיקרי, סביבת בית ובטיחות",
+      },
+      {
+        key: "objective",
+        label: "ממצאי בדיקה",
+        letter: "O",
+        color: "bg-emerald-500",
+        ring: "focus-within:ring-emerald-200",
+        placeholder: "סימנים חיוניים, מצב פצע, צנתרים, בדיקות סוכר/לחץ דם, מצב תודעה",
+        guidance: "ממצאים: סימנים חיוניים (BP, HR, RR, SpO2, Temp, glucose), מצב פצעים (מיקום, גודל, עומק, הפרשה, PUSH score), צנתרים/זנדות (סוג, תאריך הכנסה, מצב), מצב תודעה ואוריינטציה, Barthel/Katz",
+      },
+      {
+        key: "assessment",
+        label: "הערכה סיעודית",
+        letter: "A",
+        color: "bg-amber-500",
+        ring: "focus-within:ring-amber-200",
+        placeholder: "אבחנות סיעודיות, שינוי ממצב קודם, סיכונים, יעדים מותאמים",
+        guidance: "הערכה: אבחנות סיעודיות (NANDA), השוואה לביקור קודם (שיפור/החמרה/יציב), סיכוני נפילות/פצעי לחץ/זיהום, עמידה ביעדים קודמים, שינויים נדרשים בטיפול",
+      },
+      {
+        key: "plan",
+        label: "תוכנית סיעודית",
+        letter: "P",
+        color: "bg-violet-500",
+        ring: "focus-within:ring-violet-200",
+        placeholder: "התערבויות, טיפול בפצע, תרופות, הוראות למטפל, תדירות מעקב",
+        guidance: "תוכנית: התערבויות סיעודיות (החלפת תחבושת, ניהול תרופות, הדרכה), תדירות ביקורים, הוראות למטפל עיקרי, תנאי פנייה דחופה, תיאום עם רופא/ספציאליסט",
+      },
+    ],
+  },
+  // ── פסיכולוגיה קלינית ────────────────────────────────────────────────
+  {
+    id: "psychology_clinical",
+    name: "פסיכולוגיה קלינית",
+    description: "CBT, DBT, חרדה, דיכאון, PTSD, הערכה פסיכולוגית, פסיכותרפיה",
+    icon: "🧩",
+    profession: "פסיכולוגיה קלינית",
+    systemContext: "פסיכולוגיה קלינית. השתמש בסולמות: PHQ-9, GAD-7, PCL-5, BDI, BAI, MSE כרלוונטי. ציין ניקוד מדד סיכון לפגיעה עצמית (C-SSRS). ערוך הערכת MSE בשפה פסיכיאטרית מקצועית.",
+    sections: [
+      {
+        key: "subjective",
+        label: "הצגה ועדכון",
+        letter: "S",
+        color: "bg-purple-500",
+        ring: "focus-within:ring-purple-200",
+        placeholder: "מצב רוח, תפקוד, אירועים מאז הפגישה הקודמת, עמידה במשימות בית",
+        guidance: "עדכון: מצב רוח ורגשות (תיאור המטופל עצמו), תפקוד יומיומי (עבודה, חברתי, שינה, תיאבון), אירועים משמעותיים מאז הפגישה הקודמת, עמידה במשימות בית טיפוליות, שינויים בתרופות",
+      },
+      {
+        key: "objective",
+        label: "בחינת המצב הנפשי (MSE)",
+        letter: "O",
+        color: "bg-emerald-500",
+        ring: "focus-within:ring-emerald-200",
+        placeholder: "הופעה, דיבור, מצב רוח/השפעה, מחשבות, תפיסה, קוגניציה, סיכון",
+        guidance: "MSE: הופעה כללית, קשר עין, דיבור (קצב, נפח, קוהרנטיות), מצב רוח (subjective) ו-affect (objective), תוכן מחשבתי (דאגות, רומינציות, אובדנות), תפיסה, קוגניציה, סיכון עצמי (C-SSRS), ציוני סולמות PHQ-9/GAD-7",
+      },
+      {
+        key: "assessment",
+        label: "הערכה פסיכולוגית",
+        letter: "A",
+        color: "bg-amber-500",
+        ring: "focus-within:ring-amber-200",
+        placeholder: "אבחנה, פרמולציה קוגניטיבית-התנהגותית, עוצמת סימפטומים, סיכון",
+        guidance: "הערכה: אבחנה DSM-5 עדכנית, פרמולציה (triggers, automatic thoughts, core beliefs), עוצמת סימפטומים ביחס לסולמות, התקדמות ביחס ליעדים, הערכת סיכון, גורמי protective",
+      },
+      {
+        key: "plan",
+        label: "תוכנית טיפולית",
+        letter: "P",
+        color: "bg-violet-500",
+        ring: "focus-within:ring-violet-200",
+        placeholder: "התערבויות CBT/DBT, משימות בית, יעדי פגישה הבאה, הפניות, תדירות",
+        guidance: "תוכנית: התערבויות שבוצעו (cognitive restructuring, exposure, mindfulness, behavioral activation), משימות בית ספציפיות, יעד לפגישה הבאה, הפניות לפסיכיאטר/שירותים אחרים, תדירות פגישות",
+      },
+    ],
+  },
+  // ── כירופרקטיקה ──────────────────────────────────────────────────────
+  {
+    id: "chiropractic",
+    name: "כירופרקטיקה",
+    description: "הערכה עמוד שדרה, מניפולציה, כאבי גב/צוואר, עצב כלוא, כאבי ראש",
+    icon: "🔧",
+    profession: "כירופרקטיקה",
+    systemContext: "קליניקה כירופרקטית. ציין בדיקות אורטופדיות-נוירולוגיות ספציפיות (SLR, Kemp, Spurling, Ortolani), רמת subluxation, וסוג ומיקום מניפולציה (HVLA, mobilization, drop). ציין ROM בדרגות, ממצאי ציר שדרה.",
+    sections: [
+      {
+        key: "subjective",
+        label: "דיווח סובייקטיבי",
+        letter: "S",
+        color: "bg-sky-500",
+        ring: "focus-within:ring-sky-200",
+        placeholder: "תלונות, מיקום וסוג כאב, מחמירים/משפרים, הקרנות, שינויים מהטיפול הקודם",
+        guidance: "דיווח: תלונה עיקרית, מיקום ואופי הכאב (VAS/NRS), הקרנות (דרמטום), מחמירים ומשפרים (תנועה, ישיבה, שכיבה), שינויים נוירולוגיים (חוסר תחושה, עקצוץ, חולשה), שינויים מהטיפול הקודם",
+      },
+      {
+        key: "objective",
+        label: "בדיקה גופנית",
+        letter: "O",
+        color: "bg-emerald-500",
+        ring: "focus-within:ring-emerald-200",
+        placeholder: "יציבה, ROM, palpation, בדיקות אורטופדיות-נוירולוגיות, ממצאי עמוד שדרה",
+        guidance: "ממצאים: יציבה ב-stance, ROM (בדרגות — פלקציה, אקסטנציה, לטרל פלקציה, רוטציה), palpation (PIPS, muscle guarding, trigger points), בדיקות אורטופדיות (SLR, Kemp, Spurling), רפלקסים, ממצאי subluxation complex",
+      },
+      {
+        key: "assessment",
+        label: "אבחנה כירופרקטית",
+        letter: "A",
+        color: "bg-amber-500",
+        ring: "focus-within:ring-amber-200",
+        placeholder: "אבחנה, רמת subluxation, התקדמות, פרוגנוזה, גורמים תורמים",
+        guidance: "אבחנה: subluxation complex (מיקום, רמה), אבחנה אורטופדית/נוירולוגית, שלב (אקוטי/כרוני), התקדמות ביחס ליעדים, גורמים ארגונומיים/עמוסיים, פרוגנוזה",
+      },
+      {
+        key: "plan",
+        label: "תוכנית טיפול",
+        letter: "P",
+        color: "bg-violet-500",
+        ring: "focus-within:ring-violet-200",
+        placeholder: "מניפולציה שבוצעה, טכניקות, תרגילים, עצות ארגונומיה, תדירות",
+        guidance: "טיפול: מניפולציה HVLA/mobilization (מיקום ספציפי, כיוון, תגובת המטופל), טכניקות נלוות (soft tissue, ultrasound, IFC), תרגילי חיזוק/מתיחה, עצות ארגונומיה ואורח חיים, תדירות וסה\"כ טיפולים מתוכנן",
       },
     ],
   },
@@ -374,6 +756,7 @@ export function resolveTemplateFromSettings(settings: unknown): ClinicalTemplate
         name: s?.template_name ?? "תבנית מותאמת אישית",
         description: "תבנית מותאמת אישית",
         icon: "📋",
+        profession: s?.template_profession ?? "אחר",
         sections,
         systemContext: s?.template_system_context ?? "",
       };
@@ -390,8 +773,8 @@ export function buildSoapPrompt(template: ClinicalTemplate): string {
     .join(",\n");
   const keys = template.sections.map((s) => `"${s.key}"`).join(", ");
 
-  return `אתה עוזר קליני לפיזיותרפיסטים בישראל. קיבלת תמלול של שיחת טיפול פיזיותרפי.
-הקליניקה עובדת בפורמט: ${template.name}.
+  return `אתה עוזר קליני לאנשי מקצוע בתחום הבריאות בישראל. קיבלת תמלול של שיחת טיפול קליני.
+הקליניקה עובדת בפורמט: ${template.name} (${template.profession}).
 ${template.systemContext}
 
 תפקידך לחלץ את המידע ולהחזיר רשומה קלינית מובנית בעברית.

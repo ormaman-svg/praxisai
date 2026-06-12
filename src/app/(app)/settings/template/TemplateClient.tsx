@@ -93,65 +93,75 @@ export default function TemplateClient({
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
       )}
 
-      {/* Pre-built templates */}
+      {/* Pre-built templates grouped by profession */}
       <div>
-        <h2 className="mb-4 text-sm font-bold uppercase tracking-wider text-slate-500">תבניות סטנדרטיות לישראל</h2>
-        <div className="space-y-3">
-          {TEMPLATES.map((t) => {
-            const isSelected = selected === t.id;
-            const isOpen = expanded === t.id;
-            return (
-              <div
-                key={t.id}
-                className={`card overflow-hidden transition-all ${isSelected ? "ring-2 ring-brand" : ""}`}
-              >
-                <div
-                  className="flex cursor-pointer items-center gap-4 p-4"
-                  onClick={() => setExpanded(isOpen ? null : t.id)}
-                >
-                  <span className="text-2xl">{t.icon}</span>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[13.5px] font-bold text-slate-900">{t.name}</span>
-                      {isSelected && (
-                        <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-semibold text-brand">פעיל</span>
+        <h2 className="mb-5 text-sm font-bold uppercase tracking-wider text-slate-500">תבניות סטנדרטיות לישראל</h2>
+        <div className="space-y-8">
+        {Array.from(new Set(TEMPLATES.map((t) => t.profession))).map((profession) => {
+          const group = TEMPLATES.filter((t) => t.profession === profession);
+          return (
+            <div key={profession}>
+              <h2 className="mb-3 text-sm font-bold uppercase tracking-wider text-slate-500">{profession}</h2>
+              <div className="space-y-3">
+                {group.map((t) => {
+                  const isSelected = selected === t.id;
+                  const isOpen = expanded === t.id;
+                  return (
+                    <div
+                      key={t.id}
+                      className={`card overflow-hidden transition-all ${isSelected ? "ring-2 ring-brand" : ""}`}
+                    >
+                      <div
+                        className="flex cursor-pointer items-center gap-4 p-4"
+                        onClick={() => setExpanded(isOpen ? null : t.id)}
+                      >
+                        <span className="text-2xl">{t.icon}</span>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[13.5px] font-bold text-slate-900">{t.name}</span>
+                            {isSelected && (
+                              <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-semibold text-brand">פעיל</span>
+                            )}
+                          </div>
+                          <p className="mt-0.5 text-[12px] text-slate-500">{t.description}</p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {!isSelected && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setSelected(t.id); save(t.id); }}
+                              disabled={saving}
+                              className="btn-primary !py-1.5 !px-3 !text-xs"
+                            >
+                              {saving && selected === t.id ? <Loader2 size={12} className="animate-spin" /> : "בחירה"}
+                            </button>
+                          )}
+                          {isOpen ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
+                        </div>
+                      </div>
+
+                      {/* Section preview */}
+                      {isOpen && (
+                        <div className="border-t border-line bg-slate-50 px-4 py-3">
+                          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">סעיפי הרשומה</p>
+                          <div className="flex flex-wrap gap-2">
+                            {t.sections.map((s) => (
+                              <span key={s.key} className="flex items-center gap-1.5 rounded-full bg-white border border-line px-3 py-1 text-[12px] font-semibold text-slate-700">
+                                <span className={`grid h-5 w-5 place-items-center rounded-full ${s.color} text-[10px] font-bold text-white`}>
+                                  {s.letter}
+                                </span>
+                                {s.label}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
                       )}
                     </div>
-                    <p className="mt-0.5 text-[12px] text-slate-500">{t.description}</p>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {!isSelected && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setSelected(t.id); save(t.id); }}
-                        disabled={saving}
-                        className="btn-primary !py-1.5 !px-3 !text-xs"
-                      >
-                        {saving && selected === t.id ? <Loader2 size={12} className="animate-spin" /> : "בחירה"}
-                      </button>
-                    )}
-                    {isOpen ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
-                  </div>
-                </div>
-
-                {/* Section preview */}
-                {isOpen && (
-                  <div className="border-t border-line bg-slate-50 px-4 py-3">
-                    <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">סעיפי הרשומה</p>
-                    <div className="flex flex-wrap gap-2">
-                      {t.sections.map((s) => (
-                        <span key={s.key} className="flex items-center gap-1.5 rounded-full bg-white border border-line px-3 py-1 text-[12px] font-semibold text-slate-700">
-                          <span className={`grid h-5 w-5 place-items-center rounded-full ${s.color} text-[10px] font-bold text-white`}>
-                            {s.letter}
-                          </span>
-                          {s.label}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                  );
+                })}
               </div>
-            );
-          })}
+            </div>
+          );
+        })}
         </div>
       </div>
 
