@@ -30,6 +30,24 @@ export interface Treatment {
 export interface Doc {
   id: string; clinic_id: string; patient_id: string | null; type: string;
   title: string; content: string; status: "draft" | "final"; created_at: string;
+  signature_data: string | null; signed_by_name: string | null; signed_at: string | null;
+  ai_generated: boolean;
+}
+
+export type AppointmentStatus = "scheduled" | "completed" | "cancelled" | "no_show";
+
+export interface Appointment {
+  id: string; clinic_id: string; patient_id: string; therapist_id: string | null;
+  starts_at: string; ends_at: string; status: AppointmentStatus; notes: string | null;
+  created_at: string;
+}
+
+export type SubscriptionPlan = "free" | "pro" | "clinic";
+
+export interface Subscription {
+  clinic_id: string; plan: SubscriptionPlan;
+  status: "trial" | "active" | "past_due" | "canceled";
+  seats: number; current_period_end: string | null;
 }
 
 export const ROLE_HE: Record<MemberRole, string> = {
@@ -46,4 +64,10 @@ export const DOC_TYPE_HE: Record<string, string> = {
 export const TREATMENT_TYPE_HE: Record<string, string> = {
   initial_eval: "הערכה ראשונית", follow_up: "טיפול המשך", discharge: "שחרור",
   telehealth: "טיפול מרחוק", home_visit: "ביקור בית",
+};
+export const APPT_STATUS_HE: Record<AppointmentStatus, string> = {
+  scheduled: "מתוכנן", completed: "התקיים", cancelled: "בוטל", no_show: "לא הגיע",
+};
+export const PLAN_HE: Record<SubscriptionPlan, string> = {
+  free: "חינם", pro: "מקצועי", clinic: "קליניקה",
 };

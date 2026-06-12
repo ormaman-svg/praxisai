@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  LayoutDashboard, Users, FileText, BarChart3, LogOut, Mic, MessageSquare, ShieldCheck, Building2, Settings,
+  LayoutDashboard, Users, FileText, BarChart3, LogOut, Mic, MessageSquare, ShieldCheck, Building2, Settings, CalendarDays, CreditCard,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import ClinicSwitcher from "./ClinicSwitcher";
@@ -15,6 +15,7 @@ const SUPER_ADMIN = "or.maman@gmail.com";
 
 const NAV = [
   { href: "/dashboard", label: "לוח בקרה", icon: LayoutDashboard },
+  { href: "/schedule", label: "יומן תורים", icon: CalendarDays },
   { href: "/patients", label: "מטופלים", icon: Users },
   { href: "/scribe", label: "תיעוד AI", icon: Mic },
   { href: "/chat", label: "צ'אט AI", icon: MessageSquare },
@@ -89,11 +90,20 @@ export default function Sidebar({
             <Link
               href="/settings/template"
               className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13.5px] font-medium transition-colors ${
-                pathname.startsWith("/settings") ? "bg-brand text-white" : "hover:bg-navy-700 hover:text-white"
+                pathname.startsWith("/settings/template") ? "bg-brand text-white" : "hover:bg-navy-700 hover:text-white"
               }`}
             >
               <Settings size={17} strokeWidth={2} />
               תבנית תיעוד
+            </Link>
+            <Link
+              href="/settings/billing"
+              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13.5px] font-medium transition-colors ${
+                pathname.startsWith("/settings/billing") ? "bg-brand text-white" : "hover:bg-navy-700 hover:text-white"
+              }`}
+            >
+              <CreditCard size={17} strokeWidth={2} />
+              חיוב ומנוי
             </Link>
           </>
         )}

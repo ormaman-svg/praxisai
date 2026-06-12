@@ -16,12 +16,20 @@ export default async function DocumentsPage() {
   }
   if (!clinicId) return null;
 
-  const [{ data: docs }, { data: patients }] = await Promise.all([
+  const [{ data: docs }, { data: patients }, { data: profile }] = await Promise.all([
     supabase.from("documents")
       .select("*, patients(first_name,last_name)")
       .eq("clinic_id", clinicId).order("created_at", { ascending: false }),
     supabase.from("patients").select("id, first_name, last_name").eq("clinic_id", clinicId).order("first_name"),
+    supabase.from("profiles").select("full_name").eq("id", user!.id).single(),
   ]);
 
-  return <DocumentsClient clinicId={clinicId} docs={(docs ?? []) as any} patients={patients ?? []} />;
+  return (
+    <DocumentsClient
+      clinicId={clinicId}
+      docs={(docs ?? []) as any}
+      patients={patients ?? []}
+      userName={profile?.full_name ?? user!.email ?? ""}
+    />
+  );
 }

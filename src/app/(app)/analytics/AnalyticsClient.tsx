@@ -1,11 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Activity, FileText, TrendingDown, Users } from "lucide-react";
+import { Activity, FileText, TrendingDown, Users, UserPlus, CalendarClock, Crown } from "lucide-react";
 import { TREATMENT_TYPE_HE } from "@/lib/types";
 
 type P = { id: string; first_name: string; last_name: string; kupah: string | null; status: string; created_at: string };
-type T = { id: string; patient_id: string; treated_at: string; type: string; vas: number | null };
+type T = { id: string; patient_id: string; therapist_id: string | null; treated_at: string; type: string; vas: number | null };
 type M = { id: string; patient_id: string; kind: string; joint: string | null; movement: string | null; value: number; unit: string; recorded_at: string };
 type D = { id: string; patient_id: string | null; created_at: string };
 
@@ -116,8 +116,11 @@ function Donut({ data }: { data: { label: string; value: number }[] }) {
 
 /* ---------- page ---------- */
 export default function AnalyticsClient({
-  patients, treatments, measurements, docs,
-}: { patients: P[]; treatments: T[]; measurements: M[]; docs: D[] }) {
+  patients, treatments, measurements, docs, therapists, isManager,
+}: {
+  patients: P[]; treatments: T[]; measurements: M[]; docs: D[];
+  therapists: { id: string; name: string }[]; isManager: boolean;
+}) {
   const [patientId, setPatientId] = useState<string>("");
 
   const fT = useMemo(() => (patientId ? treatments.filter((t) => t.patient_id === patientId) : treatments), [patientId, treatments]);
@@ -200,6 +203,40 @@ export default function AnalyticsClient({
     };
   }, [fM]);
 
+  /* ── Manager dashboard: per-therapist comparison + operational KPIs ── */
+  const therapistRows = useMemo(() => {
+    if (!isManager) return [];
+    return therapists.map((th) => {
+      const tx = treatments.filter((t) => t.therapist_id === th.id);
+      const pats = new Set(tx.map((t) => t.patient_id));
+      const vas = tx.filter((t) => t.vas !== null).map((t) => t.vas as number);
+      const h = Math.floor(vas.length / 2);
+      const delta = vas.length >= 4 ? avg(vas.slice(h)) - avg(vas.slice(0, h)) : null;
+      const month = tx.filter((t) => new Date(t.treated_at).getTime() >= monthAgo).length;
+      return { ...th, total: tx.length, month, patients: pats.size, vasDelta: delta };
+    }).sort((a, b) => b.total - a.total);
+  }, [isManager, therapists, treatments, monthAgo]);
+
+  const opsKpis = useMemo(() => {
+    if (!isManager) return null;
+    const newPatients = patients.filter((p) => new Date(p.created_at).getTime() >= monthAgo).length;
+    const treatedPatients = new Set(treatments.map((t) => t.patient_id)).size;
+    const perPatient = treatedPatients ? Math.round((treatments.length / treatedPatients) * 10) / 10 : 0;
+    const dayCount = new Map<number, number>();
+    treatments.forEach((t) => {
+      const d = new Date(t.treated_at).getDay();
+      dayCount.set(d, (dayCount.get(d) ?? 0) + 1);
+    });
+    const peak = Array.from(dayCount.entries()).sort((a, b) => b[1] - a[1])[0];
+    const dayNames = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
+    return {
+      newPatients,
+      perPatient,
+      peakDay: peak ? dayNames[peak[0]] : "—",
+      topTherapist: therapistRows[0]?.name ?? "—",
+    };
+  }, [isManager, patients, treatments, monthAgo, therapistRows]);
+
   const kpis = [
     { label: "טיפולים ב‑30 הימים האחרונים", value: tMonth, icon: Activity, tint: "bg-brand-50 text-brand" },
     {
@@ -242,6 +279,84 @@ export default function AnalyticsClient({
           </div>
         ))}
       </div>
+
+      {/* ── Manager dashboard ── */}
+      {isManager && !patientId && opsKpis && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Crown size={16} className="text-amber-500" />
+            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500">לוח בקרה מנהלי</h2>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <div className="card p-5">
+              <div className="mb-3 grid h-9 w-9 place-items-center rounded-lg bg-sky-50 text-sky-600"><UserPlus size={18} /></div>
+              <div className="text-2xl font-bold text-slate-900">{opsKpis.newPatients}</div>
+              <div className="mt-0.5 text-[12.5px] text-slate-500">מטופלים חדשים החודש</div>
+            </div>
+            <div className="card p-5">
+              <div className="mb-3 grid h-9 w-9 place-items-center rounded-lg bg-rose-50 text-rose-600"><Activity size={18} /></div>
+              <div className="text-2xl font-bold text-slate-900">{opsKpis.perPatient}</div>
+              <div className="mt-0.5 text-[12.5px] text-slate-500">ממוצע טיפולים למטופל</div>
+            </div>
+            <div className="card p-5">
+              <div className="mb-3 grid h-9 w-9 place-items-center rounded-lg bg-indigo-50 text-indigo-600"><CalendarClock size={18} /></div>
+              <div className="text-2xl font-bold text-slate-900">{opsKpis.peakDay}</div>
+              <div className="mt-0.5 text-[12.5px] text-slate-500">יום השיא בקליניקה</div>
+            </div>
+            <div className="card p-5">
+              <div className="mb-3 grid h-9 w-9 place-items-center rounded-lg bg-amber-50 text-amber-600"><Crown size={18} /></div>
+              <div className="truncate text-2xl font-bold text-slate-900">{opsKpis.topTherapist}</div>
+              <div className="mt-0.5 text-[12.5px] text-slate-500">מוביל/ת בטיפולים (6 ח׳)</div>
+            </div>
+          </div>
+
+          {therapistRows.length > 1 && (
+            <div className="card overflow-hidden">
+              <div className="border-b border-line px-5 py-3.5">
+                <h3 className="text-sm font-bold text-slate-900">השוואת מטפלים — 6 החודשים האחרונים</h3>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-right text-[13px]">
+                  <thead>
+                    <tr className="border-b border-line bg-slate-50 text-[11.5px] font-semibold uppercase tracking-wide text-slate-400">
+                      <th className="px-5 py-2.5">מטפל/ת</th>
+                      <th className="px-4 py-2.5">טיפולים</th>
+                      <th className="px-4 py-2.5">ב‑30 ימים</th>
+                      <th className="px-4 py-2.5">מטופלים</th>
+                      <th className="px-4 py-2.5">מגמת VAS</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-line">
+                    {therapistRows.map((r, i) => (
+                      <tr key={r.id} className="hover:bg-slate-50">
+                        <td className="px-5 py-3 font-semibold text-slate-800">
+                          <span className="flex items-center gap-2">
+                            {i === 0 && r.total > 0 && <Crown size={13} className="text-amber-500" />}
+                            {r.name}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-slate-600">{r.total}</td>
+                        <td className="px-4 py-3 text-slate-600">{r.month}</td>
+                        <td className="px-4 py-3 text-slate-600">{r.patients}</td>
+                        <td className="px-4 py-3">
+                          {r.vasDelta === null ? (
+                            <span className="text-slate-300">—</span>
+                          ) : r.vasDelta <= 0 ? (
+                            <span className="font-semibold text-emerald-600">▼ {Math.abs(r.vasDelta).toFixed(1)} שיפור</span>
+                          ) : (
+                            <span className="font-semibold text-red-500">▲ {r.vasDelta.toFixed(1)}</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {fT.length === 0 ? (
         <div className="card px-6 py-14 text-center text-sm text-slate-400">
