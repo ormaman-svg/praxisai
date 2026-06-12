@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -11,22 +11,16 @@ export type OnboardingStep = {
   key: string;
   label: string;
   desc: string;
-  href: string | null; // null → the step is the tour itself
+  href: string | null;
   done: boolean;
 };
 
-const LS_KEY = "praxis_onboarding"; // { tourDone: bool, dismissed: bool }
-
-type Flags = { tourDone?: boolean; dismissed?: boolean };
-
-function readFlags(): Flags {
-  if (typeof window === "undefined") return {};
-  try { return JSON.parse(localStorage.getItem(LS_KEY) ?? "{}"); } catch { return {}; }
-}
-function writeFlags(patch: Flags) {
-  const next = { ...readFlags(), ...patch };
-  localStorage.setItem(LS_KEY, JSON.stringify(next));
-  return next;
+async function patchOnboarding(patch: { tour_done?: boolean; dismissed_at?: string | null }) {
+  await fetch("/api/onboarding", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(patch),
+  });
 }
 
 /* ── Welcome tour slides ─────────────────────────────────────────────── */
@@ -42,7 +36,7 @@ const SLIDES = [
     icon: Mic,
     tint: "from-rose-500 to-red-500",
     title: "תיעוד AI — הקסם המרכזי",
-    body: "במקום להקליד אחרי כל טיפול: לוחצים על הקלטה, מטפלים כרגיל — וה‑AI מתמלל בעברית והופך את השיחה לרשומת SOAP מלאה. נשאר רק לעבור ולחתום.",
+    body: "במקום להקליד אחרי כל טיפול: לוחצים על הקלטה, מטפלים כרגיל — וה‑AI מתמלל בעברית והופך את השיחה לרשומה קלינית מלאה. נשאר רק לעבור ולחתום.",
   },
   {
     icon: Users,
@@ -77,31 +71,31 @@ function Ring({ pct, size = 56 }: { pct: number; size?: number }) {
 
 /* ── Main component ──────────────────────────────────────────────────── */
 
-export default function OnboardingCenter({ steps: dataSteps }: { steps: OnboardingStep[] }) {
+export default function OnboardingCenter({
+  steps: dataSteps,
+  initialTourDone,
+  initialDismissed,
+}: {
+  steps: OnboardingStep[];
+  initialTourDone: boolean;
+  initialDismissed: boolean;
+}) {
   const router = useRouter();
-  const [mounted, setMounted] = useState(false);
-  const [flags, setFlags] = useState<Flags>({});
-  const [tourOpen, setTourOpen] = useState(false);
+  const [tourDone, setTourDone] = useState(initialTourDone);
+  const [dismissed, setDismissed] = useState(initialDismissed);
+  const [tourOpen, setTourOpen] = useState(!initialTourDone && !initialDismissed);
   const [slide, setSlide] = useState(0);
   const [panelOpen, setPanelOpen] = useState(false);
 
-  useEffect(() => {
-    const f = readFlags();
-    setFlags(f);
-    setMounted(true);
-    if (!f.tourDone && !f.dismissed) setTourOpen(true);
-  }, []);
+  if (dismissed) return null;
 
-  if (!mounted || flags.dismissed) return null;
-
-  // the tour itself is the first step
   const steps: OnboardingStep[] = [
     {
       key: "tour",
       label: "סיור היכרות במערכת",
       desc: "ארבעה מסכים קצרים שמסבירים את הכל",
       href: null,
-      done: !!flags.tourDone,
+      done: tourDone,
     },
     ...dataSteps,
   ];
@@ -110,13 +104,16 @@ export default function OnboardingCenter({ steps: dataSteps }: { steps: Onboardi
   const allDone = pct === 100;
 
   function finishTour() {
-    setFlags(writeFlags({ tourDone: true }));
+    setTourDone(true);
     setTourOpen(false);
     setPanelOpen(true);
+    patchOnboarding({ tour_done: true });
   }
+
   function dismiss() {
-    setFlags(writeFlags({ dismissed: true }));
+    setDismissed(true);
     setPanelOpen(false);
+    patchOnboarding({ dismissed_at: new Date().toISOString() });
   }
 
   const Icon = SLIDES[slide].icon;

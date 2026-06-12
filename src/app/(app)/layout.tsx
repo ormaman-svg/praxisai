@@ -70,13 +70,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Live progress for the onboarding center — cheap head-count queries.
   const cid = active.clinic_id;
   const isManager = ["owner", "admin"].includes(active.role);
-  const [patients, treatments, docs, members, invites, clinicSettings] = await Promise.all([
+  const [patients, treatments, docs, members, invites, clinicSettings, onboardingRow] = await Promise.all([
     supabase.from("patients").select("id", { count: "exact", head: true }).eq("clinic_id", cid),
     supabase.from("treatments").select("id", { count: "exact", head: true }).eq("clinic_id", cid),
     supabase.from("documents").select("id", { count: "exact", head: true }).eq("clinic_id", cid),
     supabase.from("clinic_members").select("id", { count: "exact", head: true }).eq("clinic_id", cid).eq("status", "active"),
     supabase.from("invitations").select("id", { count: "exact", head: true }).eq("clinic_id", cid),
     supabase.from("clinics").select("settings").eq("id", cid).single(),
+    supabase.from("user_onboarding").select("tour_done, dismissed_at").eq("user_id", user.id).single(),
   ]);
   const hasTemplate = !!(clinicSettings.data?.settings as any)?.template_id;
 
@@ -133,7 +134,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         userEmail={user.email ?? ""}
       />
       <main className="flex-1 min-w-0 p-6 lg:p-8">{children}</main>
-      <OnboardingCenter steps={onboardingSteps} />
+      <OnboardingCenter
+        steps={onboardingSteps}
+        initialTourDone={onboardingRow.data?.tour_done ?? false}
+        initialDismissed={!!(onboardingRow.data?.dismissed_at)}
+      />
     </div>
   );
 }
