@@ -15,8 +15,8 @@ type Phase = "standby" | "idle" | "recording" | "transcribing" | "generating" | 
 
 /* ── voice command matching ───────────────────────────────────────── */
 
-const START_COMMANDS = ["פרקסיס תרשום", "תרשום", "פרקסיס הקלט", "התחל הקלטה", "פרקסיס תקליט"];
-const STOP_COMMANDS  = ["פרקסיס סיים", "פרקסיס תסכם", "סיים הקלטה", "תסכם", "פרקסיס עצור", "עצור הקלטה"];
+const START_COMMANDS = ["קליני תרשום", "קליני הקלט", "קליני תקליט", "תרשום", "התחל הקלטה", "תתחיל הקלטה"];
+const STOP_COMMANDS  = ["קליני סיים", "קליני תסכם", "קליני עצור", "סיים הקלטה", "תסכם", "עצור הקלטה"];
 
 function matchesAny(text: string, commands: string[]): boolean {
   const clean = text.replace(/[.,!?]/g, "").trim().toLowerCase();
@@ -74,6 +74,7 @@ export default function ScribeClient({ template }: { template: ClinicalTemplate 
   const srRef      = useRef<any>(null); // SpeechRecognition instance
   const phaseRef   = useRef<Phase>("standby"); // readable in SR callbacks
   const mountedRef = useRef(true); // guards SR auto-restart after unmount
+  const startingRef = useRef(false); // guards double-start while mic permission resolves
 
   phaseRef.current = phase;
 
@@ -102,7 +103,7 @@ export default function ScribeClient({ template }: { template: ClinicalTemplate 
     const sr = new SR();
     sr.lang = "he-IL";
     sr.continuous = true;
-    sr.interimResults = false;
+    sr.interimResults = true; // match commands as they're spoken — far more responsive
     sr.maxAlternatives = 3;
     return sr;
   }
@@ -112,36 +113,40 @@ export default function ScribeClient({ template }: { template: ClinicalTemplate 
     const sr = buildSR();
     if (!sr) return;
 
-    sr.onstart = () => { setListening(true); setCmdStatus("ממתין לפקודה…"); };
+    // `listening` reflects our INTENT to listen, set once when SR is engaged.
+    // We never flip it off on the frequent auto-restarts, so the UI stays steady.
+    sr.onstart = () => { setListening(true); };
     sr.onend   = () => {
-      setListening(false);
       if (!mountedRef.current) return; // component unmounted — don't restart
-      // Auto-restart unless we intentionally stopped
-      if (phaseRef.current !== "idle" && phaseRef.current !== "transcribing" &&
-          phaseRef.current !== "generating" && phaseRef.current !== "review") {
-        srRef.current = null;
-        setTimeout(() => { if (mountedRef.current) startSR(); }, 300);
+      srRef.current = null;
+      // Chrome ends recognition on silence — seamlessly restart while we still listen.
+      if (phaseRef.current === "standby" || phaseRef.current === "recording") {
+        setTimeout(() => { if (mountedRef.current) startSR(); }, 150);
+      } else {
+        setListening(false);
       }
     };
     sr.onerror = (e: any) => {
       if (e.error === "no-speech" || e.error === "aborted") return;
-      console.warn("SR error", e.error);
+      if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+        setError("אין הרשאת מיקרופון לזיהוי קולי — אשרו גישה בדפדפן ורעננו.");
+        setListening(false);
+      }
     };
     sr.onresult = (e: any) => {
-      const results = Array.from(e.results as SpeechRecognitionResultList);
-      const texts = results.flatMap((r: any) =>
-        Array.from({ length: r.length }, (_: any, i: number) => r[i].transcript as string)
-      );
-      for (const text of texts) {
-        if (phaseRef.current === "standby" && matchesAny(text, START_COMMANDS)) {
-          setCmdStatus(`זוהתה פקודה: "${text}" — מתחיל הקלטה`);
-          startRecording(true);
-          return;
-        }
-        if (phaseRef.current === "recording" && matchesAny(text, STOP_COMMANDS)) {
-          setCmdStatus(`זוהתה פקודה: "${text}" — עוצר ומעבד`);
-          stopRecording();
-          return;
+      // Only scan results new to this event (interim + final) for fast matching.
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const r = e.results[i];
+        for (let a = 0; a < r.length; a++) {
+          const text = r[a].transcript as string;
+          if (phaseRef.current === "standby" && matchesAny(text, START_COMMANDS)) {
+            startRecording(true);
+            return;
+          }
+          if (phaseRef.current === "recording" && matchesAny(text, STOP_COMMANDS)) {
+            stopRecording();
+            return;
+          }
         }
       }
     };
@@ -228,12 +233,16 @@ export default function ScribeClient({ template }: { template: ClinicalTemplate 
   }, [mode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function startRecording(fromCommand = false) {
+    if (startingRef.current || phaseRef.current === "recording") return; // already starting/recording
+    startingRef.current = true;
+    phaseRef.current = "recording"; // block re-trigger from further interim results immediately
     setError(null);
     setTranscript("");
     setNote({});
     setVas("");
     setSaved(false);
     setElapsed(0);
+    if (fromCommand) setCmdStatus('מקליט… אמרו "קליני סיים" לסיום');
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mr = new MediaRecorder(stream);
@@ -245,14 +254,18 @@ export default function ScribeClient({ template }: { template: ClinicalTemplate 
       setPhase("recording");
       startVisualizer(stream);
       timerRef.current = setInterval(() => setElapsed((s) => s + 1), 1000);
-      if (fromCommand) setCmdStatus('מקליט… אמרו "פרקסיס סיים" לסיום');
     } catch {
+      phaseRef.current = mode === "command" ? "standby" : "idle";
       setError("לא ניתן לגשת למיקרופון — אנא אשרו הרשאה בדפדפן.");
       setPhase(mode === "command" ? "standby" : "idle");
+    } finally {
+      startingRef.current = false;
     }
   }
 
   function stopRecording() {
+    if (phaseRef.current !== "recording") return; // ignore repeat stop commands
+    phaseRef.current = "transcribing"; // block further STOP matches immediately
     if (timerRef.current) clearInterval(timerRef.current);
     mediaRef.current?.stop();
     mediaRef.current?.stream.getTracks().forEach((t) => t.stop());
@@ -383,15 +396,13 @@ export default function ScribeClient({ template }: { template: ClinicalTemplate 
           {mode === "command" && phase === "standby" && (
             <div className="space-y-6">
               <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-white/10 ring-4 ring-white/20">
-                <Ear size={36} className={listening ? "text-brand-100 animate-pulse" : "text-slate-400"} />
+                <Ear size={36} className="text-brand-100 animate-pulse" />
               </div>
               <div>
-                <h2 className="text-lg font-bold">
-                  {listening ? cmdStatus : "מפעיל זיהוי קולי…"}
-                </h2>
-                {listening && (
-                  <p className="mt-2 text-sm text-slate-400">המיקרופון פתוח — ממתין לפקודת ההתחלה</p>
-                )}
+                <h2 className="text-lg font-bold">{cmdStatus}</h2>
+                <p className="mt-2 text-sm text-slate-400">
+                  {listening ? "המיקרופון פתוח — ממתין לפקודת ההתחלה" : "מפעיל מיקרופון…"}
+                </p>
               </div>
 
               {/* Command cards */}
@@ -451,7 +462,7 @@ export default function ScribeClient({ template }: { template: ClinicalTemplate 
               <div className="mb-5 font-mono text-5xl font-bold tracking-wider">{fmt(elapsed)}</div>
               <canvas ref={canvasRef} width={560} height={72} className="mx-auto mb-5 h-[72px] w-full max-w-[560px]" />
               {mode === "command" && (
-                <p className="mb-4 text-sm text-slate-400">אמרו <span className="font-bold text-red-300">"פרקסיס סיים"</span> לסיום</p>
+                <p className="mb-4 text-sm text-slate-400">אמרו <span className="font-bold text-red-300">"קליני סיים"</span> לסיום</p>
               )}
               <button
                 onClick={stopRecording}
