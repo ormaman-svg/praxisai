@@ -2,7 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email/send";
 import { isSuperAdminEmail } from "@/lib/super-admins";
-import { PROFESSIONS, defaultTemplateIdForProfession } from "@/lib/clinic-templates";
+import { PROFESSIONS, defaultTemplateIdForProfession, TEMPLATE_MAP } from "@/lib/clinic-templates";
+import { seedDemoClinic } from "@/lib/demo-seed";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://praxisai-one.vercel.app";
 
@@ -47,16 +48,18 @@ export async function POST(request: Request) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const { name, slug, ownerEmail, clinicType } = await request.json();
+  const { name, slug, ownerEmail, clinicType, isDemo } = await request.json();
   if (!name?.trim() || !ownerEmail?.trim()) {
     return Response.json({ error: "שם הקליניקה ומייל הבעלים הם שדות חובה." }, { status: 400 });
   }
 
   // Clinic type (profession) seeds the documentation template; validated against known professions.
   const profession = typeof clinicType === "string" && PROFESSIONS.includes(clinicType) ? clinicType : null;
-  const settings = profession
-    ? { template_id: defaultTemplateIdForProfession(profession), template_profession: profession }
-    : {};
+  const templateId = profession ? defaultTemplateIdForProfession(profession) : null;
+  const settings: Record<string, unknown> = {
+    ...(profession ? { template_id: templateId, template_profession: profession } : {}),
+    ...(isDemo ? { is_demo: true } : {}),
+  };
 
   const admin = createAdminClient();
   const trimmedSlug = slug?.trim() || null;
@@ -118,6 +121,16 @@ export async function POST(request: Request) {
   });
 
   if (memberErr) return Response.json({ error: memberErr.message }, { status: 500 });
+
+  // Demo clinic → seed profession-appropriate sample data + analytics.
+  if (isDemo && templateId) {
+    try {
+      const template = TEMPLATE_MAP[templateId] ?? TEMPLATE_MAP[defaultTemplateIdForProfession(profession!)];
+      await seedDemoClinic(admin, clinic.id, template, { therapistIds: [owner.id], createdBy: owner.id });
+    } catch (e) {
+      console.error("demo seed failed:", e);
+    }
+  }
 
   // Notify the owner that their clinic is ready.
   const ownerName = owner.user_metadata?.full_name || ownerEmail;

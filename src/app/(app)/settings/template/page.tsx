@@ -24,12 +24,13 @@ export default async function TemplatePage() {
   }
 
   const { data: clinic } = await supabase.from("clinics").select("name, settings").eq("id", clinicId!).single();
-  const settings = (clinic?.settings ?? {}) as Record<string, string>;
+  const settings = (clinic?.settings ?? {}) as Record<string, unknown>;
 
   return (
     <TemplateClient
       clinicName={clinic?.name ?? ""}
-      currentTemplateId={settings.template_id ?? null}
+      currentTemplateId={(settings.template_id as string) ?? null}
+      isDemo={settings.is_demo === true}
     />
   );
 }

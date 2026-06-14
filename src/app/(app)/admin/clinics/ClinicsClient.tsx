@@ -13,7 +13,7 @@ export default function ClinicsClient({ clinics }: { clinics: ClinicRow[] }) {
   const [loading, setLoading] = useState(false);
   const [entering, setEntering] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: "", slug: "", ownerEmail: "", clinicType: PROFESSIONS[0] });
+  const [form, setForm] = useState({ name: "", slug: "", ownerEmail: "", clinicType: PROFESSIONS[0], isDemo: true });
 
   // Delete-confirmation state
   const [toDelete, setToDelete] = useState<ClinicRow | null>(null);
@@ -67,7 +67,7 @@ export default function ClinicsClient({ clinics }: { clinics: ClinicRow[] }) {
     setLoading(false);
     if (!res.ok) { setError(json.error ?? "שגיאה ביצירת הקליניקה."); return; }
     setOpen(false);
-    setForm({ name: "", slug: "", ownerEmail: "", clinicType: PROFESSIONS[0] });
+    setForm({ name: "", slug: "", ownerEmail: "", clinicType: PROFESSIONS[0], isDemo: true });
     router.refresh();
   }
 
@@ -152,6 +152,12 @@ export default function ClinicsClient({ clinics }: { clinics: ClinicRow[] }) {
                 <label className="label">מייל בעלים *</label>
                 <input dir="ltr" type="email" required className="input" value={form.ownerEmail} onChange={(e) => setForm({ ...form, ownerEmail: e.target.value })} placeholder="owner@clinic.co.il" />
               </div>
+              <label className="flex items-start gap-2.5 rounded-lg border border-line bg-slate-50 px-3.5 py-3 cursor-pointer">
+                <input type="checkbox" className="mt-0.5 h-4 w-4 accent-brand" checked={form.isDemo} onChange={(e) => setForm({ ...form, isDemo: e.target.checked })} />
+                <span className="text-[12.5px] text-slate-600">
+                  <span className="font-semibold text-slate-800">קליניקת דמו</span> — צור מטופלים, טיפולים ואנליטיקות לדוגמה התואמים לסוג הקליניקה. שינוי סוג הקליניקה בהמשך ייצֵר את הנתונים מחדש.
+                </span>
+              </label>
               {error && <div className="rounded-lg border border-red-200 bg-red-50 px-3.5 py-2.5 text-[13px] text-red-700">{error}</div>}
               <button type="submit" disabled={loading} className="btn-primary w-full">
                 {loading ? "יוצר…" : "צור קליניקה"}

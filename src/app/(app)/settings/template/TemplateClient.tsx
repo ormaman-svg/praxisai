@@ -8,9 +8,11 @@ import { TEMPLATES, type ClinicalTemplate } from "@/lib/clinic-templates";
 export default function TemplateClient({
   clinicName,
   currentTemplateId,
+  isDemo = false,
 }: {
   clinicName: string;
   currentTemplateId: string | null;
+  isDemo?: boolean;
 }) {
   const router = useRouter();
   const [selected, setSelected] = useState(currentTemplateId ?? "");
@@ -18,23 +20,41 @@ export default function TemplateClient({
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [demoMsg, setDemoMsg] = useState<string | null>(null);
 
   // Custom template state
   const [customSample, setCustomSample] = useState("");
   const [analyzing, setAnalyzing] = useState(false);
   const [customPreview, setCustomPreview] = useState<ClinicalTemplate | null>(null);
 
+  // In a demo clinic, regenerate all patients/treatments/analytics to match the new type.
+  async function reseedDemo() {
+    setDemoMsg("מרענן נתוני דמו להתאמה לסוג הקליניקה…");
+    const r = await fetch("/api/clinic/demo-seed", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    if (!r.ok) { setDemoMsg(null); return; }
+    const d = await r.json().catch(() => null);
+    setDemoMsg(d ? `נתוני הדמו עודכנו: ${d.patients} מטופלים תואמים ל${d.profession}.` : null);
+  }
+
   async function save(templateId: string) {
     setSaving(true);
     setError(null);
     setSaved(false);
+    setDemoMsg(null);
+    const tmpl = TEMPLATES.find((t) => t.id === templateId);
     const r = await fetch("/api/clinic/settings", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ template_id: templateId }),
+      body: JSON.stringify({ template_id: templateId, template_profession: tmpl?.profession }),
     });
+    if (!r.ok) { setSaving(false); setError("שמירה נכשלה — נסו שוב."); return; }
+    setSelected(templateId);
+    if (isDemo) await reseedDemo();
     setSaving(false);
-    if (!r.ok) { setError("שמירה נכשלה — נסו שוב."); return; }
     setSaved(true);
     router.refresh();
     setTimeout(() => setSaved(false), 3000);
@@ -64,13 +84,15 @@ export default function TemplateClient({
       body: JSON.stringify({
         template_id: "custom",
         template_name: customPreview.name,
+        template_profession: "אחר",
         template_sections: customPreview.sections,
         template_system_context: customPreview.systemContext,
       }),
     });
-    setSaving(false);
-    if (!r.ok) { setError("שמירה נכשלה."); return; }
+    if (!r.ok) { setSaving(false); setError("שמירה נכשלה."); return; }
     setSelected("custom");
+    if (isDemo) await reseedDemo();
+    setSaving(false);
     setSaved(true);
     router.refresh();
   }
@@ -91,6 +113,16 @@ export default function TemplateClient({
       )}
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+      )}
+      {isDemo && demoMsg && (
+        <div className="rounded-lg border border-violet-200 bg-violet-50 px-4 py-3 text-sm font-semibold text-violet-700 flex items-center gap-2">
+          <Sparkles size={16} /> {demoMsg}
+        </div>
+      )}
+      {isDemo && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-[12.5px] text-amber-700">
+          קליניקת דמו — בחירת סוג קליניקה תיצור מחדש מטופלים, טיפולים ואנליטיקות לדוגמה המתאימים לתחום שנבחר.
+        </div>
       )}
 
       {/* Pre-built templates grouped by profession */}
