@@ -11,36 +11,3 @@ body { @apply bg-bg text-slate-800 antialiased; }
 .input { @apply w-full rounded-lg border border-line bg-white px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand; }
 .label { @apply block text-[13px] font-semibold text-slate-600 mb-1.5; }
 .badge { @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold; }
-
-/* ── Liquid glass ─────────────────────────────────────────────────────
-   Translucency + depth blur + a bright inset top "specular" edge.
-   Used only on floating/dark surfaces (modals, sidebar, scribe, onboarding) —
-   never on dense data cards, to preserve contrast & readability. */
-
-/* Dim, blurred modal backdrop */
-.glass-overlay { @apply bg-slate-900/40 backdrop-blur-md; }
-
-/* Light frosted floating panel (modals) — near-opaque so forms stay readable */
-.glass-panel {
-  @apply bg-white/85 border border-white/60 rounded-xl;
-  backdrop-filter: blur(20px) saturate(140%);
-  -webkit-backdrop-filter: blur(20px) saturate(140%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .7), 0 10px 30px rgba(15, 23, 42, .18);
-}
-
-/* Dark frosted surface (sidebar, scribe stage, onboarding header) */
-.glass-dark {
-  @apply border border-white/10;
-  background: linear-gradient(180deg, rgba(29, 44, 58, .72), rgba(15, 25, 35, .72));
-  backdrop-filter: blur(18px) saturate(130%);
-  -webkit-backdrop-filter: blur(18px) saturate(130%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .10);
-}
-
-/* Small glass tile on dark surfaces (command cards, icon circles) */
-.glass-tile {
-  @apply border border-white/15 bg-white/5;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12);
-}
