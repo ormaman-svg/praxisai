@@ -90,7 +90,7 @@ export default function ScheduleClient({
     setError(null);
     const starts = new Date(form.starts_at);
     const ends = new Date(starts.getTime() + form.duration * 60000);
-    const { error } = await supabase.from("appointments").insert({
+    const { data: appt, error } = await supabase.from("appointments").insert({
       clinic_id: clinicId,
       patient_id: form.patient_id,
       therapist_id: form.therapist_id || null,
@@ -98,9 +98,39 @@ export default function ScheduleClient({
       ends_at: ends.toISOString(),
       notes: form.notes.trim() || null,
       created_by: userId,
-    });
+    }).select("id").single();
     setSaving(false);
     if (error) { setError("שמירת התור נכשלה — נסו שוב."); return; }
+
+    // Schedule WhatsApp reminders if appointment was created
+    if (appt?.id) {
+      const therapist = therapists.find((t) => t.id === form.therapist_id);
+      const patient = patients.find((p) => p.id === form.patient_id);
+      const timeStr = starts.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
+      const rem24h = new Date(starts.getTime() - 24 * 60 * 60_000).toISOString();
+      const rem2h = new Date(starts.getTime() - 2 * 60 * 60_000).toISOString();
+
+      // Fire-and-forget — failures are non-blocking
+      Promise.all([
+        supabase.from("scheduled_messages").insert({
+          clinic_id: clinicId,
+          patient_id: form.patient_id,
+          appointment_id: appt.id,
+          template_key: "reminder_24h",
+          template_vars: [patient?.first_name ?? "", timeStr, therapist?.name ?? "המטפל/ת"],
+          scheduled_for: rem24h,
+        }),
+        supabase.from("scheduled_messages").insert({
+          clinic_id: clinicId,
+          patient_id: form.patient_id,
+          appointment_id: appt.id,
+          template_key: "reminder_2h",
+          template_vars: [patient?.first_name ?? "", timeStr],
+          scheduled_for: rem2h,
+        }),
+      ]).catch(() => {});
+    }
+
     setModal(null);
     router.refresh();
   }

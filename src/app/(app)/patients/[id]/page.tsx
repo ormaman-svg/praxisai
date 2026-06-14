@@ -8,6 +8,8 @@ import { Donut } from "@/components/charts";
 import TreatmentForm from "./TreatmentForm";
 import VasChart from "./VasChart";
 import RomChart from "./RomChart";
+import HepPanel from "./HepPanel";
+import InvoicesPanel from "./InvoicesPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -17,14 +19,34 @@ export default async function PatientPage({ params }: { params: { id: string } }
   const { data: patient } = await supabase.from("patients").select("*").eq("id", params.id).single();
   if (!patient) notFound();
 
-  const [{ data: treatments }, { data: docs }, { data: measurements }, template] = await Promise.all([
+  const [{ data: treatments }, { data: docs }, { data: measurements }, { data: rawPrograms }, { data: invoices }, template] = await Promise.all([
     supabase.from("treatments")
       .select("*, profiles:therapist_id(full_name)")
       .eq("patient_id", patient.id).order("treated_at", { ascending: false }),
     supabase.from("documents").select("*").eq("patient_id", patient.id).order("created_at", { ascending: false }),
     supabase.from("measurements").select("*").eq("patient_id", patient.id).order("recorded_at", { ascending: true }),
+    supabase.from("exercise_programs")
+      .select("id, title, instructions, active, program_items(id, name, sets, reps, hold_sec, frequency, sort_order), hep_logs(logged_at, completed, pain_score)")
+      .eq("patient_id", patient.id).eq("active", true).order("created_at", { ascending: false }),
+    supabase.from("patient_invoices").select("*").eq("patient_id", patient.id).order("created_at", { ascending: false }),
     getClinicTemplate(supabase, patient.clinic_id),
   ]);
+
+  // Shape HEP programs: sort items, attach the latest log.
+  const programs = (rawPrograms ?? []).map((p: any) => ({
+    id: p.id,
+    title: p.title,
+    instructions: p.instructions,
+    active: p.active,
+    program_items: (p.program_items ?? []).sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0)),
+    lastLog: (p.hep_logs ?? []).sort((a: any, b: any) => +new Date(b.logged_at) - +new Date(a.logged_at))[0] ?? null,
+  }));
+
+  // Most recent treatment's plan text — seeds AI HEP generation.
+  const latest: any = treatments?.[0];
+  const lastPlan = latest?.plan
+    || (latest?.note?.sections ?? []).map((s: any) => s.content).filter(Boolean).join(" ")
+    || "";
 
   const vasSeries = (treatments ?? [])
     .filter((t) => t.vas !== null)
@@ -66,7 +88,7 @@ export default async function PatientPage({ params }: { params: { id: string } }
     },
     {
       icon: Clock,
-      value: daysSinceLast === null ? "—" : daysSinceLast === 0 ? "היום" : `${daysSinceLast}ד׳`,
+      value: daysSinceLast === null ? "—" : daysSinceLast === 0 ? "היום" : daysSinceLast,
       label: "ימים מאז הטיפול האחרון",
       tint: "bg-amber-50 text-amber-600",
     },
@@ -201,6 +223,23 @@ export default async function PatientPage({ params }: { params: { id: string } }
               <Donut data={typeDonut} />
             </div>
           )}
+
+          {/* Home exercise program */}
+          <HepPanel
+            patientId={patient.id}
+            clinicId={patient.clinic_id}
+            patientFirstName={patient.first_name}
+            lastPlan={lastPlan}
+            programs={programs}
+          />
+
+          {/* Patient invoices */}
+          <InvoicesPanel
+            patientId={patient.id}
+            clinicId={patient.clinic_id}
+            patientFirstName={patient.first_name}
+            invoices={invoices ?? []}
+          />
 
           {/* Documents */}
           <div className="card">

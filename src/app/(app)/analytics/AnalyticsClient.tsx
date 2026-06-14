@@ -59,6 +59,8 @@ export default function AnalyticsClient({
   scaleLabel: string; scaleImprovementLower: boolean; templateName: string;
 }) {
   const [patientId, setPatientId] = useState<string>("");
+  const [patientQ, setPatientQ] = useState("");
+  const [patientOpen, setPatientOpen] = useState(false);
 
   const fT = useMemo(() => (patientId ? treatments.filter((t) => t.patient_id === patientId) : treatments), [patientId, treatments]);
   const fM = useMemo(() => (patientId ? measurements.filter((m) => m.patient_id === patientId) : measurements), [patientId, measurements]);
@@ -197,14 +199,47 @@ export default function AnalyticsClient({
           <h1 className="text-2xl font-bold text-slate-900">אנליטיקות</h1>
           <p className="mt-1 text-sm text-slate-500">מדדים ומגמות — 6 החודשים האחרונים · <span className="text-slate-400">{templateName}</span></p>
         </div>
-        <div className="w-64">
+        <div className="relative w-64">
           <label className="label">סינון לפי מטופל</label>
-          <select className="input" value={patientId} onChange={(e) => setPatientId(e.target.value)}>
-            <option value="">כל הקליניקה</option>
-            {patients.map((p) => (
-              <option key={p.id} value={p.id}>{p.first_name} {p.last_name}</option>
-            ))}
-          </select>
+          <input
+            className="input"
+            placeholder="כל הקליניקה"
+            value={patientQ}
+            onFocus={() => setPatientOpen(true)}
+            onChange={(e) => {
+              setPatientQ(e.target.value);
+              setPatientOpen(true);
+              if (!e.target.value) setPatientId("");
+            }}
+            onBlur={() => setTimeout(() => setPatientOpen(false), 150)}
+          />
+          {patientOpen && (() => {
+            const q = patientQ.trim();
+            const matches = patients
+              .filter((p) => !q || `${p.first_name} ${p.last_name}`.includes(q))
+              .slice(0, 8);
+            return (
+              <ul className="absolute z-20 mt-1 w-full rounded-xl border border-line bg-white py-1 shadow-lg">
+                {q && (
+                  <li
+                    className="cursor-pointer px-4 py-2 text-[13px] text-slate-500 hover:bg-slate-50"
+                    onMouseDown={() => { setPatientId(""); setPatientQ(""); setPatientOpen(false); }}
+                  >
+                    כל הקליניקה
+                  </li>
+                )}
+                {matches.map((p) => (
+                  <li
+                    key={p.id}
+                    className="cursor-pointer px-4 py-2 text-[13px] text-slate-800 hover:bg-brand-50"
+                    onMouseDown={() => { setPatientId(p.id); setPatientQ(`${p.first_name} ${p.last_name}`); setPatientOpen(false); }}
+                  >
+                    {p.first_name} {p.last_name}
+                  </li>
+                ))}
+              </ul>
+            );
+          })()}
         </div>
       </div>
 
