@@ -66,7 +66,7 @@ export default async function PatientPage({ params }: { params: { id: string } }
     },
     {
       icon: Clock,
-      value: daysSinceLast === null ? "—" : daysSinceLast === 0 ? "היום" : `${daysSinceLast}ד׳`,
+      value: daysSinceLast === null ? "—" : daysSinceLast === 0 ? "היום" : daysSinceLast,
       label: "ימים מאז הטיפול האחרון",
       tint: "bg-amber-50 text-amber-600",
     },
