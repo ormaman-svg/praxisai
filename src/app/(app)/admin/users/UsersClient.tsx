@@ -240,8 +240,8 @@ export default function UsersClient({
 
       {/* Invite dialog */}
       {open && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/40 p-4" onClick={() => setOpen(false)}>
-          <div className="card w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 grid place-items-center glass-overlay p-4" onClick={() => setOpen(false)}>
+          <div className="glass-panel w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
             <div className="mb-5 flex items-center justify-between">
               <h2 className="text-lg font-bold text-slate-900">הזמנת משתמש חדש</h2>
               <button onClick={() => setOpen(false)} className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100"><X size={18} /></button>

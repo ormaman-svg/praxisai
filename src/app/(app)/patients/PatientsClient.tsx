@@ -211,8 +211,8 @@ export default function PatientsClient({
 
       {/* Add patient modal */}
       {open && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/40 p-4" onClick={() => setOpen(false)}>
-          <div className="card w-full max-w-lg p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 grid place-items-center glass-overlay p-4" onClick={() => setOpen(false)}>
+          <div className="glass-panel w-full max-w-lg p-6" onClick={(e) => e.stopPropagation()}>
             <div className="mb-5 flex items-center justify-between">
               <h2 className="text-lg font-bold text-slate-900">מטופל חדש</h2>
               <button onClick={() => setOpen(false)} className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100"><X size={18} /></button>
@@ -258,8 +258,8 @@ export default function PatientsClient({
 
       {/* ── CSV Import modal ── */}
       {importOpen && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/40 p-4" onClick={closeImport}>
-          <div className="card flex max-h-[88vh] w-full max-w-3xl flex-col p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 grid place-items-center glass-overlay p-4" onClick={closeImport}>
+          <div className="glass-panel flex max-h-[88vh] w-full max-w-3xl flex-col p-6" onClick={(e) => e.stopPropagation()}>
             <div className="mb-5 flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-bold text-slate-900">ייבוא מטופלים מ‑CRM</h2>

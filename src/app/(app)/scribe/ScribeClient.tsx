@@ -387,7 +387,7 @@ export default function ScribeClient({ template }: { template: ClinicalTemplate 
       </div>
 
       {/* ── Main stage ── */}
-      <div className="relative overflow-hidden rounded-2xl bg-navy p-10 text-center text-white shadow-pop">
+      <div className="relative overflow-hidden rounded-2xl bg-navy p-10 text-center text-white shadow-[inset_0_1px_0_rgba(255,255,255,.12),0_10px_30px_rgba(15,23,42,.12)]">
         <div className="pointer-events-none absolute -top-20 right-1/4 h-56 w-56 rounded-full bg-brand/25 blur-3xl" aria-hidden />
         <div className="pointer-events-none absolute -bottom-24 left-1/4 h-56 w-56 rounded-full bg-violet-600/20 blur-3xl" aria-hidden />
 
@@ -395,7 +395,7 @@ export default function ScribeClient({ template }: { template: ClinicalTemplate 
           {/* ── COMMAND MODE: standby ── */}
           {mode === "command" && phase === "standby" && (
             <div className="space-y-6">
-              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-white/10 ring-4 ring-white/20">
+              <div className="glass-tile mx-auto flex h-20 w-20 items-center justify-center rounded-full ring-4 ring-white/20">
                 <Ear size={36} className="text-brand-100 animate-pulse" />
               </div>
               <div>
@@ -407,7 +407,7 @@ export default function ScribeClient({ template }: { template: ClinicalTemplate 
 
               {/* Command cards */}
               <div className="mx-auto grid max-w-md grid-cols-1 gap-3 text-right sm:grid-cols-2">
-                <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                <div className="glass-tile rounded-xl p-3">
                   <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">פקודת התחלה</p>
                   <div className="space-y-1">
                     {START_COMMANDS.slice(0, 3).map((c) => (
@@ -417,7 +417,7 @@ export default function ScribeClient({ template }: { template: ClinicalTemplate 
                     ))}
                   </div>
                 </div>
-                <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                <div className="glass-tile rounded-xl p-3">
                   <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">פקודת סיום</p>
                   <div className="space-y-1">
                     {STOP_COMMANDS.slice(0, 3).map((c) => (
