@@ -1,4 +1,7 @@
-// Create a patient invoice and optionally generate a Stripe Payment Link.
+// Create a patient invoice and (if Stripe is configured) a Payment Link.
+// Flow: insert invoice → create Stripe Payment Link carrying metadata.invoice_id
+//       → update invoice with the link URL. The Stripe webhook later reconciles
+//       payment back to the invoice via that metadata.
 // POST body: { patient_id, amount_ils, description, appointment_id? }
 
 import { createClient } from "@/lib/supabase/server";
@@ -18,7 +21,6 @@ export async function POST(request: Request) {
   }
   if (!clinicId) return Response.json({ error: "אין קליניקה פעילה." }, { status: 400 });
 
-  // Only owner/admin/therapist can create invoices
   const { data: membership } = await supabase
     .from("clinic_members").select("role")
     .eq("clinic_id", clinicId).eq("user_id", user.id).eq("status", "active").single();
@@ -33,22 +35,30 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient();
 
-  let stripePaymentLink: string | null = null;
+  // 1. Insert invoice first so we have an id for Stripe metadata.
+  const { data: invoice, error } = await admin.from("patient_invoices").insert({
+    clinic_id: clinicId,
+    patient_id,
+    appointment_id: appointment_id ?? null,
+    amount_ils: Number(amount_ils),
+    description: description ?? null,
+    created_by: user.id,
+  }).select().single();
 
-  // If Stripe is configured, create a Payment Link
+  if (error || !invoice) return Response.json({ error: "יצירת החשבונית נכשלה." }, { status: 500 });
+
+  // 2. If Stripe configured, create a Payment Link tagged with invoice_id.
+  let stripePaymentLink: string | null = null;
   if (process.env.STRIPE_SECRET_KEY) {
     try {
-      // Create a price object on-the-fly
+      const auth = `Bearer ${process.env.STRIPE_SECRET_KEY}`;
       const priceRes = await fetch("https://api.stripe.com/v1/prices", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${process.env.STRIPE_SECRET_KEY}`,
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
+        headers: { Authorization: auth, "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({
           unit_amount: String(Math.round(Number(amount_ils) * 100)),
           currency: "ils",
-          product_data: JSON.stringify({ name: description ?? "טיפול" }),
+          "product_data[name]": description ?? "טיפול",
         }),
       });
 
@@ -56,39 +66,35 @@ export async function POST(request: Request) {
         const price = await priceRes.json();
         const linkRes = await fetch("https://api.stripe.com/v1/payment_links", {
           method: "POST",
-          headers: {
-            Authorization: `Bearer ${process.env.STRIPE_SECRET_KEY}`,
-            "Content-Type": "application/x-www-form-urlencoded",
-          },
+          headers: { Authorization: auth, "Content-Type": "application/x-www-form-urlencoded" },
           body: new URLSearchParams({
             "line_items[0][price]": price.id,
             "line_items[0][quantity]": "1",
             "metadata[clinic_id]": clinicId,
             "metadata[patient_id]": patient_id,
+            "metadata[invoice_id]": invoice.id,
+            // Propagate metadata onto the generated checkout session so the
+            // checkout.session.completed webhook can reconcile to this invoice.
+            "payment_intent_data[metadata][invoice_id]": invoice.id,
           }),
         });
         if (linkRes.ok) {
-          const link = await linkRes.json();
-          stripePaymentLink = link.url;
+          stripePaymentLink = (await linkRes.json()).url;
+          await admin
+            .from("patient_invoices")
+            .update({ stripe_payment_link: stripePaymentLink })
+            .eq("id", invoice.id);
+        } else {
+          console.error("[patient-invoice] payment_links error:", await linkRes.text());
         }
+      } else {
+        console.error("[patient-invoice] prices error:", await priceRes.text());
       }
     } catch (e) {
       console.error("[patient-invoice] Stripe error:", e);
-      // Non-fatal — create invoice without payment link
+      // Non-fatal — invoice exists, just without an automatic link.
     }
   }
 
-  const { data: invoice, error } = await admin.from("patient_invoices").insert({
-    clinic_id: clinicId,
-    patient_id,
-    appointment_id: appointment_id ?? null,
-    amount_ils: Number(amount_ils),
-    description: description ?? null,
-    stripe_payment_link: stripePaymentLink,
-    created_by: user.id,
-  }).select().single();
-
-  if (error) return Response.json({ error: "יצירת החשבונית נכשלה." }, { status: 500 });
-
-  return Response.json({ invoice });
+  return Response.json({ invoice: { ...invoice, stripe_payment_link: stripePaymentLink } });
 }

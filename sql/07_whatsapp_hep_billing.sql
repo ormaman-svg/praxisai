@@ -35,9 +35,17 @@ create table if not exists conversations (
   status          text not null default 'bot',  -- 'bot' | 'human' | 'closed'
   assigned_to     uuid references profiles(id) on delete set null,
   last_message_at timestamptz,
+  locked_until    timestamptz,            -- lease lock to serialize concurrent webhook processing
   created_at      timestamptz default now()
 );
-create index on conversations(clinic_id, last_message_at desc);
+create index if not exists conversations_clinic_last_msg_idx on conversations(clinic_id, last_message_at desc);
+
+-- Only one ACTIVE (non-closed) conversation per contact per clinic.
+-- Prevents duplicate conversations created by concurrent webhook deliveries,
+-- while still allowing historical 'closed' threads to coexist.
+create unique index if not exists conversations_active_contact_idx
+  on conversations(clinic_id, wa_contact)
+  where status <> 'closed';
 
 alter table conversations enable row level security;
 create policy "clinic members can access conversations"
