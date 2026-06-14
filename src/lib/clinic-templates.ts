@@ -755,6 +755,14 @@ export const TEMPLATE_MAP: Record<string, ClinicalTemplate> = Object.fromEntries
 
 export const DEFAULT_TEMPLATE_ID = "ortho_outpatient";
 
+/** Distinct clinic types (professions), in template order — used for clinic setup. */
+export const PROFESSIONS: string[] = Array.from(new Set(TEMPLATES.map((t) => t.profession)));
+
+/** The default documentation template for a given clinic type (profession). */
+export function defaultTemplateIdForProfession(profession: string): string {
+  return TEMPLATES.find((t) => t.profession === profession)?.id ?? DEFAULT_TEMPLATE_ID;
+}
+
 const FALLBACK_COLORS = [
   { color: "bg-sky-500", ring: "focus-within:ring-sky-200" },
   { color: "bg-emerald-500", ring: "focus-within:ring-emerald-200" },
@@ -823,4 +831,92 @@ ${fieldDefs}
 - אם מידע לא הוזכר — השאר את השדה ריק (מחרוזת ריקה)
 - אל תמציא מידע שלא מופיע בתמלול
 - הוסף מינוח מקצועי מתאים לסוג הקליניקה שם שזה הגיוני מהקשר`;
+}
+
+/* ── Profession-aware AI chat ──────────────────────────────────────────
+   Tailors the clinical chat assistant (expertise framing + starter
+   questions) to the clinic's profession. */
+
+export type ProfessionChat = { expertise: string; starters: string[] };
+
+const PROFESSION_CHAT: Record<string, ProfessionChat> = {
+  "פיזיותרפיה": {
+    expertise: "פיזיותרפיה",
+    starters: [
+      "מה הפרוטוקול המומלץ לשיקום ACL לאחר ניתוח?",
+      "איך מבדילים בין קרע בשרוול הסובב לבין תסמונת פגיעה?",
+      "תרגילים להחזרת ROM בכתף לאחר הקפאה",
+      "ציוני VAS — מה נחשב שיפור משמעותי קלינית?",
+    ],
+  },
+  "קלינאות תקשורת": {
+    expertise: "קלינאות תקשורת",
+    starters: [
+      "תרגילים לשיפור הפקת הצליל /r/ אצל ילד בן 5",
+      "סימני אזהרה לדיספגיה אצל מבוגר לאחר שבץ",
+      "כלים להערכת שטף דיבור אצל ילד עם גמגום",
+      "אסטרטגיות לתקשורת תומכת וחליפית (AAC) למתחילים",
+    ],
+  },
+  "ריפוי בעיסוק": {
+    expertise: "ריפוי בעיסוק",
+    starters: [
+      "פעילויות לשיפור מוטוריקה עדינה אצל ילד בגיל הגן",
+      "התאמות סביבה לאדם עם מגבלה לאחר שבץ",
+      "הערכת ADL — אילו תחומים חשוב לבדוק?",
+      "אינטגרציה סנסורית — עקרונות התערבות בסיסיים",
+    ],
+  },
+  "תזונה קלינית": {
+    expertise: "תזונה קלינית ודיאטה",
+    starters: [
+      "בניית תפריט לאיזון סוכרת סוג 2",
+      "המלצות תזונה לחולה במחלת כליות כרונית",
+      "חישוב צרכים קלוריים לפי משקל ורמת פעילות",
+      "ניהול תזונתי בתסמונת מעי רגיז (IBS)",
+    ],
+  },
+  "סיעוד": {
+    expertise: "סיעוד קהילתי",
+    starters: [
+      "פרוטוקול טיפול בפצע לחץ דרגה 2",
+      "מעקב אחר חולה סוכרת בקהילה — נקודות מפתח",
+      "הדרכת מטופל לאחר אירוע לבבי",
+      "ניהול טיפול תרופתי בקשיש עם ריבוי תרופות",
+    ],
+  },
+  "פסיכולוגיה קלינית": {
+    expertise: "פסיכולוגיה קלינית",
+    starters: [
+      "טכניקות CBT להתמודדות עם חרדה",
+      "אבחנה מבדלת בין דיכאון מאז'ורי לדיסתימיה",
+      "כלי הערכה מקובלים לדיכאון (PHQ-9 ועוד)",
+      "עקרונות בבניית תוכנית טיפול פסיכולוגית",
+    ],
+  },
+  "כירופרקטיקה": {
+    expertise: "כירופרקטיקה",
+    starters: [
+      "גישות טיפול בכאב גב תחתון כרוני",
+      "אינדיקציות והתוויות נגד למניפולציה צווארית",
+      "תרגילי ייצוב ליבה למטופל עם כאב גב",
+      "הערכת יציבה — מה חשוב לבדוק בביקור ראשון?",
+    ],
+  },
+};
+
+const FALLBACK_CHAT: ProfessionChat = {
+  expertise: "התחום הפרא-רפואי",
+  starters: [
+    "מהן נקודות המפתח בבניית תוכנית טיפול למטופל חדש?",
+    "איך מתעדים יעדים טיפוליים מדידים?",
+    "מהם סימני אזהרה שמחייבים הפניה רפואית?",
+    "כלים להערכת התקדמות טיפולית לאורך זמן",
+  ],
+};
+
+/** Chat framing (expertise + starter questions) for a clinic profession. */
+export function getProfessionChat(profession: string | null | undefined): ProfessionChat {
+  if (!profession) return FALLBACK_CHAT;
+  return PROFESSION_CHAT[profession] ?? FALLBACK_CHAT;
 }

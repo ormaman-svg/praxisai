@@ -171,8 +171,8 @@ export default function DocumentsClient({
 
       {/* ── Create modal ── */}
       {open && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/40 p-4" onClick={() => setOpen(false)}>
-          <div className="card w-full max-w-2xl p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 grid place-items-center glass-overlay p-4" onClick={() => setOpen(false)}>
+          <div className="glass-panel w-full max-w-2xl p-6" onClick={(e) => e.stopPropagation()}>
             <div className="mb-5 flex items-center justify-between">
               <h2 className="text-lg font-bold text-slate-900">מסמך חדש</h2>
               <button onClick={() => setOpen(false)} className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100"><X size={18} /></button>
@@ -229,8 +229,8 @@ export default function DocumentsClient({
 
       {/* ── View / sign modal ── */}
       {viewDoc && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/40 p-4" onClick={closeView}>
-          <div className="card flex max-h-[88vh] w-full max-w-2xl flex-col p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 grid place-items-center glass-overlay p-4" onClick={closeView}>
+          <div className="glass-panel flex max-h-[88vh] w-full max-w-2xl flex-col p-6" onClick={(e) => e.stopPropagation()}>
             <div className="mb-4 flex items-start justify-between gap-3">
               <div>
                 <h2 className="text-lg font-bold text-slate-900">{viewDoc.title}</h2>

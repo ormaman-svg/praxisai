@@ -41,7 +41,7 @@ export default function ClinicSwitcher({
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center gap-2.5 rounded-lg bg-navy-800 px-3 py-2.5 text-start transition-colors hover:bg-navy-700"
+        className="glass-tile flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-start transition-colors hover:bg-white/10"
       >
         <Building2 size={16} className="shrink-0 text-brand" />
         <div className="min-w-0 flex-1">
@@ -52,7 +52,7 @@ export default function ClinicSwitcher({
       </button>
 
       {open && memberships.length > 1 && (
-        <div className="absolute inset-x-0 top-full z-30 mt-1.5 overflow-hidden rounded-lg border border-navy-700 bg-navy-800 shadow-pop">
+        <div className="glass-dark absolute inset-x-0 top-full z-30 mt-1.5 overflow-hidden rounded-lg shadow-pop">
           {memberships.map((m) => (
             <button
               key={m.clinic_id}

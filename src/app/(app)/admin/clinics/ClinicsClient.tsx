@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, X, Building2, LogIn, Users, Trash2, AlertTriangle } from "lucide-react";
+import { PROFESSIONS } from "@/lib/clinic-templates";
 
 type ClinicRow = { id: string; name: string; slug: string | null; created_at: string; memberCount: number };
 
@@ -12,7 +13,7 @@ export default function ClinicsClient({ clinics }: { clinics: ClinicRow[] }) {
   const [loading, setLoading] = useState(false);
   const [entering, setEntering] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: "", slug: "", ownerEmail: "" });
+  const [form, setForm] = useState({ name: "", slug: "", ownerEmail: "", clinicType: PROFESSIONS[0] });
 
   // Delete-confirmation state
   const [toDelete, setToDelete] = useState<ClinicRow | null>(null);
@@ -66,7 +67,7 @@ export default function ClinicsClient({ clinics }: { clinics: ClinicRow[] }) {
     setLoading(false);
     if (!res.ok) { setError(json.error ?? "שגיאה ביצירת הקליניקה."); return; }
     setOpen(false);
-    setForm({ name: "", slug: "", ownerEmail: "" });
+    setForm({ name: "", slug: "", ownerEmail: "", clinicType: PROFESSIONS[0] });
     router.refresh();
   }
 
@@ -125,8 +126,8 @@ export default function ClinicsClient({ clinics }: { clinics: ClinicRow[] }) {
       </div>
 
       {open && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/40 p-4" onClick={() => setOpen(false)}>
-          <div className="card w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 grid place-items-center glass-overlay p-4" onClick={() => setOpen(false)}>
+          <div className="glass-panel w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
             <div className="mb-5 flex items-center justify-between">
               <h2 className="text-lg font-bold text-slate-900">קליניקה חדשה</h2>
               <button onClick={() => setOpen(false)} className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100"><X size={18} /></button>
@@ -135,6 +136,13 @@ export default function ClinicsClient({ clinics }: { clinics: ClinicRow[] }) {
               <div>
                 <label className="label">שם הקליניקה *</label>
                 <input required className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="קליניקת השיקום" />
+              </div>
+              <div>
+                <label className="label">סוג הקליניקה *</label>
+                <select className="input" value={form.clinicType} onChange={(e) => setForm({ ...form, clinicType: e.target.value })}>
+                  {PROFESSIONS.map((p) => <option key={p} value={p}>{p}</option>)}
+                </select>
+                <p className="mt-1 text-[11px] text-slate-400">קובע את תבנית התיעוד, המלצות הצ&apos;אט והאנליטיקות. ניתן לשנות בהמשך בהגדרות.</p>
               </div>
               <div>
                 <label className="label">Slug (URL)</label>
@@ -155,8 +163,8 @@ export default function ClinicsClient({ clinics }: { clinics: ClinicRow[] }) {
 
       {/* Delete confirmation */}
       {toDelete && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/40 p-4" onClick={() => setToDelete(null)}>
-          <div className="card w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 grid place-items-center glass-overlay p-4" onClick={() => setToDelete(null)}>
+          <div className="glass-panel w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
             <div className="mb-4 flex items-center gap-3">
               <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-red-50 text-red-600">
                 <AlertTriangle size={20} />

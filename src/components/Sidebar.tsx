@@ -44,7 +44,7 @@ export default function Sidebar({
   }
 
   return (
-    <aside className="sticky top-0 flex h-screen w-64 shrink-0 flex-col bg-navy text-slate-300">
+    <aside className="sticky top-0 flex h-screen w-64 shrink-0 flex-col glass-dark text-slate-300">
       {/* Logo */}
       <div className="flex items-center gap-3 px-5 pt-6 pb-4">
         <Logo size={32} className="text-brand shrink-0" />
@@ -65,7 +65,7 @@ export default function Sidebar({
               key={href}
               href={href}
               className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13.5px] font-medium transition-colors ${
-                active ? "bg-brand text-white" : "hover:bg-navy-700 hover:text-white"
+                active ? "bg-brand text-white shadow-[inset_0_1px_0_rgba(255,255,255,.25)]" : "hover:bg-navy-700 hover:text-white"
               }`}
             >
               <Icon size={17} strokeWidth={2} />
@@ -80,7 +80,7 @@ export default function Sidebar({
             <Link
               href="/admin/users"
               className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13.5px] font-medium transition-colors ${
-                pathname.startsWith("/admin/users") ? "bg-brand text-white" : "hover:bg-navy-700 hover:text-white"
+                pathname.startsWith("/admin/users") ? "bg-brand text-white shadow-[inset_0_1px_0_rgba(255,255,255,.25)]" : "hover:bg-navy-700 hover:text-white"
               }`}
             >
               <ShieldCheck size={17} strokeWidth={2} />
@@ -89,7 +89,7 @@ export default function Sidebar({
             <Link
               href="/settings/billing"
               className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13.5px] font-medium transition-colors ${
-                pathname.startsWith("/settings/billing") ? "bg-brand text-white" : "hover:bg-navy-700 hover:text-white"
+                pathname.startsWith("/settings/billing") ? "bg-brand text-white shadow-[inset_0_1px_0_rgba(255,255,255,.25)]" : "hover:bg-navy-700 hover:text-white"
               }`}
             >
               <CreditCard size={17} strokeWidth={2} />
@@ -104,7 +104,7 @@ export default function Sidebar({
             <Link
               href="/admin/clinics"
               className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13.5px] font-medium transition-colors ${
-                pathname.startsWith("/admin/clinics") ? "bg-brand text-white" : "hover:bg-navy-700 hover:text-white"
+                pathname.startsWith("/admin/clinics") ? "bg-brand text-white shadow-[inset_0_1px_0_rgba(255,255,255,.25)]" : "hover:bg-navy-700 hover:text-white"
               }`}
             >
               <Building2 size={17} strokeWidth={2} />
@@ -113,11 +113,11 @@ export default function Sidebar({
             <Link
               href="/settings/template"
               className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13.5px] font-medium transition-colors ${
-                pathname.startsWith("/settings/template") ? "bg-brand text-white" : "hover:bg-navy-700 hover:text-white"
+                pathname.startsWith("/settings/template") ? "bg-brand text-white shadow-[inset_0_1px_0_rgba(255,255,255,.25)]" : "hover:bg-navy-700 hover:text-white"
               }`}
             >
               <Settings size={17} strokeWidth={2} />
-              תבנית תיעוד
+              סוג הקליניקה
             </Link>
           </>
         )}

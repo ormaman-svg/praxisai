@@ -107,8 +107,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       ? [
           {
             key: "template",
-            label: "הגדרת תבנית תיעוד",
-            desc: "בחרו פורמט קליני — אורטופדי, נוירולוגי ועוד",
+            label: "הגדרת סוג הקליניקה",
+            desc: "בחרו את התחום הקליני — פיזיותרפיה, ריפוי בעיסוק ועוד",
             href: "/settings/template",
             done: hasTemplate,
           },
