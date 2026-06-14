@@ -150,7 +150,7 @@ export default function OnboardingCenter({
     <>
       {/* ── Admin clinic setup ── */}
       {setupOpen && (
-        <div className="fixed inset-0 z-[60] grid place-items-center glass-overlay p-4">
+        <div className="fixed inset-0 z-[60] grid place-items-center bg-slate-900/60 p-4 backdrop-blur-sm">
           <div className="card w-full max-w-xl overflow-hidden">
             <div className="bg-gradient-to-l from-brand to-violet-500 px-8 pb-8 pt-10 text-center text-white">
               <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-white/15 backdrop-blur text-2xl">🏥</div>
@@ -212,7 +212,7 @@ export default function OnboardingCenter({
 
       {/* ── First-entry guided tour ── */}
       {tourOpen && (
-        <div className="fixed inset-0 z-[60] grid place-items-center glass-overlay p-4">
+        <div className="fixed inset-0 z-[60] grid place-items-center bg-slate-900/60 p-4 backdrop-blur-sm">
           <div className="card w-full max-w-lg overflow-hidden">
             <div className={`relative bg-gradient-to-l ${SLIDES[slide].tint} px-8 pb-10 pt-12 text-center text-white`}>
               <button
@@ -268,7 +268,7 @@ export default function OnboardingCenter({
       {panelOpen && (
         <div className="fixed bottom-24 left-6 z-50 w-[340px] max-w-[calc(100vw-3rem)]">
           <div className="card overflow-hidden shadow-xl">
-            <div className="glass-dark px-5 py-4 text-white">
+            <div className="bg-navy px-5 py-4 text-white">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
                   {allDone ? <PartyPopper size={18} className="text-amber-400" /> : <Compass size={18} className="text-brand-100" />}
@@ -345,7 +345,7 @@ export default function OnboardingCenter({
       <button
         onClick={() => { setPanelOpen((o) => !o); router.refresh(); }}
         title="מרכז ההתחלה"
-        className={`fixed bottom-6 left-6 z-50 grid h-14 w-14 place-items-center rounded-full text-white shadow-lg ring-1 ring-white/40 transition-transform hover:scale-105 ${
+        className={`fixed bottom-6 left-6 z-50 grid h-14 w-14 place-items-center rounded-full text-white shadow-lg transition-transform hover:scale-105 ${
           allDone ? "bg-gradient-to-br from-emerald-500 to-teal-600" : "bg-gradient-to-br from-brand to-violet-600"
         }`}
       >
