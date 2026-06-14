@@ -1,0 +1,203 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Dumbbell, Plus, X, Sparkles, Send, Loader2, Check } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+
+type Item = { id?: string; name: string; sets: number | null; reps: number | null; hold_sec: number | null; frequency: string };
+type Program = {
+  id: string;
+  title: string;
+  instructions: string | null;
+  active: boolean;
+  program_items: Item[];
+  lastLog: { logged_at: string; completed: boolean; pain_score: number | null } | null;
+};
+
+const FREQ_HE: Record<string, string> = { daily: "יומי", "2x_daily": "פעמיים ביום", alternate_days: "יום כן יום לא" };
+
+export default function HepPanel({
+  patientId, clinicId, patientFirstName, lastPlan, programs,
+}: {
+  patientId: string;
+  clinicId: string;
+  patientFirstName: string;
+  lastPlan: string;
+  programs: Program[];
+}) {
+  const router = useRouter();
+  const supabase = createClient();
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState("");
+  const [instructions, setInstructions] = useState("");
+  const [items, setItems] = useState<Item[]>([{ name: "", sets: 3, reps: 10, hold_sec: 0, frequency: "daily" }]);
+  const [saving, setSaving] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [sentId, setSentId] = useState<string | null>(null);
+
+  function addItem() {
+    setItems([...items, { name: "", sets: 3, reps: 10, hold_sec: 0, frequency: "daily" }]);
+  }
+  function updateItem(i: number, patch: Partial<Item>) {
+    setItems(items.map((it, idx) => (idx === i ? { ...it, ...patch } : it)));
+  }
+  function removeItem(i: number) {
+    setItems(items.filter((_, idx) => idx !== i));
+  }
+
+  async function aiGenerate() {
+    setGenerating(true);
+    const r = await fetch("/api/hep/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ source: lastPlan || title || "תוכנית תרגול כללית לחיזוק וגמישות" }),
+    });
+    setGenerating(false);
+    const d = await r.json().catch(() => null);
+    if (r.ok && d?.items) {
+      if (d.title) setTitle(d.title);
+      setItems(d.items.map((it: any) => ({
+        name: it.name ?? "", sets: it.sets ?? null, reps: it.reps ?? null,
+        hold_sec: it.hold_sec ?? 0, frequency: it.frequency ?? "daily",
+      })));
+    }
+  }
+
+  async function save() {
+    if (!title.trim() || !items.some((i) => i.name.trim())) return;
+    setSaving(true);
+    const { data: program } = await supabase.from("exercise_programs").insert({
+      clinic_id: clinicId, patient_id: patientId, title: title.trim(),
+      instructions: instructions.trim() || null, active: true,
+    }).select("id").single();
+
+    if (program?.id) {
+      const rows = items.filter((i) => i.name.trim()).map((i, idx) => ({
+        program_id: program.id, name: i.name.trim(), sets: i.sets, reps: i.reps,
+        hold_sec: i.hold_sec, frequency: i.frequency, sort_order: idx,
+      }));
+      await supabase.from("program_items").insert(rows);
+    }
+    setSaving(false);
+    setOpen(false);
+    setTitle(""); setInstructions(""); setItems([{ name: "", sets: 3, reps: 10, hold_sec: 0, frequency: "daily" }]);
+    router.refresh();
+  }
+
+  // Enqueue a WhatsApp nudge (cron sends within 5 min). RLS allows clinic members.
+  async function sendNudge(programId: string) {
+    await supabase.from("scheduled_messages").insert({
+      clinic_id: clinicId, patient_id: patientId, template_key: "hep_nudge",
+      template_vars: [patientFirstName], scheduled_for: new Date().toISOString(),
+    });
+    setSentId(programId);
+    setTimeout(() => setSentId(null), 2000);
+  }
+
+  return (
+    <div className="card p-5">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="flex items-center gap-2 text-sm font-bold text-slate-900">
+          <Dumbbell size={15} className="text-violet-500" /> תרגילי בית (HEP)
+        </h2>
+        <button onClick={() => setOpen(true)} className="text-[12.5px] font-semibold text-brand hover:underline">
+          + תוכנית
+        </button>
+      </div>
+
+      {programs.length === 0 ? (
+        <p className="py-4 text-center text-[12.5px] text-slate-400">אין עדיין תוכנית תרגול.</p>
+      ) : (
+        <ul className="space-y-3">
+          {programs.map((p) => (
+            <li key={p.id} className="rounded-lg border border-line p-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[13px] font-semibold text-slate-800">{p.title}</span>
+                <button
+                  onClick={() => sendNudge(p.id)}
+                  className="flex items-center gap-1 text-[11.5px] font-semibold text-emerald-600 hover:underline"
+                >
+                  {sentId === p.id ? <><Check size={12} /> נשלח</> : <><Send size={12} /> שליחה למטופל</>}
+                </button>
+              </div>
+              <ul className="mt-1.5 space-y-0.5 text-[12px] text-slate-500">
+                {p.program_items.map((it, i) => (
+                  <li key={i}>
+                    • {it.name} {it.sets && it.reps ? `— ${it.sets}×${it.reps}` : ""} {it.frequency ? `(${FREQ_HE[it.frequency] ?? it.frequency})` : ""}
+                  </li>
+                ))}
+              </ul>
+              {p.lastLog && (
+                <div className="mt-1.5 text-[11px] text-slate-400">
+                  דיווח אחרון: {new Date(p.lastLog.logged_at).toLocaleDateString("he-IL")} ·{" "}
+                  {p.lastLog.completed ? "בוצע" : "לא בוצע"}
+                  {p.lastLog.pain_score != null ? ` · כאב ${p.lastLog.pain_score}/10` : ""}
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {/* Create modal */}
+      {open && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/40 p-4" onClick={() => setOpen(false)}>
+          <div className="card flex max-h-[88vh] w-full max-w-lg flex-col p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-slate-900">תוכנית תרגול חדשה</h2>
+              <button onClick={() => setOpen(false)} className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100"><X size={18} /></button>
+            </div>
+
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">
+              <div>
+                <div className="mb-1.5 flex items-center justify-between">
+                  <label className="label !mb-0">שם התוכנית</label>
+                  <button onClick={aiGenerate} disabled={generating}
+                          className="flex items-center gap-1 text-[12px] font-semibold text-brand hover:underline disabled:opacity-50">
+                    {generating ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />} הפקה מ-AI
+                  </button>
+                </div>
+                <input className="input" placeholder="לדוגמה: חיזוק כתף ימין" value={title} onChange={(e) => setTitle(e.target.value)} />
+              </div>
+
+              <div>
+                <label className="label">הוראות כלליות (אופציונלי)</label>
+                <textarea className="input min-h-[60px]" value={instructions} onChange={(e) => setInstructions(e.target.value)} />
+              </div>
+
+              <div>
+                <label className="label">תרגילים</label>
+                <div className="space-y-2">
+                  {items.map((it, i) => (
+                    <div key={i} className="flex items-center gap-2 rounded-lg border border-line p-2">
+                      <input className="input !py-1.5 flex-1" placeholder="שם התרגיל" value={it.name} onChange={(e) => updateItem(i, { name: e.target.value })} />
+                      <input dir="ltr" type="number" className="input !py-1.5 w-14" placeholder="סטים" value={it.sets ?? ""} onChange={(e) => updateItem(i, { sets: e.target.value ? +e.target.value : null })} />
+                      <input dir="ltr" type="number" className="input !py-1.5 w-14" placeholder="חזרות" value={it.reps ?? ""} onChange={(e) => updateItem(i, { reps: e.target.value ? +e.target.value : null })} />
+                      <select className="input !py-1.5 w-28" value={it.frequency} onChange={(e) => updateItem(i, { frequency: e.target.value })}>
+                        <option value="daily">יומי</option>
+                        <option value="2x_daily">פעמיים ביום</option>
+                        <option value="alternate_days">יום כן יום לא</option>
+                      </select>
+                      <button onClick={() => removeItem(i)} className="rounded p-1 text-slate-300 hover:text-red-500"><X size={15} /></button>
+                    </div>
+                  ))}
+                </div>
+                <button onClick={addItem} className="mt-2 flex items-center gap-1 text-[12.5px] font-semibold text-brand hover:underline">
+                  <Plus size={13} /> הוספת תרגיל
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-4 flex justify-end gap-2">
+              <button onClick={() => setOpen(false)} className="btn-ghost">ביטול</button>
+              <button onClick={save} disabled={saving} className="btn-primary">
+                {saving ? <Loader2 size={15} className="animate-spin" /> : "שמירת תוכנית"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

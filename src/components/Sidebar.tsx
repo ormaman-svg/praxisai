@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  LayoutDashboard, Users, FileText, BarChart3, LogOut, Mic, MessageSquare, ShieldCheck, Building2, Settings, CalendarDays, CreditCard,
+  LayoutDashboard, Users, FileText, BarChart3, LogOut, Mic, MessageSquare, ShieldCheck, Building2, Settings, CalendarDays, CreditCard, Inbox, MessageCircle,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import ClinicSwitcher from "./ClinicSwitcher";
@@ -15,6 +15,7 @@ import { isSuperAdminEmail } from "@/lib/super-admins";
 const NAV = [
   { href: "/dashboard", label: "לוח בקרה", icon: LayoutDashboard },
   { href: "/schedule", label: "יומן תורים", icon: CalendarDays },
+  { href: "/inbox", label: "תיבת הודעות", icon: Inbox },
   { href: "/patients", label: "מטופלים", icon: Users },
   { href: "/scribe", label: "תיעוד AI", icon: Mic },
   { href: "/chat", label: "צ'אט AI", icon: MessageSquare },
@@ -85,6 +86,15 @@ export default function Sidebar({
             >
               <ShieldCheck size={17} strokeWidth={2} />
               משתמשים והרשאות
+            </Link>
+            <Link
+              href="/settings/whatsapp"
+              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13.5px] font-medium transition-colors ${
+                pathname.startsWith("/settings/whatsapp") ? "bg-brand text-white" : "hover:bg-navy-700 hover:text-white"
+              }`}
+            >
+              <MessageCircle size={17} strokeWidth={2} />
+              חיבור WhatsApp
             </Link>
             <Link
               href="/settings/billing"
