@@ -1,5 +1,6 @@
 -- Migration 07: WhatsApp patient assistant, HEP, patient invoices
 -- Run after 06_appointments_billing_signature.sql
+-- Idempotent: safe to re-run (drops/recreates policies, named indexes use IF NOT EXISTS).
 
 -- ── Patient opt-in/opt-out per channel ──────────────────────────────────────
 
@@ -14,6 +15,7 @@ create table if not exists patient_consents (
 );
 
 alter table patient_consents enable row level security;
+drop policy if exists "clinic members can manage consents" on patient_consents;
 create policy "clinic members can manage consents"
   on patient_consents for all
   using (exists (
@@ -48,6 +50,7 @@ create unique index if not exists conversations_active_contact_idx
   where status <> 'closed';
 
 alter table conversations enable row level security;
+drop policy if exists "clinic members can access conversations" on conversations;
 create policy "clinic members can access conversations"
   on conversations for all
   using (exists (
@@ -68,9 +71,10 @@ create table if not exists messages (
   sent_at         timestamptz,
   created_at      timestamptz default now()
 );
-create index on messages(conversation_id, created_at);
+create index if not exists messages_conversation_created_idx on messages(conversation_id, created_at);
 
 alter table messages enable row level security;
+drop policy if exists "clinic members can access messages" on messages;
 create policy "clinic members can access messages"
   on messages for all
   using (exists (
@@ -92,15 +96,16 @@ create table if not exists scheduled_messages (
   template_key    text not null,
   template_vars   jsonb,
   scheduled_for   timestamptz not null,
-  status          text not null default 'pending',  -- pending/sent/failed/cancelled
+  status          text not null default 'pending',  -- pending/processing/sent/failed/cancelled
   attempts        int not null default 0,
   last_error      text,
   created_at      timestamptz default now()
 );
-create index on scheduled_messages(status, scheduled_for);
-create index on scheduled_messages(appointment_id);
+create index if not exists scheduled_messages_status_time_idx on scheduled_messages(status, scheduled_for);
+create index if not exists scheduled_messages_appointment_idx on scheduled_messages(appointment_id);
 
 alter table scheduled_messages enable row level security;
+drop policy if exists "clinic members can manage scheduled messages" on scheduled_messages;
 create policy "clinic members can manage scheduled messages"
   on scheduled_messages for all
   using (exists (
@@ -123,9 +128,10 @@ create table if not exists exercise_programs (
   created_by   uuid references profiles(id) on delete set null,
   created_at   timestamptz default now()
 );
-create index on exercise_programs(patient_id);
+create index if not exists exercise_programs_patient_idx on exercise_programs(patient_id);
 
 alter table exercise_programs enable row level security;
+drop policy if exists "clinic members can manage exercise programs" on exercise_programs;
 create policy "clinic members can manage exercise programs"
   on exercise_programs for all
   using (exists (
@@ -148,6 +154,7 @@ create table if not exists program_items (
 );
 
 alter table program_items enable row level security;
+drop policy if exists "clinic members can manage program items" on program_items;
 create policy "clinic members can manage program items"
   on program_items for all
   using (exists (
@@ -168,10 +175,11 @@ create table if not exists hep_logs (
   notes       text,
   logged_at   timestamptz not null default now()
 );
-create index on hep_logs(patient_id, logged_at desc);
-create index on hep_logs(program_id, logged_at desc);
+create index if not exists hep_logs_patient_idx on hep_logs(patient_id, logged_at desc);
+create index if not exists hep_logs_program_idx on hep_logs(program_id, logged_at desc);
 
 alter table hep_logs enable row level security;
+drop policy if exists "clinic members can view hep logs" on hep_logs;
 create policy "clinic members can view hep logs"
   on hep_logs for all
   using (exists (
@@ -199,10 +207,11 @@ create table if not exists patient_invoices (
   created_by           uuid references profiles(id) on delete set null,
   created_at           timestamptz default now()
 );
-create index on patient_invoices(patient_id, created_at desc);
-create index on patient_invoices(clinic_id, status);
+create index if not exists patient_invoices_patient_idx on patient_invoices(patient_id, created_at desc);
+create index if not exists patient_invoices_clinic_status_idx on patient_invoices(clinic_id, status);
 
 alter table patient_invoices enable row level security;
+drop policy if exists "clinic members can manage patient invoices" on patient_invoices;
 create policy "clinic members can manage patient invoices"
   on patient_invoices for all
   using (exists (
