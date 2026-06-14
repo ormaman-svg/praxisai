@@ -78,9 +78,9 @@ export default function TemplateClient({
   return (
     <div className="mx-auto max-w-3xl space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">תבנית תיעוד</h1>
+        <h1 className="text-2xl font-bold text-slate-900">סוג הקליניקה</h1>
         <p className="mt-1 text-sm text-slate-500">
-          בחרו את הפורמט הקליני המתאים ל<strong>{clinicName}</strong>. ה‑AI ישתמש בתבנית זו לכתיבת כל הרשומות.
+          בחרו את התחום הקליני של <strong>{clinicName}</strong>. ההגדרה קובעת את תבנית התיעוד, את המלצות צ&apos;אט ה‑AI ואת האנליטיקות בכל המערכת.
         </p>
       </div>
 

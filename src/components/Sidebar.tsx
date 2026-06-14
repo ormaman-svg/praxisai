@@ -117,7 +117,7 @@ export default function Sidebar({
               }`}
             >
               <Settings size={17} strokeWidth={2} />
-              תבנית תיעוד
+              סוג הקליניקה
             </Link>
           </>
         )}

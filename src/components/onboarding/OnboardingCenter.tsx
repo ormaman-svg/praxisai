@@ -156,7 +156,7 @@ export default function OnboardingCenter({
               <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-white/15 backdrop-blur text-2xl">🏥</div>
               <h2 className="mt-4 text-xl font-bold">הגדרת הקליניקה שלכם</h2>
               <p className="mt-2 text-sm text-white/80 max-w-sm mx-auto">
-                בחרו את תבנית התיעוד הקלינית — ה‑AI יתאים את כל הרשומות, הגרפים והאנליטיקות לתחום שלכם
+                בחרו את סוג הקליניקה — ה‑AI יתאים את תבניות התיעוד, המלצות הצ&apos;אט, הגרפים והאנליטיקות לתחום שלכם
               </p>
             </div>
 
