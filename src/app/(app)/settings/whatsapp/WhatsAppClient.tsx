@@ -5,18 +5,18 @@ import { useRouter } from "next/navigation";
 import { MessageCircle, Copy, Check, Loader2, ExternalLink } from "lucide-react";
 
 type Initial = {
-  wa_phone_id: string;
+  wa_phone_number_id: string;
   wa_waba_id: string;
-  hasApiKey: boolean;
+  hasAccessToken: boolean;
   reminder24h: boolean;
   reminder2h: boolean;
 };
 
 export default function WhatsAppClient({ initial }: { initial: Initial }) {
   const router = useRouter();
-  const [phoneId, setPhoneId] = useState(initial.wa_phone_id);
+  const [phoneNumberId, setPhoneNumberId] = useState(initial.wa_phone_number_id);
   const [wabaId, setWabaId] = useState(initial.wa_waba_id);
-  const [apiKey, setApiKey] = useState("");
+  const [accessToken, setAccessToken] = useState("");
   const [reminder24h, setReminder24h] = useState(initial.reminder24h);
   const [reminder2h, setReminder2h] = useState(initial.reminder2h);
   const [saving, setSaving] = useState(false);
@@ -28,19 +28,19 @@ export default function WhatsAppClient({ initial }: { initial: Initial }) {
     setWebhookUrl(`${window.location.origin}/api/whatsapp/webhook`);
   }, []);
 
-  const connected = !!initial.wa_phone_id && initial.hasApiKey;
+  const connected = !!initial.wa_phone_number_id && initial.hasAccessToken;
 
   async function save() {
     setSaving(true);
     setMsg(null);
     const patch: Record<string, unknown> = {
-      wa_phone_id: phoneId.trim(),
+      wa_phone_number_id: phoneNumberId.trim(),
       wa_waba_id: wabaId.trim(),
       wa_reminder_24h: reminder24h,
       wa_reminder_2h: reminder2h,
     };
-    // Only overwrite the key if the admin typed a new one
-    if (apiKey.trim()) patch.wa_api_key = apiKey.trim();
+    // Only overwrite the token if the admin typed a new one
+    if (accessToken.trim()) patch.wa_access_token = accessToken.trim();
 
     const r = await fetch("/api/clinic/settings", {
       method: "PATCH",
@@ -50,7 +50,7 @@ export default function WhatsAppClient({ initial }: { initial: Initial }) {
     setSaving(false);
     const d = await r.json().catch(() => null);
     if (!r.ok) { setMsg({ kind: "err", text: d?.error ?? "השמירה נכשלה." }); return; }
-    setApiKey("");
+    setAccessToken("");
     setMsg({ kind: "ok", text: "ההגדרות נשמרו בהצלחה." });
     router.refresh();
   }
@@ -72,20 +72,21 @@ export default function WhatsAppClient({ initial }: { initial: Initial }) {
           <p className="mt-0.5 text-sm text-slate-500">
             {connected
               ? <span className="inline-flex items-center gap-1.5 font-semibold text-emerald-600"><Check size={14} /> מחובר ופעיל</span>
-              : "חברו את העוזר האוטומטי ששולח תזכורות ועונה למטופלים"}
+              : "חיבור ישיר מול WhatsApp Cloud API הרשמי של Meta — ללא דמי מנוי למתווך"}
           </p>
         </div>
       </div>
 
       {/* Step-by-step guide */}
       <div className="card p-6">
-        <h2 className="mb-4 text-sm font-bold text-slate-900">איך מחברים — 4 צעדים</h2>
+        <h2 className="mb-4 text-sm font-bold text-slate-900">איך מחברים — 5 צעדים</h2>
         <ol className="space-y-4">
           {[
-            { n: 1, t: "פתחו חשבון 360dialog", d: <>היכנסו ל-<a href="https://hub.360dialog.com" target="_blank" rel="noopener" className="inline-flex items-center gap-0.5 font-semibold text-brand hover:underline">hub.360dialog.com <ExternalLink size={11} /></a> ופתחו חשבון WhatsApp Business API למספר הקליניקה.</> },
-            { n: 2, t: "העתיקו את ה-API Key וה-Phone ID", d: "בלוח הבקרה של 360dialog, תחת ‎WhatsApp Accounts‎, תמצאו את ה-API Key, Phone ID ו-WABA ID. הדביקו אותם בטופס למטה." },
-            { n: 3, t: "הדביקו את כתובת ה-Webhook", d: "העתיקו את כתובת ה-Webhook למטה והדביקו אותה בהגדרות ה-Webhook של 360dialog. כך הודעות נכנסות יגיעו אל המערכת." },
-            { n: 4, t: "אשרו תבניות הודעה", d: "ב-360dialog שלחו לאישור את תבניות ההודעה (תזכורות, תשלום, תרגול). האישור מול Meta אורך עד 24 שעות." },
+            { n: 1, t: "צרו אפליקציה ב-Meta for Developers", d: <>היכנסו ל-<a href="https://developers.facebook.com/apps" target="_blank" rel="noopener" className="inline-flex items-center gap-0.5 font-semibold text-brand hover:underline">developers.facebook.com <ExternalLink size={11} /></a>, צרו אפליקציה מסוג Business והוסיפו את מוצר <strong>WhatsApp</strong>.</> },
+            { n: 2, t: "העתיקו Phone Number ID ו-WABA ID", d: "במסך WhatsApp → API Setup תמצאו את ה-Phone Number ID ואת ה-WhatsApp Business Account ID. הדביקו אותם בטופס למטה." },
+            { n: 3, t: "צרו Permanent Access Token", d: "ב-Business Settings → System Users צרו משתמש מערכת והנפיקו טוקן קבוע עם ההרשאות whatsapp_business_messaging ו-whatsapp_business_management. הדביקו אותו למטה." },
+            { n: 4, t: "הגדירו את ה-Webhook", d: <>תחת WhatsApp → Configuration הדביקו את כתובת ה-Callback למטה, הזינו את ה-<strong>Verify Token</strong> (אותו ערך כמו משתנה הסביבה <code className="rounded bg-slate-100 px-1 text-[11px]">WA_VERIFY_TOKEN</code>), והירשמו לשדה <strong>messages</strong>.</> },
+            { n: 5, t: "אשרו App Secret ותבניות", d: <>שמרו את ה-App Secret (Settings → Basic) כמשתנה הסביבה <code className="rounded bg-slate-100 px-1 text-[11px]">WA_APP_SECRET</code>, ושלחו את תבניות ההודעה לאישור Meta (עד 24 שעות).</> },
           ].map((step) => (
             <li key={step.n} className="flex gap-3.5">
               <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-brand-50 text-[13px] font-bold text-brand">{step.n}</span>
@@ -100,7 +101,7 @@ export default function WhatsAppClient({ initial }: { initial: Initial }) {
 
       {/* Webhook URL */}
       <div className="card p-6">
-        <label className="label">כתובת ה-Webhook (להדביק ב-360dialog)</label>
+        <label className="label">כתובת ה-Webhook / Callback URL (להדביק ב-Meta)</label>
         <div className="mt-1.5 flex gap-2">
           <input readOnly dir="ltr" value={webhookUrl} className="input flex-1 bg-slate-50 font-mono text-[12.5px]" />
           <button onClick={copyWebhook} className="btn-ghost !border !border-line shrink-0">
@@ -114,23 +115,23 @@ export default function WhatsAppClient({ initial }: { initial: Initial }) {
         <h2 className="text-sm font-bold text-slate-900">פרטי חיבור</h2>
 
         <div>
-          <label className="label">Phone ID</label>
+          <label className="label">Phone Number ID</label>
           <input dir="ltr" className="input font-mono" placeholder="לדוגמה: 123456789012345"
-                 value={phoneId} onChange={(e) => setPhoneId(e.target.value)} />
+                 value={phoneNumberId} onChange={(e) => setPhoneNumberId(e.target.value)} />
         </div>
 
         <div>
-          <label className="label">WABA ID</label>
+          <label className="label">WhatsApp Business Account ID (WABA ID)</label>
           <input dir="ltr" className="input font-mono" placeholder="לדוגמה: 987654321098765"
                  value={wabaId} onChange={(e) => setWabaId(e.target.value)} />
         </div>
 
         <div>
-          <label className="label">API Key</label>
+          <label className="label">Permanent Access Token</label>
           <input dir="ltr" type="password" className="input font-mono"
-                 placeholder={initial.hasApiKey ? "•••••••••• (שמור — השאירו ריק כדי לא לשנות)" : "הדביקו את ה-API Key מ-360dialog"}
-                 value={apiKey} onChange={(e) => setApiKey(e.target.value)} />
-          <p className="mt-1 text-[11.5px] text-slate-400">המפתח נשמר מוצפן ומשמש רק את השרת לשליחת הודעות.</p>
+                 placeholder={initial.hasAccessToken ? "•••••••••• (שמור — השאירו ריק כדי לא לשנות)" : "הדביקו את הטוקן הקבוע מ-Meta"}
+                 value={accessToken} onChange={(e) => setAccessToken(e.target.value)} />
+          <p className="mt-1 text-[11.5px] text-slate-400">הטוקן נשמר מוצפן ומשמש רק את השרת לשליחת הודעות.</p>
         </div>
 
         <div className="border-t border-line pt-4 space-y-2.5">

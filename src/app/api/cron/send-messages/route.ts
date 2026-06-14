@@ -80,10 +80,10 @@ export async function GET(request: Request) {
 async function sendOne(supabase: SupabaseClient, msg: DueMessage, now: string): Promise<boolean> {
   const phone = msg.patients?.phone;
   const settings = msg.clinics?.settings;
-  const phoneId = settings?.wa_phone_id;
-  const apiKey = settings?.wa_api_key;
+  const phoneNumberId = settings?.wa_phone_number_id;
+  const accessToken = settings?.wa_access_token;
 
-  if (!phone || !phoneId || !apiKey) {
+  if (!phone || !phoneNumberId || !accessToken) {
     await supabase
       .from("scheduled_messages")
       .update({ status: "failed", last_error: "missing phone or WhatsApp credentials" })
@@ -93,7 +93,7 @@ async function sendOne(supabase: SupabaseClient, msg: DueMessage, now: string): 
 
   try {
     const vars = msg.template_vars ?? [];
-    const waId = await sendTemplate({ phoneId, apiKey }, phone, msg.template_key as TemplateKey, vars);
+    const waId = await sendTemplate({ phoneNumberId, accessToken }, phone, msg.template_key as TemplateKey, vars);
 
     await supabase
       .from("scheduled_messages")

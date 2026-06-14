@@ -31,9 +31,9 @@ export default async function WhatsAppSettingsPage() {
   return (
     <WhatsAppClient
       initial={{
-        wa_phone_id: (s.wa_phone_id as string) ?? "",
+        wa_phone_number_id: (s.wa_phone_number_id as string) ?? "",
         wa_waba_id: (s.wa_waba_id as string) ?? "",
-        hasApiKey: !!s.wa_api_key,
+        hasAccessToken: !!s.wa_access_token,
         reminder24h: s.wa_reminder_24h !== false,
         reminder2h: s.wa_reminder_2h !== false,
       }}

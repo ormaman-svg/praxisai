@@ -22,7 +22,7 @@ const PATIENT_AGENT_SYSTEM = `אתה עוזר אוטומטי של קליניקה
 - הודעות קצרות וידידותיות. לא יותר מ-3 משפטים.
 - אם אינך בטוח — הסלם לאדם (escalate_to_human).`;
 
-type ClinicCreds = { clinicId: string; phoneId: string; apiKey: string };
+type ClinicCreds = { clinicId: string; phoneNumberId: string; accessToken: string };
 type PatientLite = { id: string; first_name: string; last_name: string } | null;
 type ConvCtx = {
   conversationId: string;
@@ -31,15 +31,16 @@ type ConvCtx = {
   patient: PatientLite;
 };
 
-// GET — webhook verification challenge
+// GET — Meta webhook verification handshake (hub.mode / hub.verify_token / hub.challenge)
 export async function GET(request: Request) {
   const url = new URL(request.url);
+  const mode = url.searchParams.get("hub.mode");
   const challenge = url.searchParams.get("hub.challenge");
   const verify = url.searchParams.get("hub.verify_token");
-  if (verify !== process.env.WA_VERIFY_TOKEN) {
-    return new Response("Forbidden", { status: 403 });
+  if (mode === "subscribe" && verify === process.env.WA_VERIFY_TOKEN) {
+    return new Response(challenge ?? "", { status: 200 });
   }
-  return new Response(challenge ?? "ok", { status: 200 });
+  return new Response("Forbidden", { status: 403 });
 }
 
 export async function POST(request: Request) {
@@ -60,12 +61,14 @@ export async function POST(request: Request) {
 
   const entry = (payload.entry as { changes: { value: Record<string, unknown> }[] }[])?.[0];
   const value = entry?.changes?.[0]?.value;
+  const metadata = value?.metadata as { phone_number_id?: string } | undefined;
+  const phoneNumberId = metadata?.phone_number_id;
   const inbound = value?.messages as
     | { id: string; from: string; text?: { body: string }; type: string }[]
     | undefined;
 
-  if (!inbound?.length) {
-    // Status callbacks (delivered/read) — ack silently
+  if (!inbound?.length || !phoneNumberId) {
+    // Status callbacks (delivered/read) or missing routing info — ack silently
     return Response.json({ ok: true });
   }
 
@@ -77,7 +80,7 @@ export async function POST(request: Request) {
   for (const msg of inbound) {
     if (msg.type !== "text" || !msg.text?.body) continue;
 
-    const ctx = await resolveContext(supabase, msg.from);
+    const ctx = await resolveContext(supabase, phoneNumberId, msg.from);
     if (!ctx) continue; // unknown sender / clinic without WA credentials
 
     // Dedup via unique wa_message_id — Meta retries won't double-insert
@@ -135,29 +138,30 @@ export async function POST(request: Request) {
 
 async function resolveContext(
   supabase: SupabaseClient,
+  phoneNumberId: string,
   fromPhone: string
 ): Promise<ConvCtx | null> {
-  const { data: clinics } = await supabase
+  // Meta tells us exactly which business number received the message,
+  // so we route directly to the owning clinic by its phone_number_id.
+  const { data: clinic } = await supabase
     .from("clinics")
     .select("id, settings")
-    .not("settings->wa_phone_id", "is", null)
-    .limit(50);
+    .eq("settings->>wa_phone_number_id", phoneNumberId)
+    .limit(1)
+    .maybeSingle();
+  if (!clinic) return null;
 
-  for (const clinic of clinics ?? []) {
-    const patient = await findPatientByPhone(supabase, clinic.id, fromPhone);
-    if (!patient) continue;
+  const accessToken = clinic.settings?.wa_access_token;
+  if (!accessToken) return null;
 
-    const phoneId = clinic.settings?.wa_phone_id;
-    const apiKey = clinic.settings?.wa_api_key;
-    if (!phoneId || !apiKey) return null;
+  const patient = await findPatientByPhone(supabase, clinic.id, fromPhone);
+  if (!patient) return null; // do not engage unknown senders
 
-    const creds: ClinicCreds = { clinicId: clinic.id, phoneId, apiKey };
-    const conversationId = await getOrCreateConversation(supabase, clinic.id, patient.id, fromPhone);
-    if (!conversationId) return null;
+  const creds: ClinicCreds = { clinicId: clinic.id, phoneNumberId, accessToken };
+  const conversationId = await getOrCreateConversation(supabase, clinic.id, patient.id, fromPhone);
+  if (!conversationId) return null;
 
-    return { conversationId, contact: fromPhone, creds, patient };
-  }
-  return null;
+  return { conversationId, contact: fromPhone, creds, patient };
 }
 
 // Race-safe: relies on the partial unique index (clinic_id, wa_contact) where status<>'closed'.

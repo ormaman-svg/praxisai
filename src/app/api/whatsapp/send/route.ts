@@ -27,13 +27,13 @@ export async function POST(request: Request) {
   const admin = createAdminClient();
   const { data: clinic } = await admin.from("clinics").select("settings").eq("id", conv.clinic_id).single();
   const settings = (clinic?.settings ?? {}) as Record<string, string>;
-  const phoneId = settings.wa_phone_id;
-  const apiKey = settings.wa_api_key;
-  if (!phoneId || !apiKey) return Response.json({ error: "WhatsApp לא מחובר לקליניקה." }, { status: 400 });
+  const phoneNumberId = settings.wa_phone_number_id;
+  const accessToken = settings.wa_access_token;
+  if (!phoneNumberId || !accessToken) return Response.json({ error: "WhatsApp לא מחובר לקליניקה." }, { status: 400 });
 
   let waId = "";
   try {
-    waId = await sendText({ phoneId, apiKey }, conv.wa_contact, text.trim());
+    waId = await sendText({ phoneNumberId, accessToken }, conv.wa_contact, text.trim());
   } catch (e) {
     console.error("[whatsapp/send] error:", e);
     return Response.json({ error: "שליחת ההודעה נכשלה." }, { status: 500 });

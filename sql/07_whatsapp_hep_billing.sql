@@ -66,7 +66,7 @@ create table if not exists messages (
   direction       text not null,           -- 'inbound' | 'outbound'
   body            text,
   template_key    text,                    -- e.g. 'reminder_24h'
-  wa_message_id   text unique,             -- 360dialog id; used for dedup + status updates
+  wa_message_id   text unique,             -- Meta message id; used for dedup + status updates
   status          text not null default 'queued',  -- queued/sent/delivered/read/failed
   sent_at         timestamptz,
   created_at      timestamptz default now()
