@@ -16,6 +16,7 @@ export type ClinicalTemplate = {
   profession: string; // Hebrew profession group label
   scale_label: string; // label for the 0–10 outcome measure shown in analytics
   scale_improvement_lower: boolean; // true = lower score is better (pain), false = higher is better (function)
+  has_scale: boolean; // false = no per-session 0-10 outcome score (e.g. SLP)
   sections: TemplateSection[];
   systemContext: string; // extra Claude context (terminology, phrasing expectations)
 };
@@ -29,6 +30,7 @@ export const TEMPLATES: ClinicalTemplate[] = [
     profession: "פיזיותרפיה",
     scale_label: "VAS כאב",
     scale_improvement_lower: true,
+    has_scale: true,
     systemContext: "קליניקה אורטופדית אמבולטורית. השתמש בטרמינולוגיה כגון ROM, MMT, palpation, ספציפי לבדיקות אורטופדיות (Lachman, SLR, Hawkins, וכדומה). ציין דרגות כאב, טווחי תנועה בדרגות, ועוצמת שריר בסולם Oxford.",
     sections: [
       {
@@ -77,6 +79,7 @@ export const TEMPLATES: ClinicalTemplate[] = [
     profession: "פיזיותרפיה",
     scale_label: "ציון תפקוד (FIM)",
     scale_improvement_lower: false,
+    has_scale: true,
     systemContext: "קליניקה נוירולוגית אמבולטורית. השתמש בסולמות: Barthel, FIM, Berg, MAS (Modified Ashworth), MMSE/MoCA כרלוונטי. ציין תפקוד לפי ICF.",
     sections: [
       {
@@ -125,6 +128,7 @@ export const TEMPLATES: ClinicalTemplate[] = [
     profession: "פיזיותרפיה",
     scale_label: "ציון התפתחות",
     scale_improvement_lower: false,
+    has_scale: true,
     systemContext: "פיזיותרפיה ילדים. השתמש בציוני מיילסטונים התפתחותיים, GMFCS, GMFM, PEDI. כתוב ביחס לגיל הכרונולוגי וגיל מתוקן כשרלוונטי. כלול גישה Family-Centered Care.",
     sections: [
       {
@@ -173,6 +177,7 @@ export const TEMPLATES: ClinicalTemplate[] = [
     profession: "פיזיותרפיה",
     scale_label: "ציון תפקוד (Barthel)",
     scale_improvement_lower: false,
+    has_scale: true,
     systemContext: "מסגרת שיקומית. עבוד עם FIM, Barthel, ציוני ניידות, יעדי STG/LTG מדידים. ציין מעורבות צוות רב-מקצועי כרלוונטי (ריפוי בעיסוק, קלינאי תקשורת, סייעת שיקום).",
     sections: [
       {
@@ -221,6 +226,7 @@ export const TEMPLATES: ClinicalTemplate[] = [
     profession: "פיזיותרפיה",
     scale_label: "VAS כאב",
     scale_improvement_lower: true,
+    has_scale: true,
     systemContext: "מסגרת אשפוז חריפה. ציין הנחיות הרמת עומס, מגבלות רפואיות, ציוד קצה המיטה, ציון תפקוד עם ספציפיות מירבית (עצמאי/עצמאי עם ציוד/פיקוח/עזרה מינימלית-מקסימלית/תלוי מלא). ציין סיכון נפילות.",
     sections: [
       {
@@ -269,6 +275,7 @@ export const TEMPLATES: ClinicalTemplate[] = [
     profession: "פיזיותרפיה",
     scale_label: "VAS כאב",
     scale_improvement_lower: true,
+    has_scale: true,
     systemContext: "פיזיותרפיה של רצפת האגן. השתמש בסולמות PISQ, PFDI, ICQ כרלוונטי. ציין ממצאי בדיקה פנימית בשפה מקצועית ומכבדת. כלול: טונוס (היפרטוני/היפוטוני), כוח (Oxford 0-5), coordinated relaxation.",
     sections: [
       {
@@ -317,6 +324,7 @@ export const TEMPLATES: ClinicalTemplate[] = [
     profession: "פיזיותרפיה",
     scale_label: "ציון תסמינים (DHI)",
     scale_improvement_lower: true,
+    has_scale: true,
     systemContext: "שיקום וסטיבולרי. ציין תוצאות בדיקות: Dix-Hallpike (ימין/שמאל, latency, nystagmus type, duration), Roll test, head impulse test, HINTS. ציין DHI ציון, סוג nystagmus (geotropic/apogeotropic), ואיזה תמרון CRT בוצע.",
     sections: [
       {
@@ -366,6 +374,7 @@ export const TEMPLATES: ClinicalTemplate[] = [
     profession: "קלינאות תקשורת",
     scale_label: "ציון תפקוד תקשורת",
     scale_improvement_lower: false,
+    has_scale: false,
     systemContext: "קליניקת קלינאות תקשורת — מבוגרים. השתמש בסולמות: WAB-R, BDAE, ASHA NOMS, VHI, DOSS, MBS/FEES כרלוונטי. ציין רמת חומרה, אמצעי תקשורת חלופית (AAC) אם רלוונטי, ורמת תפקוד לפי ICF.",
     sections: [
       {
@@ -414,6 +423,7 @@ export const TEMPLATES: ClinicalTemplate[] = [
     profession: "קלינאות תקשורת",
     scale_label: "ציון התפתחות שפה",
     scale_improvement_lower: false,
+    has_scale: false,
     systemContext: "קלינאות תקשורת ילדים. השתמש בציוני מיילסטונים שפתיים (CDI, MCDI), סולמות: PLS-5, GFTA-3, CELF, ADOS-2 כרלוונטי. ציין גיל כרונולוגי ורמת שפה מתקדמת ביחס לגיל. גישת Family-Centered Care.",
     sections: [
       {
@@ -463,6 +473,7 @@ export const TEMPLATES: ClinicalTemplate[] = [
     profession: "ריפוי בעיסוק",
     scale_label: "ציון עצמאות תפקודית",
     scale_improvement_lower: false,
+    has_scale: true,
     systemContext: "ריפוי בעיסוק מבוגרים. השתמש ב-MOHO, COPM, FIM, AMPS, כוח אחיזה (דינמומטר), Pinch כרלוונטי. ציין תפקוד לפי ICF — body function, activity, participation. כלול הערכת סיכון נפילות/בטיחות בית כרלוונטי.",
     sections: [
       {
@@ -511,6 +522,7 @@ export const TEMPLATES: ClinicalTemplate[] = [
     profession: "ריפוי בעיסוק",
     scale_label: "ציון עצמאות תפקודית",
     scale_improvement_lower: false,
+    has_scale: true,
     systemContext: "ריפוי בעיסוק ילדים. השתמש ב-SPM, Sensory Profile, VMI, Peabody, MABC-2, BOT-2 כרלוונטי. ציין רמת השתתפות בגן/בית ספר, גישת Sensory Integration (SI), Family-Centered Care.",
     sections: [
       {
@@ -560,6 +572,7 @@ export const TEMPLATES: ClinicalTemplate[] = [
     profession: "תזונה קלינית",
     scale_label: "מדד היצמדות לתוכנית",
     scale_improvement_lower: false,
+    has_scale: true,
     systemContext: "קליניקת תזונה קלינית. השתמש ב-BMI, %IBW, SGA, MNA, Harris-Benedict/Mifflin-St Jeor לחישוב צרכים קלוריים. ציין מדדים אנתרופומטריים, ממצאי בדיקות דם רלוונטיות, ורמת פעילות גופנית.",
     sections: [
       {
@@ -609,6 +622,7 @@ export const TEMPLATES: ClinicalTemplate[] = [
     profession: "סיעוד",
     scale_label: "ציון מצב כללי",
     scale_improvement_lower: false,
+    has_scale: true,
     systemContext: "סיעוד קהילתי. ציין סימנים חיוניים בערכים מדויקים, מצב פצע לפי סולם PUSH, רמת תפקוד לפי Barthel/Katz, ורמת ביצוע ADL. השתמש בטרמינולוגיה NANDA לאבחנות סיעודיות.",
     sections: [
       {
@@ -658,6 +672,7 @@ export const TEMPLATES: ClinicalTemplate[] = [
     profession: "פסיכולוגיה קלינית",
     scale_label: "ציון מצוקה נפשית",
     scale_improvement_lower: true,
+    has_scale: true,
     systemContext: "פסיכולוגיה קלינית. השתמש בסולמות: PHQ-9, GAD-7, PCL-5, BDI, BAI, MSE כרלוונטי. ציין ניקוד מדד סיכון לפגיעה עצמית (C-SSRS). ערוך הערכת MSE בשפה פסיכיאטרית מקצועית.",
     sections: [
       {
@@ -707,6 +722,7 @@ export const TEMPLATES: ClinicalTemplate[] = [
     profession: "כירופרקטיקה",
     scale_label: "VAS כאב",
     scale_improvement_lower: true,
+    has_scale: true,
     systemContext: "קליניקה כירופרקטית. ציין בדיקות אורטופדיות-נוירולוגיות ספציפיות (SLR, Kemp, Spurling, Ortolani), רמת subluxation, וסוג ומיקום מניפולציה (HVLA, mobilization, drop). ציין ROM בדרגות, ממצאי ציר שדרה.",
     sections: [
       {
@@ -799,6 +815,7 @@ export function resolveTemplateFromSettings(settings: unknown): ClinicalTemplate
         profession: s?.template_profession ?? "אחר",
         scale_label: s?.template_scale_label ?? "ציון מדד",
         scale_improvement_lower: s?.template_scale_improvement_lower ?? true,
+        has_scale: s?.template_has_scale ?? true,
         sections,
         systemContext: s?.template_system_context ?? "",
       };
