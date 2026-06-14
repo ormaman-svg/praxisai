@@ -16,16 +16,20 @@ export default async function PatientsPage() {
   }
   if (!clinicId) return null;
 
-  const [{ data: patients }, { data: therapists }] = await Promise.all([
+  const [{ data: patients }, { data: memberships }] = await Promise.all([
     supabase.from("patients").select("*").eq("clinic_id", clinicId).order("created_at", { ascending: false }),
-    supabase.from("clinic_members").select("user_id, profiles!clinic_members_user_id_fkey(id, full_name)").eq("clinic_id", clinicId).eq("status", "active"),
+    supabase.from("clinic_members").select("user_id, role, profiles!clinic_members_user_id_fkey(id, full_name)").eq("clinic_id", clinicId).eq("status", "active"),
   ]);
+
+  const myRole = (memberships ?? []).find((m: any) => m.user_id === user!.id)?.role ?? "";
+  const canDelete = myRole === "owner" || myRole === "admin";
 
   return (
     <PatientsClient
       clinicId={clinicId}
       initialPatients={patients ?? []}
-      therapists={(therapists ?? []).map((t: any) => ({ id: t.user_id, name: t.profiles?.full_name ?? "" }))}
+      therapists={(memberships ?? []).map((t: any) => ({ id: t.user_id, name: t.profiles?.full_name ?? "" }))}
+      canDelete={canDelete}
     />
   );
 }

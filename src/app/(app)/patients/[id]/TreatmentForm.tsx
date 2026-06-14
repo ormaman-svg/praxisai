@@ -59,11 +59,13 @@ export default function TreatmentForm({ patientId, template }: { patientId: stri
               {Object.entries(TREATMENT_TYPE_HE).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
           </div>
-          <div>
-            <label className="label">VAS (0–10)</label>
-            <input dir="ltr" type="number" min={0} max={10} className="input" value={vas}
-                   onChange={(e) => setVas(e.target.value)} placeholder="—" />
-          </div>
+          {template.has_scale && (
+            <div>
+              <label className="label">{template.scale_label} (0–10)</label>
+              <input dir="ltr" type="number" min={0} max={10} className="input" value={vas}
+                     onChange={(e) => setVas(e.target.value)} placeholder="—" />
+            </div>
+          )}
         </div>
 
         {template.sections.map((s) => (
