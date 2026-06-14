@@ -3,18 +3,19 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Plus, Search, X, Upload, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Plus, Search, X, Upload, AlertCircle, CheckCircle2, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { Patient } from "@/lib/types";
 
 const KUPOT = ["כללית", "מכבי", "מאוחדת", "לאומית", "פרטי"];
 
 export default function PatientsClient({
-  clinicId, initialPatients, therapists,
+  clinicId, initialPatients, therapists, canDelete,
 }: {
   clinicId: string;
   initialPatients: Patient[];
   therapists: { id: string; name: string }[];
+  canDelete?: boolean;
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -23,6 +24,42 @@ export default function PatientsClient({
   const [importOpen, setImportOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  /* ── bulk selection & delete ── */
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  function toggleSelect(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    if (selected.size === filtered.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(filtered.map((p) => p.id)));
+    }
+  }
+
+  async function handleDelete() {
+    setDeleting(true);
+    setDeleteError(null);
+    const { error } = await supabase.from("patients").delete().in("id", Array.from(selected));
+    setDeleting(false);
+    if (error) {
+      setDeleteError("המחיקה נכשלה: " + error.message);
+      return;
+    }
+    setSelected(new Set());
+    setConfirmDelete(false);
+    router.refresh();
+  }
 
   /* ── CSV import state ── */
   type CsvRow = Record<string, string>;
@@ -169,6 +206,20 @@ export default function PatientsClient({
         <input className="input pe-10" placeholder="חיפוש לפי שם, ת&Prime;ז או טלפון…" value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
 
+      {/* Bulk action bar */}
+      {canDelete && selected.size > 0 && (
+        <div className="flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5">
+          <span className="flex-1 text-sm font-semibold text-red-700">{selected.size} מטופלים נבחרו</span>
+          <button onClick={() => setSelected(new Set())} className="text-xs text-red-500 hover:text-red-700">ביטול בחירה</button>
+          <button
+            onClick={() => { setDeleteError(null); setConfirmDelete(true); }}
+            className="flex items-center gap-1.5 rounded-lg bg-red-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-red-700"
+          >
+            <Trash2 size={13} /> מחיקת {selected.size} מטופלים
+          </button>
+        </div>
+      )}
+
       <div className="card overflow-hidden">
         {filtered.length === 0 ? (
           <div className="px-5 py-14 text-center text-sm text-slate-400">
@@ -178,6 +229,16 @@ export default function PatientsClient({
           <table className="w-full text-start">
             <thead>
               <tr className="border-b border-line bg-slate-50 text-[12px] font-semibold uppercase tracking-wide text-slate-500">
+                {canDelete && (
+                  <th className="w-10 px-4 py-3">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 rounded border-slate-300 text-brand focus:ring-brand/30"
+                      checked={filtered.length > 0 && selected.size === filtered.length}
+                      onChange={toggleAll}
+                    />
+                  </th>
+                )}
                 <th className="px-5 py-3 text-start">שם</th>
                 <th className="px-5 py-3 text-start">קופה</th>
                 <th className="px-5 py-3 text-start">אבחנה</th>
@@ -187,7 +248,17 @@ export default function PatientsClient({
             </thead>
             <tbody className="divide-y divide-line text-[13.5px]">
               {filtered.map((p) => (
-                <tr key={p.id} className="transition-colors hover:bg-slate-50">
+                <tr key={p.id} className={`transition-colors hover:bg-slate-50 ${selected.has(p.id) ? "bg-red-50/50" : ""}`}>
+                  {canDelete && (
+                    <td className="w-10 px-4 py-3.5">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-slate-300 text-brand focus:ring-brand/30"
+                        checked={selected.has(p.id)}
+                        onChange={() => toggleSelect(p.id)}
+                      />
+                    </td>
+                  )}
                   <td className="px-5 py-3.5">
                     <Link href={`/patients/${p.id}`} className="font-semibold text-slate-800 hover:text-brand">
                       {p.first_name} {p.last_name}
@@ -252,6 +323,40 @@ export default function PatientsClient({
                 <button type="submit" disabled={saving} className="btn-primary">{saving ? "שומר…" : "שמירת מטופל"}</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete confirmation modal */}
+      {confirmDelete && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/40 p-4" onClick={() => !deleting && setConfirmDelete(false)}>
+          <div className="card w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-4 flex items-center gap-3">
+              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-red-100">
+                <Trash2 size={18} className="text-red-600" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-slate-900">מחיקת {selected.size} מטופלים</h2>
+                <p className="mt-0.5 text-[13px] text-slate-500">פעולה זו אינה הפיכה</p>
+              </div>
+            </div>
+            <p className="mb-5 text-[13px] leading-relaxed text-slate-600">
+              כל הטיפולים, המדידות והפגישות של המטופלים הנבחרים יימחקו לצמיתות.
+              מסמכים שנוצרו יישארו קיימים ללא שיוך.
+            </p>
+            {deleteError && (
+              <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3.5 py-2.5 text-[13px] text-red-700">{deleteError}</div>
+            )}
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setConfirmDelete(false)} disabled={deleting} className="btn-ghost">ביטול</button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="flex items-center gap-1.5 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60"
+              >
+                {deleting ? "מוחק…" : `מחיקת ${selected.size} מטופלים`}
+              </button>
+            </div>
           </div>
         </div>
       )}
