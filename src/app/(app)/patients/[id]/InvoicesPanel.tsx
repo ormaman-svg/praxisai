@@ -34,10 +34,13 @@ export default function InvoicesPanel({
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
+  const [paymentLink, setPaymentLink] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sentId, setSentId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [editLinkId, setEditLinkId] = useState<string | null>(null);
+  const [editLinkVal, setEditLinkVal] = useState("");
 
   async function create() {
     if (!amount || +amount <= 0) { setError("הזינו סכום תקין."); return; }
@@ -46,12 +49,12 @@ export default function InvoicesPanel({
     const r = await fetch("/api/billing/patient-invoice", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ patient_id: patientId, amount_ils: +amount, description }),
+      body: JSON.stringify({ patient_id: patientId, amount_ils: +amount, description, payment_link: paymentLink || undefined }),
     });
     setSaving(false);
     const d = await r.json().catch(() => null);
     if (!r.ok) { setError(d?.error ?? "יצירת החשבונית נכשלה."); return; }
-    setOpen(false); setAmount(""); setDescription("");
+    setOpen(false); setAmount(""); setDescription(""); setPaymentLink("");
     router.refresh();
   }
 
@@ -70,6 +73,17 @@ export default function InvoicesPanel({
     navigator.clipboard.writeText(inv.stripe_payment_link);
     setCopiedId(inv.id);
     setTimeout(() => setCopiedId(null), 1500);
+  }
+
+  async function saveLink(invId: string) {
+    await fetch(`/api/billing/patient-invoice/${invId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ payment_link: editLinkVal }),
+    });
+    setEditLinkId(null);
+    setEditLinkVal("");
+    router.refresh();
   }
 
   return (
@@ -95,14 +109,35 @@ export default function InvoicesPanel({
               </div>
               {inv.description && <div className="mt-0.5 text-[12px] text-slate-500">{inv.description}</div>}
               {inv.status === "pending" && (
-                <div className="mt-2 flex items-center gap-3">
-                  <button onClick={() => sendRequest(inv)} className="flex items-center gap-1 text-[11.5px] font-semibold text-emerald-600 hover:underline">
-                    {sentId === inv.id ? <><Check size={12} /> נשלח</> : <><Send size={12} /> שליחה למטופל</>}
-                  </button>
-                  {inv.stripe_payment_link && (
-                    <button onClick={() => copyLink(inv)} className="flex items-center gap-1 text-[11.5px] font-semibold text-slate-500 hover:underline">
-                      {copiedId === inv.id ? <><Check size={12} /> הועתק</> : <><Copy size={12} /> העתקת קישור</>}
+                <div className="mt-2 space-y-2">
+                  <div className="flex items-center gap-3">
+                    <button onClick={() => sendRequest(inv)} className="flex items-center gap-1 text-[11.5px] font-semibold text-emerald-600 hover:underline">
+                      {sentId === inv.id ? <><Check size={12} /> נשלח</> : <><Send size={12} /> שליחה למטופל</>}
                     </button>
+                    {inv.stripe_payment_link && (
+                      <button onClick={() => copyLink(inv)} className="flex items-center gap-1 text-[11.5px] font-semibold text-slate-500 hover:underline">
+                        {copiedId === inv.id ? <><Check size={12} /> הועתק</> : <><Copy size={12} /> העתקת קישור</>}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => { setEditLinkId(inv.id); setEditLinkVal(inv.stripe_payment_link ?? ""); }}
+                      className="flex items-center gap-1 text-[11.5px] font-semibold text-slate-400 hover:underline"
+                    >
+                      <Copy size={12} /> {inv.stripe_payment_link ? "עדכן קישור" : "הוסף קישור תשלום"}
+                    </button>
+                  </div>
+                  {editLinkId === inv.id && (
+                    <div className="flex items-center gap-2">
+                      <input
+                        dir="ltr"
+                        className="input flex-1 text-[12px]"
+                        placeholder="https://meshulam.co.il/..."
+                        value={editLinkVal}
+                        onChange={(e) => setEditLinkVal(e.target.value)}
+                      />
+                      <button onClick={() => saveLink(inv.id)} className="btn-primary py-1 text-[12px]">שמור</button>
+                      <button onClick={() => setEditLinkId(null)} className="btn-ghost py-1 text-[12px]">ביטול</button>
+                    </div>
                   )}
                 </div>
               )}
@@ -126,6 +161,11 @@ export default function InvoicesPanel({
               <div>
                 <label className="label">תיאור</label>
                 <input className="input" placeholder="טיפול פיזיותרפיה" value={description} onChange={(e) => setDescription(e.target.value)} />
+              </div>
+              <div>
+                <label className="label">קישור תשלום (אופציונלי)</label>
+                <input dir="ltr" className="input text-[12px]" placeholder="https://meshulam.co.il/..." value={paymentLink} onChange={(e) => setPaymentLink(e.target.value)} />
+                <p className="mt-1 text-[11px] text-slate-400">Meshulam, Tranzila, iCount, PayPlus וכו׳</p>
               </div>
               {error && <div className="rounded-lg border border-red-200 bg-red-50 px-3.5 py-2 text-[13px] text-red-700">{error}</div>}
               <div className="flex justify-end gap-2 pt-1">
