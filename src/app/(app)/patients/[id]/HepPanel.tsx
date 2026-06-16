@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Dumbbell, Plus, X, Sparkles, Send, Loader2, Check, ExternalLink } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import type { HomeProgramConfig } from "@/lib/clinic-templates";
 
 type Item = {
   id?: string;
@@ -27,27 +28,32 @@ type Program = {
 const FREQ_HE: Record<string, string> = { daily: "יומי", "2x_daily": "פעמיים ביום", alternate_days: "יום כן יום לא" };
 
 export default function HepPanel({
-  patientId, clinicId, patientFirstName, lastPlan, programs,
+  patientId, clinicId, patientFirstName, lastPlan, programs, config,
 }: {
   patientId: string;
   clinicId: string;
   patientFirstName: string;
   lastPlan: string;
   programs: Program[];
+  config: HomeProgramConfig;
 }) {
   const router = useRouter();
   const supabase = createClient();
+  const blankItem = (): Item => ({
+    name: "", sets: config.showSetsReps ? 3 : null, reps: config.showSetsReps ? 10 : null,
+    hold_sec: 0, frequency: "daily", video_url: "", description: "",
+  });
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [instructions, setInstructions] = useState("");
-  const [items, setItems] = useState<Item[]>([{ name: "", sets: 3, reps: 10, hold_sec: 0, frequency: "daily", video_url: "", description: "" }]);
+  const [items, setItems] = useState<Item[]>([blankItem()]);
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [sentId, setSentId] = useState<string | null>(null);
   const [sendingPlanId, setSendingPlanId] = useState<string | null>(null);
 
   function addItem() {
-    setItems([...items, { name: "", sets: 3, reps: 10, hold_sec: 0, frequency: "daily", video_url: "", description: "" }]);
+    setItems([...items, blankItem()]);
   }
   function updateItem(i: number, patch: Partial<Item>) {
     setItems(items.map((it, idx) => (idx === i ? { ...it, ...patch } : it)));
@@ -97,12 +103,12 @@ export default function HepPanel({
     setSaving(false);
     setOpen(false);
     setTitle(""); setInstructions("");
-    setItems([{ name: "", sets: 3, reps: 10, hold_sec: 0, frequency: "daily", video_url: "", description: "" }]);
+    setItems([blankItem()]);
     router.refresh();
   }
 
   async function sendPlan(programId: string, planTitle: string, planItems: typeof items) {
-    const lines: string[] = [`שלום ${patientFirstName}, הנה תוכנית התרגול שלך: *${planTitle}*`, ""];
+    const lines: string[] = [`שלום ${patientFirstName}, הנה התוכנית שלך: *${planTitle}*`, ""];
     planItems.forEach((it, idx) => {
       if (!it.name) return;
       let line = `${idx + 1}. *${it.name}*`;
@@ -142,7 +148,7 @@ export default function HepPanel({
     <div className="card p-5">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="flex items-center gap-2 text-sm font-bold text-slate-900">
-          <Dumbbell size={15} className="text-violet-500" /> תרגילי בית (HEP)
+          <Dumbbell size={15} className="text-violet-500" /> {config.panelTitle}
         </h2>
         <button onClick={() => setOpen(true)} className="text-[12.5px] font-semibold text-brand hover:underline">
           + תוכנית
@@ -150,7 +156,7 @@ export default function HepPanel({
       </div>
 
       {programs.length === 0 ? (
-        <p className="py-4 text-center text-[12.5px] text-slate-400">אין עדיין תוכנית תרגול.</p>
+        <p className="py-4 text-center text-[12.5px] text-slate-400">אין עדיין תוכנית.</p>
       ) : (
         <ul className="space-y-3">
           {programs.map((p) => (
@@ -205,7 +211,7 @@ export default function HepPanel({
         <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/40 p-4" onClick={() => setOpen(false)}>
           <div className="card flex max-h-[88vh] w-full max-w-lg flex-col p-6" onClick={(e) => e.stopPropagation()}>
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-slate-900">תוכנית תרגול חדשה</h2>
+              <h2 className="text-lg font-bold text-slate-900">{config.newTitle}</h2>
               <button onClick={() => setOpen(false)} className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100"><X size={18} /></button>
             </div>
 
@@ -227,17 +233,21 @@ export default function HepPanel({
               </div>
 
               <div>
-                <label className="label">תרגילים</label>
+                <label className="label">{config.itemNoun === "תרגיל" ? "תרגילים" : `${config.itemNoun}ות`}</label>
                 <div className="space-y-3">
                   {items.map((it, i) => (
                     <div key={i} className="rounded-lg border border-line p-3 space-y-2">
                       <div className="flex items-center gap-2">
-                        <input className="input !py-1.5 flex-1" placeholder="שם התרגיל" value={it.name} onChange={(e) => updateItem(i, { name: e.target.value })} />
+                        <input className="input !py-1.5 flex-1" placeholder={config.namePlaceholder} value={it.name} onChange={(e) => updateItem(i, { name: e.target.value })} />
                         <button onClick={() => removeItem(i)} className="rounded p-1 text-slate-300 hover:text-red-500"><X size={15} /></button>
                       </div>
                       <div className="flex items-center gap-2">
-                        <input dir="ltr" type="number" className="input !py-1.5 w-16" placeholder="סטים" value={it.sets ?? ""} onChange={(e) => updateItem(i, { sets: e.target.value ? +e.target.value : null })} />
-                        <input dir="ltr" type="number" className="input !py-1.5 w-16" placeholder="חזרות" value={it.reps ?? ""} onChange={(e) => updateItem(i, { reps: e.target.value ? +e.target.value : null })} />
+                        {config.showSetsReps && (
+                          <>
+                            <input dir="ltr" type="number" className="input !py-1.5 w-16" placeholder="סטים" value={it.sets ?? ""} onChange={(e) => updateItem(i, { sets: e.target.value ? +e.target.value : null })} />
+                            <input dir="ltr" type="number" className="input !py-1.5 w-16" placeholder="חזרות" value={it.reps ?? ""} onChange={(e) => updateItem(i, { reps: e.target.value ? +e.target.value : null })} />
+                          </>
+                        )}
                         <select className="input !py-1.5 flex-1" value={it.frequency} onChange={(e) => updateItem(i, { frequency: e.target.value })}>
                           <option value="daily">יומי</option>
                           <option value="2x_daily">פעמיים ביום</option>
@@ -245,12 +255,14 @@ export default function HepPanel({
                         </select>
                       </div>
                       <input className="input !py-1.5 text-[12px]" placeholder="תיאור קצר (אופציונלי)" value={it.description} onChange={(e) => updateItem(i, { description: e.target.value })} />
-                      <input dir="ltr" className="input !py-1.5 text-[12px]" placeholder="קישור וידאו YouTube/Vimeo (אופציונלי)" value={it.video_url} onChange={(e) => updateItem(i, { video_url: e.target.value })} />
+                      {config.showVideo && (
+                        <input dir="ltr" className="input !py-1.5 text-[12px]" placeholder="קישור וידאו YouTube/Vimeo (אופציונלי)" value={it.video_url} onChange={(e) => updateItem(i, { video_url: e.target.value })} />
+                      )}
                     </div>
                   ))}
                 </div>
                 <button onClick={addItem} className="mt-2 flex items-center gap-1 text-[12.5px] font-semibold text-brand hover:underline">
-                  <Plus size={13} /> הוספת תרגיל
+                  <Plus size={13} /> {config.addLabel}
                 </button>
               </div>
             </div>

@@ -937,3 +937,104 @@ export function getProfessionChat(profession: string | null | undefined): Profes
   if (!profession) return FALLBACK_CHAT;
   return PROFESSION_CHAT[profession] ?? FALLBACK_CHAT;
 }
+
+/* ── Home program (HEP) configuration ──────────────────────────────────
+   A "home program" is relevant to some professions but not others
+   (e.g. dietetics manages meal plans, community nursing has no self-practice).
+   When relevant, terminology + AI framing are tailored to the profession so
+   the generated items make sense (physical exercises vs. speech drills vs.
+   therapeutic homework). */
+
+export type HomeProgramConfig = {
+  panelTitle: string;       // panel heading, e.g. "תרגילי בית (HEP)"
+  newTitle: string;         // create-modal title
+  itemNoun: string;         // singular item noun, e.g. "תרגיל"
+  addLabel: string;         // add-item button, e.g. "הוספת תרגיל"
+  namePlaceholder: string;  // item name input placeholder
+  showSetsReps: boolean;    // physical sets/reps fields relevant?
+  showVideo: boolean;       // attach demonstration videos (YouTube)?
+  aiRole: string;           // AI generation persona, e.g. "אתה פיזיותרפיסט מומחה"
+  aiItemNoun: string;       // what the AI should produce, in prompt language
+};
+
+const HOME_PROGRAM: Record<string, HomeProgramConfig> = {
+  "פיזיותרפיה": {
+    panelTitle: "תרגילי בית (HEP)",
+    newTitle: "תוכנית תרגול חדשה",
+    itemNoun: "תרגיל",
+    addLabel: "הוספת תרגיל",
+    namePlaceholder: "שם התרגיל",
+    showSetsReps: true,
+    showVideo: true,
+    aiRole: "אתה פיזיותרפיסט מומחה",
+    aiItemNoun: "תרגילי פיזיותרפיה (חיזוק, מתיחות, טווחי תנועה, יציבות)",
+  },
+  "כירופרקטיקה": {
+    panelTitle: "תרגילי בית",
+    newTitle: "תוכנית תרגול חדשה",
+    itemNoun: "תרגיל",
+    addLabel: "הוספת תרגיל",
+    namePlaceholder: "שם התרגיל",
+    showSetsReps: true,
+    showVideo: true,
+    aiRole: "אתה מומחה כירופרקטיקה",
+    aiItemNoun: "תרגילי ייצוב ליבה, חיזוק ומתיחות לעמוד השדרה",
+  },
+  "ריפוי בעיסוק": {
+    panelTitle: "משימות ותרגול לבית",
+    newTitle: "תוכנית תרגול לבית",
+    itemNoun: "פעילות",
+    addLabel: "הוספת פעילות",
+    namePlaceholder: "שם הפעילות",
+    showSetsReps: true,
+    showVideo: true,
+    aiRole: "אתה מרפא בעיסוק מומחה",
+    aiItemNoun: "פעילויות תפקודיות, תרגולי מוטוריקה עדינה/גסה ותרגול ADL",
+  },
+  "קלינאות תקשורת": {
+    panelTitle: "תרגול בית",
+    newTitle: "תוכנית תרגול לבית",
+    itemNoun: "תרגיל",
+    addLabel: "הוספת תרגיל",
+    namePlaceholder: "שם התרגיל (לדוגמה: תרגול הצליל /r/)",
+    showSetsReps: false,
+    showVideo: false,
+    aiRole: "אתה קלינאי תקשורת מומחה",
+    aiItemNoun: "תרגילי שפה, דיבור, קול או בליעה לתרגול עצמי",
+  },
+  "פסיכולוגיה קלינית": {
+    panelTitle: "משימות טיפוליות לבית",
+    newTitle: "תוכנית משימות לבית",
+    itemNoun: "משימה",
+    addLabel: "הוספת משימה",
+    namePlaceholder: "שם המשימה (לדוגמה: יומן מחשבות)",
+    showSetsReps: false,
+    showVideo: false,
+    aiRole: "אתה פסיכולוג קליני מומחה בגישת CBT",
+    aiItemNoun: "משימות טיפוליות (יומן מחשבות, תרגולי חשיפה, מיינדפולנס, הפעלה התנהגותית)",
+  },
+};
+
+// Professions that explicitly have no home-practice program.
+const NO_HOME_PROGRAM = new Set(["תזונה קלינית", "סיעוד"]);
+
+// Generic fallback for custom/unknown professions — keep the feature available
+// (without physical-only video search) rather than hiding it.
+const GENERIC_HOME_PROGRAM: HomeProgramConfig = {
+  panelTitle: "תרגול ומשימות לבית",
+  newTitle: "תוכנית לבית",
+  itemNoun: "פריט",
+  addLabel: "הוספת פריט",
+  namePlaceholder: "שם הפריט",
+  showSetsReps: true,
+  showVideo: false,
+  aiRole: "אתה מומחה קליני בתחום הפרא-רפואי",
+  aiItemNoun: "תרגילים או משימות לתרגול עצמי בבית",
+};
+
+/** Home-program config for a profession, or null if a home program isn't relevant. */
+export function getHomeProgramConfig(profession: string | null | undefined): HomeProgramConfig | null {
+  if (!profession) return GENERIC_HOME_PROGRAM;
+  if (NO_HOME_PROGRAM.has(profession)) return null;
+  return HOME_PROGRAM[profession] ?? GENERIC_HOME_PROGRAM;
+}

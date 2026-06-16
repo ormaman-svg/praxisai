@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ArrowRight, Activity, Clock, BarChart2, Ruler } from "lucide-react";
 import { DOC_TYPE_HE, TREATMENT_TYPE_HE } from "@/lib/types";
 import { getClinicTemplate } from "@/lib/clinic-template-server";
+import { getHomeProgramConfig } from "@/lib/clinic-templates";
 import { Donut } from "@/components/charts";
 import TreatmentForm from "./TreatmentForm";
 import VasChart from "./VasChart";
@@ -26,7 +27,7 @@ export default async function PatientPage({ params }: { params: { id: string } }
     supabase.from("documents").select("*").eq("patient_id", patient.id).order("created_at", { ascending: false }),
     supabase.from("measurements").select("*").eq("patient_id", patient.id).order("recorded_at", { ascending: true }),
     supabase.from("exercise_programs")
-      .select("id, title, instructions, active, program_items(id, name, sets, reps, hold_sec, frequency, sort_order), hep_logs(logged_at, completed, pain_score)")
+      .select("id, title, instructions, active, program_items(id, name, sets, reps, hold_sec, frequency, video_url, description, sort_order), hep_logs(logged_at, completed, pain_score)")
       .eq("patient_id", patient.id).eq("active", true).order("created_at", { ascending: false }),
     supabase.from("patient_invoices").select("*").eq("patient_id", patient.id).order("created_at", { ascending: false }),
     getClinicTemplate(supabase, patient.clinic_id),
@@ -41,6 +42,9 @@ export default async function PatientPage({ params }: { params: { id: string } }
     program_items: (p.program_items ?? []).sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0)),
     lastLog: (p.hep_logs ?? []).sort((a: any, b: any) => +new Date(b.logged_at) - +new Date(a.logged_at))[0] ?? null,
   }));
+
+  // Home program (HEP) is only relevant to some professions.
+  const homeProgram = getHomeProgramConfig(template.profession);
 
   // Most recent treatment's plan text — seeds AI HEP generation.
   const latest: any = treatments?.[0];
@@ -224,14 +228,17 @@ export default async function PatientPage({ params }: { params: { id: string } }
             </div>
           )}
 
-          {/* Home exercise program */}
-          <HepPanel
-            patientId={patient.id}
-            clinicId={patient.clinic_id}
-            patientFirstName={patient.first_name}
-            lastPlan={lastPlan}
-            programs={programs}
-          />
+          {/* Home program (HEP) — only for professions where it's relevant */}
+          {homeProgram && (
+            <HepPanel
+              patientId={patient.id}
+              clinicId={patient.clinic_id}
+              patientFirstName={patient.first_name}
+              lastPlan={lastPlan}
+              programs={programs}
+              config={homeProgram}
+            />
+          )}
 
           {/* Patient invoices */}
           <InvoicesPanel
