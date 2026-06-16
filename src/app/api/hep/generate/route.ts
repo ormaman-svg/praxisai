@@ -3,11 +3,12 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { invoke } from "@/lib/ai/invoke";
+import { enrichWithVideos } from "@/lib/youtube/search";
 
 const SYSTEM = `אתה פיזיותרפיסט מומחה. המשתמש ייתן לך תיאור חופשי של תוכנית טיפול / המלצות.
 החזר אך ורק JSON תקין במבנה הבא, ללא טקסט נוסף:
-{"title":"שם התוכנית","items":[{"name":"שם התרגיל","sets":3,"reps":10,"hold_sec":0,"frequency":"daily"}]}
-כללים: 3-6 תרגילים, שמות בעברית, frequency אחד מ: daily / 2x_daily / alternate_days.`;
+{"title":"שם התוכנית","items":[{"name":"שם התרגיל","sets":3,"reps":10,"hold_sec":0,"frequency":"daily","description":"תיאור קצר של ביצוע התרגיל"}]}
+כללים: 3-6 תרגילים, שמות בעברית, description — משפט אחד על איך לבצע, frequency אחד מ: daily / 2x_daily / alternate_days.`;
 
 export async function POST(request: Request) {
   const supabase = createClient();
@@ -21,12 +22,16 @@ export async function POST(request: Request) {
     const result = await invoke({
       system: SYSTEM,
       messages: [{ role: "user", content: source.trim() }],
-      maxTokens: 800,
+      maxTokens: 1000,
     });
-    // Extract JSON (model may wrap in code fences)
+
     const match = result.text.match(/\{[\s\S]*\}/);
     if (!match) return Response.json({ error: "ה-AI לא החזיר תוכנית תקינה." }, { status: 502 });
-    const parsed = JSON.parse(match[0]);
+    const parsed = JSON.parse(match[0]) as { title: string; items: { name: string; video_url?: string }[] };
+
+    // Enrich each exercise with a YouTube video (parallel, best-effort)
+    parsed.items = await enrichWithVideos(parsed.items);
+
     return Response.json(parsed);
   } catch (e) {
     console.error("[hep/generate] error:", e);
