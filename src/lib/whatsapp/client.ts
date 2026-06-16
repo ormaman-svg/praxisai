@@ -65,6 +65,30 @@ export async function sendText(creds: Credentials, to: string, text: string): Pr
   });
 }
 
+/**
+ * Download a media file from Meta's Graph API.
+ * Returns the raw bytes and MIME type.
+ * Step 1: fetch the download URL via media_id.
+ * Step 2: download the actual file using the same access token.
+ */
+export async function downloadMedia(
+  mediaId: string,
+  accessToken: string
+): Promise<{ data: ArrayBuffer; mimeType: string }> {
+  const infoRes = await fetch(`${GRAPH}/${mediaId}`, {
+    headers: headers(accessToken),
+  });
+  if (!infoRes.ok) throw new Error(`Meta media info (${infoRes.status}): ${await infoRes.text()}`);
+  const { url } = await infoRes.json() as { url: string };
+
+  const fileRes = await fetch(url, { headers: headers(accessToken) });
+  if (!fileRes.ok) throw new Error(`Meta media download (${fileRes.status}): ${await fileRes.text()}`);
+
+  const mimeType = fileRes.headers.get("content-type") ?? "application/octet-stream";
+  const data = await fileRes.arrayBuffer();
+  return { data, mimeType };
+}
+
 /** Mark a received message as read. */
 export async function markRead(creds: Credentials, waMessageId: string): Promise<void> {
   await fetch(`${GRAPH}/${creds.phoneNumberId}/messages`, {

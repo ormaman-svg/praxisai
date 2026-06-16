@@ -1,7 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { verifySignature } from "@/lib/whatsapp/verify";
 import { findPatientByPhone } from "@/lib/whatsapp/normalize";
-import { sendText } from "@/lib/whatsapp/client";
+import { sendText, downloadMedia } from "@/lib/whatsapp/client";
 import { invoke } from "@/lib/ai/invoke";
 import { PATIENT_AGENT_TOOLS } from "@/lib/ai/tools/definitions";
 import { runToolCall } from "@/lib/ai/tools/handlers";
@@ -9,6 +9,15 @@ import type { Message } from "@/lib/ai/invoke";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
+
+const MEDIA_TYPES = ["image", "video", "audio", "document"] as const;
+type MediaType = (typeof MEDIA_TYPES)[number];
+
+const MIME_EXT: Record<string, string> = {
+  "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif",
+  "video/mp4": "mp4", "video/3gpp": "3gp", "video/quicktime": "mov",
+  "audio/ogg": "ogg", "audio/mpeg": "mp3", "audio/opus": "ogg", "audio/aac": "aac",
+};
 
 const MAX_AGENT_TURNS = 5;     // tool-use turns within one reply
 const MAX_RECHECK_LOOPS = 3;   // re-process if new messages arrived during processing
@@ -63,9 +72,17 @@ export async function POST(request: Request) {
   const value = entry?.changes?.[0]?.value;
   const metadata = value?.metadata as { phone_number_id?: string } | undefined;
   const phoneNumberId = metadata?.phone_number_id;
-  const inbound = value?.messages as
-    | { id: string; from: string; text?: { body: string }; type: string }[]
-    | undefined;
+  type WaMessage = {
+    id: string;
+    from: string;
+    type: string;
+    text?: { body: string };
+    image?: { id: string; caption?: string; mime_type?: string };
+    video?: { id: string; caption?: string; mime_type?: string };
+    audio?: { id: string; mime_type?: string };
+    document?: { id: string; caption?: string; mime_type?: string; filename?: string };
+  };
+  const inbound = value?.messages as WaMessage[] | undefined;
 
   if (!inbound?.length || !phoneNumberId) {
     // Status callbacks (delivered/read) or missing routing info — ack silently
@@ -78,16 +95,49 @@ export async function POST(request: Request) {
   const affected = new Map<string, ConvCtx>();
 
   for (const msg of inbound) {
-    if (msg.type !== "text" || !msg.text?.body) continue;
+    const isText = msg.type === "text" && !!msg.text?.body;
+    const isMedia = (MEDIA_TYPES as readonly string[]).includes(msg.type);
+    if (!isText && !isMedia) continue;
 
     const ctx = await resolveContext(supabase, phoneNumberId, msg.from);
-    if (!ctx) continue; // unknown sender / clinic without WA credentials
+    if (!ctx) continue;
+
+    let body: string | null = null;
+    let mediaUrl: string | null = null;
+    let mediaType: string | null = null;
+
+    if (isText) {
+      body = msg.text!.body.trim();
+    } else {
+      // Download media from Meta and store in Supabase Storage
+      const mediaObj = msg[msg.type as MediaType] as { id: string; caption?: string } | undefined;
+      if (mediaObj?.id) {
+        try {
+          const { data, mimeType } = await downloadMedia(mediaObj.id, ctx.creds.accessToken);
+          const ext = MIME_EXT[mimeType] ?? "bin";
+          const storagePath = `${ctx.creds.clinicId}/${msg.id}.${ext}`;
+          const { error: uploadErr } = await supabase.storage
+            .from("whatsapp-media")
+            .upload(storagePath, data, { contentType: mimeType, upsert: false });
+          if (!uploadErr) {
+            mediaUrl = storagePath;
+            mediaType = msg.type;
+          }
+          body = mediaObj.caption ?? null;
+        } catch (e) {
+          console.error("[webhook] media download failed:", e);
+          body = `[${msg.type}]`;
+        }
+      }
+    }
 
     // Dedup via unique wa_message_id — Meta retries won't double-insert
     await supabase.from("messages").insert({
       conversation_id: ctx.conversationId,
       direction: "inbound",
-      body: msg.text.body.trim(),
+      body,
+      media_url: mediaUrl,
+      media_type: mediaType,
       wa_message_id: msg.id,
       status: "delivered",
       sent_at: new Date().toISOString(),
@@ -98,8 +148,15 @@ export async function POST(request: Request) {
       .update({ last_message_at: new Date().toISOString() })
       .eq("id", ctx.conversationId);
 
+    if (!body) {
+      // Media-only message — persist but don't run bot (therapist reviews manually)
+      await supabase.from("conversations").update({ status: "human" }).eq("id", ctx.conversationId);
+      affected.delete(ctx.conversationId);
+      continue;
+    }
+
     // Opt-out keywords short-circuit the bot
-    const lower = msg.text.body.toLowerCase();
+    const lower = body.toLowerCase();
     if (["stop", "עצור", "הסר", "בטל רישום"].some((k) => lower.includes(k))) {
       if (ctx.patient) {
         await supabase.from("patient_consents").upsert({
@@ -111,7 +168,7 @@ export async function POST(request: Request) {
         });
       }
       await sendText(ctx.creds, ctx.contact, "הוסרת מרשימת ההתראות. שלחו START בכל עת לחידוש.");
-      continue; // do not enqueue for bot processing
+      continue;
     }
 
     affected.set(ctx.conversationId, ctx);

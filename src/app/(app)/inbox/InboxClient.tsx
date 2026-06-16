@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { MessageCircle, Bot, UserRound, Send, ArrowLeft } from "lucide-react";
+import { MessageCircle, Bot, UserRound, Send, ArrowLeft, Loader2, Play, FileAudio } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 type Conversation = {
@@ -17,6 +17,8 @@ type Msg = {
   id: string;
   direction: "inbound" | "outbound";
   body: string | null;
+  media_url: string | null;
+  media_type: string | null;
   created_at: string;
 };
 
@@ -26,6 +28,48 @@ const STATUS_BADGE: Record<string, string> = {
   closed: "bg-slate-100 text-slate-400",
 };
 const STATUS_HE: Record<string, string> = { bot: "בוט", human: "נציג", closed: "סגור" };
+
+function MediaContent({ storagePath, mediaType }: { storagePath: string; mediaType: string }) {
+  const supabase = createClient();
+  const [url, setUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.storage.from("whatsapp-media").createSignedUrl(storagePath, 3600).then(({ data }) => {
+      if (data?.signedUrl) setUrl(data.signedUrl);
+    });
+  }, [storagePath]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!url) return <Loader2 size={16} className="animate-spin text-slate-400" />;
+
+  if (mediaType === "image") {
+    return <img src={url} alt="תמונה" className="max-w-[220px] rounded-lg" loading="lazy" />;
+  }
+  if (mediaType === "video") {
+    return (
+      <div className="max-w-[260px]">
+        <video src={url} controls className="w-full rounded-lg" preload="metadata">
+          <source src={url} />
+        </video>
+        <div className="mt-1 flex items-center gap-1 text-[11px] text-slate-400">
+          <Play size={10} /> סרטון שנשלח על ידי המטופל
+        </div>
+      </div>
+    );
+  }
+  if (mediaType === "audio") {
+    return (
+      <div className="flex items-center gap-2">
+        <FileAudio size={16} className="shrink-0 text-slate-400" />
+        <audio src={url} controls className="h-8 w-40" preload="metadata" />
+      </div>
+    );
+  }
+  return (
+    <a href={url} target="_blank" rel="noopener noreferrer" className="underline">
+      📎 הורדת קובץ
+    </a>
+  );
+}
 
 export default function InboxClient({
   clinicId, userId, initialConversations,
@@ -44,14 +88,13 @@ export default function InboxClient({
 
   const active = conversations.find((c) => c.id === activeId) ?? null;
 
-  // Load messages when active conversation changes
   useEffect(() => {
     if (!activeId) return;
     let cancelled = false;
     (async () => {
       const { data } = await supabase
         .from("messages")
-        .select("id, direction, body, created_at")
+        .select("id, direction, body, media_url, media_type, created_at")
         .eq("conversation_id", activeId)
         .order("created_at", { ascending: true });
       if (!cancelled) setMessages((data ?? []) as Msg[]);
@@ -59,7 +102,6 @@ export default function InboxClient({
     return () => { cancelled = true; };
   }, [activeId, supabase]);
 
-  // Realtime: new messages in the active conversation
   useEffect(() => {
     if (!activeId) return;
     const channel = supabase
@@ -135,7 +177,6 @@ export default function InboxClient({
         {/* Thread */}
         {active ? (
           <div className="flex min-w-0 flex-1 flex-col">
-            {/* Header */}
             <div className="flex items-center gap-3 border-b border-line px-5 py-3">
               <button onClick={() => setActiveId(null)} className="rounded-md p-1 text-slate-400 hover:bg-slate-100 sm:hidden">
                 <ArrowLeft size={18} />
@@ -155,14 +196,18 @@ export default function InboxClient({
               ) : null}
             </div>
 
-            {/* Messages */}
             <div ref={scrollRef} className="flex-1 space-y-2.5 overflow-y-auto bg-slate-50/50 px-5 py-4">
               {messages.map((m) => (
                 <div key={m.id} className={`flex ${m.direction === "outbound" ? "justify-start" : "justify-end"}`}>
                   <div className={`max-w-[75%] rounded-2xl px-3.5 py-2 text-[13px] leading-relaxed ${
                     m.direction === "outbound" ? "bg-brand text-white" : "border border-line bg-white text-slate-700"
                   }`}>
-                    {m.body}
+                    {m.media_url && m.media_type && (
+                      <div className="mb-1.5">
+                        <MediaContent storagePath={m.media_url} mediaType={m.media_type} />
+                      </div>
+                    )}
+                    {m.body && <div style={{ whiteSpace: "pre-wrap" }}>{m.body}</div>}
                     <div className={`mt-0.5 text-[10px] ${m.direction === "outbound" ? "text-white/60" : "text-slate-400"}`} dir="ltr">
                       {new Date(m.created_at).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}
                     </div>
@@ -171,7 +216,6 @@ export default function InboxClient({
               ))}
             </div>
 
-            {/* Composer — only when a human has taken over */}
             {active.status === "human" ? (
               <div className="flex items-center gap-2 border-t border-line px-4 py-3">
                 <input
@@ -187,7 +231,9 @@ export default function InboxClient({
               </div>
             ) : (
               <div className="border-t border-line px-4 py-3 text-center text-[12px] text-slate-400">
-                {active.status === "bot" ? "הבוט מנהל את השיחה. לחצו \"קח על עצמי\" כדי לכתוב ידנית." : "השיחה סגורה."}
+                {active.status === "bot"
+                  ? "הבוט מנהל את השיחה. לחצו \"קח על עצמי\" כדי לכתוב ידנית."
+                  : "השיחה סגורה."}
               </div>
             )}
           </div>
