@@ -3,11 +3,78 @@
 @tailwind utilities;
 
 :root { color-scheme: light; }
-body { @apply bg-bg text-slate-800 antialiased; }
 
-.card { @apply bg-white border border-line rounded-xl shadow-card; }
-.btn-primary { @apply inline-flex items-center justify-center gap-2 rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed; }
-.btn-ghost { @apply inline-flex items-center justify-center gap-2 rounded-lg border border-line bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors; }
-.input { @apply w-full rounded-lg border border-line bg-white px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand; }
-.label { @apply block text-[13px] font-semibold text-slate-600 mb-1.5; }
-.badge { @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold; }
+body {
+  @apply bg-bg text-slate-800 antialiased;
+  font-feature-settings: "rlig" 1, "calt" 1;
+}
+
+/* ── Scrollbar ─────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(124,58,237,0.18); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(124,58,237,0.32); }
+
+/* ── Card ──────────────────────────────────────────────────────────── */
+.card {
+  @apply bg-white rounded-2xl;
+  border: 1px solid rgba(0,0,0,0.07);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.03), 0 4px 20px rgba(100,60,200,0.06);
+}
+
+/* ── Buttons ───────────────────────────────────────────────────────── */
+.btn-primary {
+  @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white
+         disabled:opacity-50 disabled:cursor-not-allowed;
+  background: linear-gradient(135deg, #7c3aed 0%, #6366f1 100%);
+  box-shadow: 0 4px 12px rgba(124,58,237,0.28);
+  transition: box-shadow 0.15s ease, transform 0.1s ease, filter 0.15s ease;
+}
+.btn-primary:hover:not(:disabled) {
+  box-shadow: 0 6px 20px rgba(124,58,237,0.4);
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+}
+.btn-primary:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 3px 8px rgba(124,58,237,0.3);
+}
+
+.btn-ghost {
+  @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700
+         bg-white hover:bg-slate-50 transition-colors;
+  border: 1px solid #e2e0eb;
+}
+.btn-ghost:hover { border-color: #c9c6d8; }
+
+/* ── Input ─────────────────────────────────────────────────────────── */
+.input {
+  @apply w-full rounded-xl text-sm text-slate-800 placeholder:text-slate-400;
+  background: #faf9fd;
+  border: 1px solid #e2e0eb;
+  padding: 0.625rem 1rem;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+.input:focus {
+  outline: none;
+  border-color: #8b5cf6;
+  background: white;
+  box-shadow: 0 0 0 3px rgba(124,58,237,0.12);
+}
+
+/* ── Label ─────────────────────────────────────────────────────────── */
+.label {
+  @apply block text-[12.5px] font-semibold text-slate-500 mb-1.5;
+  letter-spacing: 0.01em;
+}
+
+/* ── Badge ─────────────────────────────────────────────────────────── */
+.badge {
+  @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold;
+}
+
+/* ── Smooth focus for all interactive elements ─────────────────────── */
+*:focus-visible {
+  outline: 2px solid #8b5cf6;
+  outline-offset: 2px;
+}

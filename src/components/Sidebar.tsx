@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  LayoutDashboard, Users, FileText, BarChart3, LogOut, Mic, MessageSquare, ShieldCheck, Building2, Settings, CalendarDays, CreditCard, Inbox, MessageCircle,
+  LayoutDashboard, Users, FileText, BarChart3, LogOut, Mic, MessageSquare,
+  ShieldCheck, Building2, Settings, CalendarDays, CreditCard, Inbox, MessageCircle,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import ClinicSwitcher from "./ClinicSwitcher";
@@ -13,15 +14,33 @@ import { ROLE_HE } from "@/lib/types";
 import { isSuperAdminEmail } from "@/lib/super-admins";
 
 const NAV = [
-  { href: "/dashboard", label: "לוח בקרה", icon: LayoutDashboard },
-  { href: "/schedule", label: "יומן תורים", icon: CalendarDays },
-  { href: "/inbox", label: "תיבת הודעות", icon: Inbox },
-  { href: "/patients", label: "מטופלים", icon: Users },
-  { href: "/scribe", label: "תיעוד AI", icon: Mic },
-  { href: "/chat", label: "צ'אט AI", icon: MessageSquare },
-  { href: "/analytics", label: "אנליטיקות", icon: BarChart3 },
-  { href: "/documents", label: "מסמכים", icon: FileText },
+  { href: "/dashboard", label: "לוח בקרה",      icon: LayoutDashboard },
+  { href: "/schedule",  label: "יומן תורים",    icon: CalendarDays },
+  { href: "/inbox",     label: "תיבת הודעות",   icon: Inbox },
+  { href: "/patients",  label: "מטופלים",        icon: Users },
+  { href: "/scribe",    label: "תיעוד AI",       icon: Mic },
+  { href: "/chat",      label: "צ'אט AI",        icon: MessageSquare },
+  { href: "/analytics", label: "אנליטיקות",      icon: BarChart3 },
+  { href: "/documents", label: "מסמכים",         icon: FileText },
 ];
+
+function NavLink({ href, label, icon: Icon, active }: {
+  href: string; label: string; icon: React.ElementType; active: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 text-[13.5px] font-medium transition-all duration-150 ${
+        active
+          ? "border-violet-400/[0.18] bg-violet-500/[0.12] text-white"
+          : "border-transparent text-slate-400 hover:bg-white/[0.05] hover:text-slate-200"
+      }`}
+    >
+      <Icon size={17} strokeWidth={active ? 2.2 : 2} className={active ? "text-violet-400" : ""} />
+      <span>{label}</span>
+    </Link>
+  );
+}
 
 export default function Sidebar({
   memberships, activeClinicId, role, userName, userEmail,
@@ -45,11 +64,15 @@ export default function Sidebar({
   }
 
   return (
-    <aside className="sticky top-0 flex h-screen w-64 shrink-0 flex-col bg-navy text-slate-300">
+    <aside className="sticky top-0 flex h-screen w-64 shrink-0 flex-col bg-navy">
       {/* Logo */}
-      <div className="flex items-center gap-3 px-5 pt-6 pb-4">
-        <Logo size={32} className="text-brand shrink-0" />
-        <span className="font-display text-lg font-bold tracking-tight text-white">praxisAI</span>
+      <div className="flex items-center gap-3 px-5 pb-5 pt-6">
+        <div className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-violet-600 to-indigo-600 shadow-glow">
+          <Logo size={17} className="text-white" />
+        </div>
+        <span className="font-display text-[17px] font-bold tracking-tight text-white">
+          praxis<span className="text-violet-400">AI</span>
+        </span>
       </div>
 
       {/* Clinic switcher */}
@@ -57,94 +80,48 @@ export default function Sidebar({
         <ClinicSwitcher memberships={memberships} activeClinicId={activeClinicId} />
       </div>
 
+      <div className="mx-4 mb-3 h-px bg-white/[0.06]" />
+
       {/* Nav */}
-      <nav className="flex-1 space-y-1 px-3 overflow-y-auto">
-        {NAV.map(({ href, label, icon: Icon }) => {
-          const active = pathname.startsWith(href);
-          return (
-            <Link
-              key={href}
-              href={href}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13.5px] font-medium transition-colors ${
-                active ? "bg-brand text-white" : "hover:bg-navy-700 hover:text-white"
-              }`}
-            >
-              <Icon size={17} strokeWidth={2} />
-              <span>{label}</span>
-            </Link>
-          );
-        })}
+      <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 pb-3">
+        {NAV.map(({ href, label, icon }) => (
+          <NavLink key={href} href={href} label={label} icon={icon} active={pathname.startsWith(href)} />
+        ))}
 
         {isAdmin && (
           <>
-            <div className="mt-5 mb-1 px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">ניהול</div>
-            <Link
-              href="/admin/users"
-              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13.5px] font-medium transition-colors ${
-                pathname.startsWith("/admin/users") ? "bg-brand text-white" : "hover:bg-navy-700 hover:text-white"
-              }`}
-            >
-              <ShieldCheck size={17} strokeWidth={2} />
-              משתמשים והרשאות
-            </Link>
-            <Link
-              href="/settings/whatsapp"
-              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13.5px] font-medium transition-colors ${
-                pathname.startsWith("/settings/whatsapp") ? "bg-brand text-white" : "hover:bg-navy-700 hover:text-white"
-              }`}
-            >
-              <MessageCircle size={17} strokeWidth={2} />
-              חיבור WhatsApp
-            </Link>
-            <Link
-              href="/settings/billing"
-              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13.5px] font-medium transition-colors ${
-                pathname.startsWith("/settings/billing") ? "bg-brand text-white" : "hover:bg-navy-700 hover:text-white"
-              }`}
-            >
-              <CreditCard size={17} strokeWidth={2} />
-              חיוב ומנוי
-            </Link>
+            <div className="mb-1.5 mt-5 px-3 text-[10.5px] font-semibold uppercase tracking-widest text-slate-600">ניהול</div>
+            <NavLink href="/admin/users"        label="משתמשים והרשאות" icon={ShieldCheck}    active={pathname.startsWith("/admin/users")} />
+            <NavLink href="/settings/whatsapp"  label="חיבור WhatsApp"  icon={MessageCircle}  active={pathname.startsWith("/settings/whatsapp")} />
+            <NavLink href="/settings/billing"   label="חיוב ומנוי"     icon={CreditCard}     active={pathname.startsWith("/settings/billing")} />
           </>
         )}
 
         {isSuperAdmin && (
           <>
-            <div className="mt-5 mb-1 px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Super Admin</div>
-            <Link
-              href="/admin/clinics"
-              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13.5px] font-medium transition-colors ${
-                pathname.startsWith("/admin/clinics") ? "bg-brand text-white" : "hover:bg-navy-700 hover:text-white"
-              }`}
-            >
-              <Building2 size={17} strokeWidth={2} />
-              קליניקות
-            </Link>
-            <Link
-              href="/settings/template"
-              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13.5px] font-medium transition-colors ${
-                pathname.startsWith("/settings/template") ? "bg-brand text-white" : "hover:bg-navy-700 hover:text-white"
-              }`}
-            >
-              <Settings size={17} strokeWidth={2} />
-              סוג הקליניקה
-            </Link>
+            <div className="mb-1.5 mt-5 px-3 text-[10.5px] font-semibold uppercase tracking-widest text-slate-600">Super Admin</div>
+            <NavLink href="/admin/clinics"      label="קליניקות"        icon={Building2}  active={pathname.startsWith("/admin/clinics")} />
+            <NavLink href="/settings/template"  label="סוג הקליניקה"   icon={Settings}   active={pathname.startsWith("/settings/template")} />
           </>
         )}
       </nav>
 
       {/* User card */}
-      <div className="border-t border-navy-700 p-3">
-        <div className="flex items-center gap-3 rounded-lg px-2 py-2">
-          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-navy-700 text-sm font-bold text-white">
+      <div className="border-t border-white/[0.06] p-3">
+        <div className="flex items-center gap-3 rounded-xl px-2 py-2">
+          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-violet-600 to-indigo-600 text-sm font-bold text-white">
             {userName.trim().charAt(0) || "?"}
           </div>
           <div className="min-w-0 flex-1">
             <div className="truncate text-[13px] font-semibold text-white">{userName}</div>
-            <div className="truncate text-[11px] text-slate-400">{ROLE_HE[role]} · {userEmail}</div>
+            <div className="truncate text-[11px] text-slate-500">{ROLE_HE[role]}</div>
           </div>
-          <button onClick={signOut} title="התנתקות" className="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-navy-700 hover:text-white">
-            <LogOut size={16} />
+          <button
+            onClick={signOut}
+            title="התנתקות"
+            className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-white/[0.08] hover:text-violet-300"
+          >
+            <LogOut size={15} />
           </button>
         </div>
       </div>
