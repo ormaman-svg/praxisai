@@ -37,14 +37,15 @@ export async function findExerciseVideo(exerciseName: string): Promise<string> {
   return `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
 }
 
-/** Enrich an array of exercise items with video URLs in parallel. */
-export async function enrichWithVideos<T extends { name: string; video_url?: string }>(
+/** Enrich an array of exercise items with video URLs in parallel.
+ *  Uses english_name (clinical term) when available for accurate YouTube results. */
+export async function enrichWithVideos<T extends { name: string; english_name?: string; video_url?: string }>(
   items: T[]
 ): Promise<(T & { video_url: string })[]> {
   return Promise.all(
     items.map(async (item) => ({
       ...item,
-      video_url: item.video_url || (await findExerciseVideo(item.name)),
+      video_url: item.video_url || (await findExerciseVideo(item.english_name || item.name)),
     }))
   );
 }

@@ -7,8 +7,8 @@ import { enrichWithVideos } from "@/lib/youtube/search";
 
 const SYSTEM = `אתה פיזיותרפיסט מומחה. המשתמש ייתן לך תיאור חופשי של תוכנית טיפול / המלצות.
 החזר אך ורק JSON תקין במבנה הבא, ללא טקסט נוסף:
-{"title":"שם התוכנית","items":[{"name":"שם התרגיל","sets":3,"reps":10,"hold_sec":0,"frequency":"daily","description":"תיאור קצר של ביצוע התרגיל"}]}
-כללים: 3-6 תרגילים, שמות בעברית, description — משפט אחד על איך לבצע, frequency אחד מ: daily / 2x_daily / alternate_days.`;
+{"title":"שם התוכנית","items":[{"name":"שם התרגיל","english_name":"clinical English name","sets":3,"reps":10,"hold_sec":0,"frequency":"daily","description":"תיאור קצר של ביצוע התרגיל"}]}
+כללים: 3-6 תרגילים, שמות בעברית, english_name — שם קליני מדויק באנגלית לחיפוש וידאו (לדוגמה: "supine knee flexion", "shoulder external rotation"), description — משפט אחד על איך לבצע, frequency אחד מ: daily / 2x_daily / alternate_days.`;
 
 export async function POST(request: Request) {
   const supabase = createClient();
@@ -27,9 +27,12 @@ export async function POST(request: Request) {
 
     const match = result.text.match(/\{[\s\S]*\}/);
     if (!match) return Response.json({ error: "ה-AI לא החזיר תוכנית תקינה." }, { status: 502 });
-    const parsed = JSON.parse(match[0]) as { title: string; items: { name: string; video_url?: string }[] };
+    const parsed = JSON.parse(match[0]) as {
+      title: string;
+      items: { name: string; english_name?: string; video_url?: string }[];
+    };
 
-    // Enrich each exercise with a YouTube video (parallel, best-effort)
+    // Enrich with YouTube videos using the clinical English name for accurate results
     parsed.items = await enrichWithVideos(parsed.items);
 
     return Response.json(parsed);
