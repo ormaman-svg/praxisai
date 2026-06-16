@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { verifySignature } from "@/lib/whatsapp/verify";
 import { findPatientByPhone } from "@/lib/whatsapp/normalize";
 import { sendText, downloadMedia } from "@/lib/whatsapp/client";
+import { notifyEscalation } from "@/lib/notifications/escalation";
 import { invoke } from "@/lib/ai/invoke";
 import { PATIENT_AGENT_TOOLS } from "@/lib/ai/tools/definitions";
 import { runToolCall } from "@/lib/ai/tools/handlers";
@@ -149,8 +150,12 @@ export async function POST(request: Request) {
       .eq("id", ctx.conversationId);
 
     if (!body) {
-      // Media-only message — persist but don't run bot (therapist reviews manually)
+      // Media-only message — persist and escalate to human; notify clinic staff
       await supabase.from("conversations").update({ status: "human" }).eq("id", ctx.conversationId);
+      const patientName = ctx.patient
+        ? `${ctx.patient.first_name} ${ctx.patient.last_name}`
+        : ctx.contact;
+      notifyEscalation({ clinicId: ctx.creds.clinicId, patientName, reason: "media" });
       affected.delete(ctx.conversationId);
       continue;
     }

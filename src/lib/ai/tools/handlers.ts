@@ -4,6 +4,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ToolCall } from "../invoke";
+import { notifyEscalation } from "@/lib/notifications/escalation";
 
 type ToolHandler = (input: Record<string, unknown>, supabase: SupabaseClient) => Promise<string>;
 
@@ -94,6 +95,21 @@ export const TOOL_HANDLERS: Record<string, ToolHandler> = {
       .update({ status: "human" })
       .eq("id", input.conversation_id as string);
     if (error) return "שגיאה בהעברה לנציג.";
+
+    // Notify clinic staff asynchronously (best-effort)
+    const { data: conv } = await supabase
+      .from("conversations")
+      .select("clinic_id, patients(first_name, last_name), wa_contact")
+      .eq("id", input.conversation_id as string)
+      .single();
+    if (conv) {
+      const patient = (Array.isArray(conv.patients) ? conv.patients[0] : conv.patients) as { first_name: string; last_name: string } | null;
+      const patientName = patient
+        ? `${patient.first_name} ${patient.last_name}`
+        : (conv.wa_contact ?? "מטופל");
+      notifyEscalation({ clinicId: conv.clinic_id, patientName, reason: "bot" });
+    }
+
     return "העברתי אתכם לנציג אנושי — יחזרו אליכם בהקדם.";
   },
 };
