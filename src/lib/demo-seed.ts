@@ -5,6 +5,147 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ClinicalTemplate } from "./clinic-templates";
 import { buildDemoDataset } from "./demo-data";
 
+/* ── Demo inbox conversations ───────────────────────────────────────── */
+
+type DemoMsg = { direction: "inbound" | "outbound"; body: string; minutesAgo: number };
+type DemoConv = { status: "bot" | "human"; messages: DemoMsg[] };
+
+// Conversations keyed by template category (broad match)
+const DEMO_CONVERSATIONS: Record<string, DemoConv[]> = {
+  physio: [
+    {
+      status: "bot",
+      messages: [
+        { direction: "outbound", body: "שלום אורי, תזכורת לטיפול מחר בשעה 10:00 עם שרה. אישור/ביטול?", minutesAgo: 60 },
+        { direction: "inbound",  body: "אישור", minutesAgo: 55 },
+        { direction: "outbound", body: "תודה! הפגישה מאושרת. נתראה מחר 😊", minutesAgo: 55 },
+      ],
+    },
+    {
+      status: "bot",
+      messages: [
+        { direction: "outbound", body: "שלום מיכל, האם ביצעת את תרגילי הבית? שלחי: כן/לא + רמת כאב 0-10", minutesAgo: 120 },
+        { direction: "inbound",  body: "כן, 4", minutesAgo: 110 },
+        { direction: "outbound", body: "מעולה! תרגילי הבית נרשמו (כאב: 4/10). כל הכבוד! 💪", minutesAgo: 110 },
+        { direction: "inbound",  body: "תודה, יש שאלה — האם אפשר לעשות את תרגיל הכתף גם בבריכה?", minutesAgo: 90 },
+        { direction: "outbound", body: "שאלה מצוינת! לשאלות קליניות מפנה אתכם לצוות הקליניקה שיחזור אליכם בהקדם.", minutesAgo: 90 },
+      ],
+    },
+    {
+      status: "human",
+      messages: [
+        { direction: "outbound", body: "שלום דוד, חיוב 350 ₪ עבור טיפול. לתשלום: https://meshulam.co.il/demo", minutesAgo: 200 },
+        { direction: "inbound",  body: "שלום, שילמתי אבל לא קיבלתי אישור", minutesAgo: 150 },
+        { direction: "outbound", body: "אנחנו בודקים ונחזור אליך בהקדם. תודה על הסבלנות!", minutesAgo: 148 },
+        { direction: "inbound",  body: "בסדר תודה", minutesAgo: 100 },
+      ],
+    },
+  ],
+  neuro: [
+    {
+      status: "bot",
+      messages: [
+        { direction: "outbound", body: "שלום חנה, תזכורת לביקור מחר בשעה 09:00. אישור?", minutesAgo: 90 },
+        { direction: "inbound",  body: "כן מאשרת", minutesAgo: 85 },
+        { direction: "outbound", body: "תודה! הפגישה מאושרת. נתראה מחר.", minutesAgo: 84 },
+      ],
+    },
+    {
+      status: "human",
+      messages: [
+        { direction: "outbound", body: "שלום גיא, האם ביצעת את תרגילי הבית השבועיים?", minutesAgo: 300 },
+        { direction: "inbound",  body: "ביצעתי חלק, אבל יש לי כאב ראש חזק שלא עבר כבר 3 ימים", minutesAgo: 240 },
+        { direction: "outbound", body: "מעביר אותך לצוות הרפואי — יחזרו אליך בהקדם.", minutesAgo: 239 },
+        { direction: "inbound",  body: "תודה", minutesAgo: 200 },
+      ],
+    },
+  ],
+  pediatric: [
+    {
+      status: "bot",
+      messages: [
+        { direction: "outbound", body: "שלום! תזכורת לטיפול של נועם מחר בשעה 11:00. אישור/ביטול?", minutesAgo: 45 },
+        { direction: "inbound",  body: "מאשרים", minutesAgo: 40 },
+        { direction: "outbound", body: "מצוין! הפגישה מאושרת. נתראה מחר 😊", minutesAgo: 39 },
+      ],
+    },
+    {
+      status: "human",
+      messages: [
+        { direction: "outbound", body: "שלום, האם איתי ביצע את תרגילי הנשימה הביתיים?", minutesAgo: 180 },
+        { direction: "inbound",  body: "ביצע 4 מתוך 5 ימים. אגב רציתי לשאול אם אפשר לדלג שיעור בגלל חופש", minutesAgo: 120 },
+        { direction: "outbound", body: "בכיף! אנחנו מעבירים אתכם לצוות לתיאום. יחזרו אליכם בהקדם.", minutesAgo: 119 },
+        { direction: "inbound",  body: "תודה רבה", minutesAgo: 80 },
+      ],
+    },
+  ],
+  pelvic: [
+    {
+      status: "bot",
+      messages: [
+        { direction: "outbound", body: "שלום רונית, תזכורת לביקור מחר בשעה 10:30. אישור?", minutesAgo: 70 },
+        { direction: "inbound",  body: "כן, מאשרת", minutesAgo: 65 },
+        { direction: "outbound", body: "תודה! הביקור מאושר.", minutesAgo: 64 },
+      ],
+    },
+    {
+      status: "human",
+      messages: [
+        { direction: "outbound", body: "שלום ענת, האם ביצעת את תרגילי קרסול שוב?", minutesAgo: 250 },
+        { direction: "inbound",  body: "כן, אבל יש לי כאב שנראה לי שונה מהרגיל", minutesAgo: 220 },
+        { direction: "outbound", body: "מעבירה לצוות — יצרו קשר בהקדם.", minutesAgo: 219 },
+        { direction: "inbound",  body: "בסדר תודה", minutesAgo: 180 },
+      ],
+    },
+  ],
+  psych: [
+    {
+      status: "bot",
+      messages: [
+        { direction: "outbound", body: "שלום אייל, תזכורת לפגישה מחר בשעה 17:00. אישור?", minutesAgo: 30 },
+        { direction: "inbound",  body: "אישור", minutesAgo: 25 },
+        { direction: "outbound", body: "תודה! נתראה מחר.", minutesAgo: 24 },
+      ],
+    },
+    {
+      status: "human",
+      messages: [
+        { direction: "inbound",  body: "שלום, אני זקוקה לדחות את הפגישה ביום שני", minutesAgo: 400 },
+        { direction: "outbound", body: "בקשת הדחייה נרשמה — צוות הקליניקה ייצור קשר לתיאום. תודה!", minutesAgo: 399 },
+        { direction: "inbound",  body: "תודה", minutesAgo: 350 },
+      ],
+    },
+  ],
+  default: [
+    {
+      status: "bot",
+      messages: [
+        { direction: "outbound", body: "שלום! תזכורת לביקור מחר בשעה 10:00. אישור/ביטול?", minutesAgo: 60 },
+        { direction: "inbound",  body: "מאשר", minutesAgo: 55 },
+        { direction: "outbound", body: "הביקור מאושר. נתראה מחר!", minutesAgo: 54 },
+      ],
+    },
+    {
+      status: "human",
+      messages: [
+        { direction: "outbound", body: "שלום, חיוב 300 ₪ ממתין לתשלום. לפרטים פנו לקליניקה.", minutesAgo: 200 },
+        { direction: "inbound",  body: "מתי אפשר לשלם?", minutesAgo: 150 },
+        { direction: "outbound", body: "מעביר לצוות שיחזור אליך בהקדם.", minutesAgo: 149 },
+      ],
+    },
+  ],
+};
+
+function pickConvTemplate(templateId: string): DemoConv[] {
+  if (/(ortho|vestibular|chiro|rehab|inpatient)/.test(templateId)) return DEMO_CONVERSATIONS.physio;
+  if (/(neuro|slp_adult)/.test(templateId)) return DEMO_CONVERSATIONS.neuro;
+  if (/(pediatric|slp_ped|ot_ped)/.test(templateId)) return DEMO_CONVERSATIONS.pediatric;
+  if (/pelvic/.test(templateId)) return DEMO_CONVERSATIONS.pelvic;
+  if (/(psych|psychology)/.test(templateId)) return DEMO_CONVERSATIONS.psych;
+  if (/(ot_adult|dietetic|nursing)/.test(templateId)) return DEMO_CONVERSATIONS.default;
+  return DEMO_CONVERSATIONS.physio;
+}
+
 const DOC_TITLES: { type: string; title: string }[] = [
   { type: "referral", title: "מכתב הפניה" },
   { type: "status_report", title: "דוח מצב טיפולי" },
@@ -30,6 +171,7 @@ export async function seedDemoClinic(
   await admin.from("appointments").delete().eq("clinic_id", clinicId);
   await admin.from("measurements").delete().eq("clinic_id", clinicId);
   await admin.from("treatments").delete().eq("clinic_id", clinicId);
+  await admin.from("conversations").delete().eq("clinic_id", clinicId);
   await admin.from("patients").delete().eq("clinic_id", clinicId);
 
   let patients = 0, treatments = 0, measurements = 0;
@@ -122,6 +264,48 @@ export async function seedDemoClinic(
       };
     });
     await admin.from("appointments").insert(appts);
+  }
+
+  // Seed demo inbox conversations
+  if (patientIds.length) {
+    const convTemplates = pickConvTemplate(template.id);
+    for (let ci = 0; ci < convTemplates.length; ci++) {
+      const convTpl = convTemplates[ci];
+      const patientId = patientIds[ci % patientIds.length];
+
+      // Look up the patient's phone for wa_contact
+      const { data: pat } = await admin
+        .from("patients")
+        .select("phone, first_name, last_name")
+        .eq("id", patientId)
+        .single();
+
+      const lastMsg = convTpl.messages.at(-1);
+      const lastMsgAt = lastMsg
+        ? new Date(Date.now() - lastMsg.minutesAgo * 60_000).toISOString()
+        : new Date().toISOString();
+
+      const { data: conv } = await admin.from("conversations").insert({
+        clinic_id: clinicId,
+        patient_id: patientId,
+        channel: "whatsapp",
+        wa_contact: pat?.phone ?? null,
+        status: convTpl.status,
+        last_message_at: lastMsgAt,
+      }).select("id").single();
+
+      if (!conv?.id) continue;
+
+      await admin.from("messages").insert(
+        convTpl.messages.map((m) => ({
+          conversation_id: conv.id,
+          direction: m.direction,
+          body: m.body,
+          status: m.direction === "outbound" ? "sent" : "delivered",
+          sent_at: new Date(Date.now() - m.minutesAgo * 60_000).toISOString(),
+        }))
+      );
+    }
   }
 
   return { patients, treatments, measurements };
