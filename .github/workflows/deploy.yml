@@ -12,5 +12,5 @@ jobs:
       - name: Deploy to Vercel
         run: npx vercel deploy --prod --yes --token=${{ secrets.VERCEL_TOKEN }}
         env:
-          VERCEL_ORG_ID: ormaman-svgs-projects
+          VERCEL_ORG_ID: team_HEq4X1EvIXgIqE6tJMizAGn4
           VERCEL_PROJECT_ID: prj_6gKmirbUFOA1NbJSV1DVlnO6hUaw
