@@ -4,7 +4,7 @@
 // from double-sending the same message.
 
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sendTemplate } from "@/lib/whatsapp/client";
+import { sendTemplate, sendText } from "@/lib/whatsapp/client";
 import type { TemplateKey } from "@/lib/whatsapp/templates";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -93,7 +93,10 @@ async function sendOne(supabase: SupabaseClient, msg: DueMessage, now: string): 
 
   try {
     const vars = msg.template_vars ?? [];
-    const waId = await sendTemplate({ phoneNumberId, accessToken }, phone, msg.template_key as TemplateKey, vars);
+    // free_text: vars[0] is the raw message body (used inside the 24h service window)
+    const waId = msg.template_key === "free_text"
+      ? await sendText({ phoneNumberId, accessToken }, phone, vars[0] ?? "")
+      : await sendTemplate({ phoneNumberId, accessToken }, phone, msg.template_key as TemplateKey, vars);
 
     await supabase
       .from("scheduled_messages")

@@ -2,10 +2,19 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Dumbbell, Plus, X, Sparkles, Send, Loader2, Check } from "lucide-react";
+import { Dumbbell, Plus, X, Sparkles, Send, Loader2, Check, ExternalLink } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
-type Item = { id?: string; name: string; sets: number | null; reps: number | null; hold_sec: number | null; frequency: string };
+type Item = {
+  id?: string;
+  name: string;
+  sets: number | null;
+  reps: number | null;
+  hold_sec: number | null;
+  frequency: string;
+  video_url: string;
+  description: string;
+};
 type Program = {
   id: string;
   title: string;
@@ -31,13 +40,14 @@ export default function HepPanel({
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [instructions, setInstructions] = useState("");
-  const [items, setItems] = useState<Item[]>([{ name: "", sets: 3, reps: 10, hold_sec: 0, frequency: "daily" }]);
+  const [items, setItems] = useState<Item[]>([{ name: "", sets: 3, reps: 10, hold_sec: 0, frequency: "daily", video_url: "", description: "" }]);
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [sentId, setSentId] = useState<string | null>(null);
+  const [sendingPlanId, setSendingPlanId] = useState<string | null>(null);
 
   function addItem() {
-    setItems([...items, { name: "", sets: 3, reps: 10, hold_sec: 0, frequency: "daily" }]);
+    setItems([...items, { name: "", sets: 3, reps: 10, hold_sec: 0, frequency: "daily", video_url: "", description: "" }]);
   }
   function updateItem(i: number, patch: Partial<Item>) {
     setItems(items.map((it, idx) => (idx === i ? { ...it, ...patch } : it)));
@@ -60,6 +70,7 @@ export default function HepPanel({
       setItems(d.items.map((it: any) => ({
         name: it.name ?? "", sets: it.sets ?? null, reps: it.reps ?? null,
         hold_sec: it.hold_sec ?? 0, frequency: it.frequency ?? "daily",
+        video_url: it.video_url ?? "", description: it.description ?? "",
       })));
     }
   }
@@ -76,16 +87,42 @@ export default function HepPanel({
       const rows = items.filter((i) => i.name.trim()).map((i, idx) => ({
         program_id: program.id, name: i.name.trim(), sets: i.sets, reps: i.reps,
         hold_sec: i.hold_sec, frequency: i.frequency, sort_order: idx,
+        video_url: i.video_url.trim() || null, description: i.description.trim() || null,
       }));
       await supabase.from("program_items").insert(rows);
+
+      // Send full plan as WhatsApp text message immediately
+      await sendPlan(program.id, title.trim(), items.filter((i) => i.name.trim()));
     }
     setSaving(false);
     setOpen(false);
-    setTitle(""); setInstructions(""); setItems([{ name: "", sets: 3, reps: 10, hold_sec: 0, frequency: "daily" }]);
+    setTitle(""); setInstructions("");
+    setItems([{ name: "", sets: 3, reps: 10, hold_sec: 0, frequency: "daily", video_url: "", description: "" }]);
     router.refresh();
   }
 
-  // Enqueue a WhatsApp nudge (cron sends within 5 min). RLS allows clinic members.
+  async function sendPlan(programId: string, planTitle: string, planItems: typeof items) {
+    const lines: string[] = [`שלום ${patientFirstName}, הנה תוכנית התרגול שלך: *${planTitle}*`, ""];
+    planItems.forEach((it, idx) => {
+      if (!it.name) return;
+      let line = `${idx + 1}. *${it.name}*`;
+      if (it.sets && it.reps) line += ` — ${it.sets} סטים × ${it.reps} חזרות`;
+      if (it.frequency) line += ` (${FREQ_HE[it.frequency] ?? it.frequency})`;
+      lines.push(line);
+      if (it.description) lines.push(`   ${it.description}`);
+      if (it.video_url) lines.push(`   🎬 ${it.video_url}`);
+    });
+    if (instructions.trim()) {
+      lines.push("", `📋 הוראות: ${instructions.trim()}`);
+    }
+    lines.push("", "בהצלחה! 💪");
+
+    await supabase.from("scheduled_messages").insert({
+      clinic_id: clinicId, patient_id: patientId, template_key: "free_text",
+      template_vars: [lines.join("\n")], scheduled_for: new Date().toISOString(),
+    });
+  }
+
   async function sendNudge(programId: string) {
     await supabase.from("scheduled_messages").insert({
       clinic_id: clinicId, patient_id: patientId, template_key: "hep_nudge",
@@ -93,6 +130,12 @@ export default function HepPanel({
     });
     setSentId(programId);
     setTimeout(() => setSentId(null), 2000);
+  }
+
+  async function sendFullPlan(p: Program) {
+    setSendingPlanId(p.id);
+    await sendPlan(p.id, p.title, p.program_items);
+    setTimeout(() => setSendingPlanId(null), 2000);
   }
 
   return (
@@ -114,17 +157,34 @@ export default function HepPanel({
             <li key={p.id} className="rounded-lg border border-line p-3">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[13px] font-semibold text-slate-800">{p.title}</span>
-                <button
-                  onClick={() => sendNudge(p.id)}
-                  className="flex items-center gap-1 text-[11.5px] font-semibold text-emerald-600 hover:underline"
-                >
-                  {sentId === p.id ? <><Check size={12} /> נשלח</> : <><Send size={12} /> שליחה למטופל</>}
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => sendFullPlan(p)}
+                    className="flex items-center gap-1 text-[11.5px] font-semibold text-blue-600 hover:underline"
+                  >
+                    {sendingPlanId === p.id ? <><Check size={12} /> נשלח</> : <><Send size={12} /> שלח תוכנית</>}
+                  </button>
+                  <button
+                    onClick={() => sendNudge(p.id)}
+                    className="flex items-center gap-1 text-[11.5px] font-semibold text-emerald-600 hover:underline"
+                  >
+                    {sentId === p.id ? <><Check size={12} /> נשלח</> : "תזכורת יומית"}
+                  </button>
+                </div>
               </div>
-              <ul className="mt-1.5 space-y-0.5 text-[12px] text-slate-500">
+              <ul className="mt-1.5 space-y-1 text-[12px] text-slate-500">
                 {p.program_items.map((it, i) => (
-                  <li key={i}>
-                    • {it.name} {it.sets && it.reps ? `— ${it.sets}×${it.reps}` : ""} {it.frequency ? `(${FREQ_HE[it.frequency] ?? it.frequency})` : ""}
+                  <li key={i} className="space-y-0.5">
+                    <div>
+                      • {it.name} {it.sets && it.reps ? `— ${it.sets}×${it.reps}` : ""} {it.frequency ? `(${FREQ_HE[it.frequency] ?? it.frequency})` : ""}
+                    </div>
+                    {it.description && <div className="pr-3 text-[11px] text-slate-400">{it.description}</div>}
+                    {it.video_url && (
+                      <a href={it.video_url} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-1 pr-3 text-[11px] text-blue-500 hover:underline">
+                        <ExternalLink size={10} /> צפייה בסרטון
+                      </a>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -168,18 +228,24 @@ export default function HepPanel({
 
               <div>
                 <label className="label">תרגילים</label>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {items.map((it, i) => (
-                    <div key={i} className="flex items-center gap-2 rounded-lg border border-line p-2">
-                      <input className="input !py-1.5 flex-1" placeholder="שם התרגיל" value={it.name} onChange={(e) => updateItem(i, { name: e.target.value })} />
-                      <input dir="ltr" type="number" className="input !py-1.5 w-14" placeholder="סטים" value={it.sets ?? ""} onChange={(e) => updateItem(i, { sets: e.target.value ? +e.target.value : null })} />
-                      <input dir="ltr" type="number" className="input !py-1.5 w-14" placeholder="חזרות" value={it.reps ?? ""} onChange={(e) => updateItem(i, { reps: e.target.value ? +e.target.value : null })} />
-                      <select className="input !py-1.5 w-28" value={it.frequency} onChange={(e) => updateItem(i, { frequency: e.target.value })}>
-                        <option value="daily">יומי</option>
-                        <option value="2x_daily">פעמיים ביום</option>
-                        <option value="alternate_days">יום כן יום לא</option>
-                      </select>
-                      <button onClick={() => removeItem(i)} className="rounded p-1 text-slate-300 hover:text-red-500"><X size={15} /></button>
+                    <div key={i} className="rounded-lg border border-line p-3 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <input className="input !py-1.5 flex-1" placeholder="שם התרגיל" value={it.name} onChange={(e) => updateItem(i, { name: e.target.value })} />
+                        <button onClick={() => removeItem(i)} className="rounded p-1 text-slate-300 hover:text-red-500"><X size={15} /></button>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input dir="ltr" type="number" className="input !py-1.5 w-16" placeholder="סטים" value={it.sets ?? ""} onChange={(e) => updateItem(i, { sets: e.target.value ? +e.target.value : null })} />
+                        <input dir="ltr" type="number" className="input !py-1.5 w-16" placeholder="חזרות" value={it.reps ?? ""} onChange={(e) => updateItem(i, { reps: e.target.value ? +e.target.value : null })} />
+                        <select className="input !py-1.5 flex-1" value={it.frequency} onChange={(e) => updateItem(i, { frequency: e.target.value })}>
+                          <option value="daily">יומי</option>
+                          <option value="2x_daily">פעמיים ביום</option>
+                          <option value="alternate_days">יום כן יום לא</option>
+                        </select>
+                      </div>
+                      <input className="input !py-1.5 text-[12px]" placeholder="תיאור קצר (אופציונלי)" value={it.description} onChange={(e) => updateItem(i, { description: e.target.value })} />
+                      <input dir="ltr" className="input !py-1.5 text-[12px]" placeholder="קישור וידאו YouTube/Vimeo (אופציונלי)" value={it.video_url} onChange={(e) => updateItem(i, { video_url: e.target.value })} />
                     </div>
                   ))}
                 </div>
@@ -189,11 +255,14 @@ export default function HepPanel({
               </div>
             </div>
 
-            <div className="mt-4 flex justify-end gap-2">
-              <button onClick={() => setOpen(false)} className="btn-ghost">ביטול</button>
-              <button onClick={save} disabled={saving} className="btn-primary">
-                {saving ? <Loader2 size={15} className="animate-spin" /> : "שמירת תוכנית"}
-              </button>
+            <div className="mt-4 space-y-1">
+              <p className="text-[11px] text-slate-400 text-center">שמירה תשלח אוטומטית את התוכנית למטופל ב-WhatsApp</p>
+              <div className="flex justify-end gap-2">
+                <button onClick={() => setOpen(false)} className="btn-ghost">ביטול</button>
+                <button onClick={save} disabled={saving} className="btn-primary">
+                  {saving ? <Loader2 size={15} className="animate-spin" /> : "שמירה ושליחה"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
