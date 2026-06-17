@@ -12,7 +12,21 @@ import {
 
 export const dynamic = "force-dynamic";
 
-// Green API (unofficial, free) inbound webhook.
+const MEDIA_TYPE_MAP: Record<string, "image" | "video" | "audio" | "document"> = {
+  imageMessage: "image",
+  videoMessage: "video",
+  audioMessage: "audio",
+  documentMessage: "document",
+};
+
+const MIME_EXT: Record<string, string> = {
+  "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif",
+  "video/mp4": "mp4", "video/3gpp": "3gp",
+  "audio/ogg": "ogg", "audio/mpeg": "mp3", "audio/aac": "aac",
+  "application/pdf": "pdf",
+};
+
+// Green API (unofficial, free) inbound webhook — supports text + video/image/audio/document.
 // Configure this URL in the Green API console as the instance webhook:
 //   https://<your-domain>/api/whatsapp/green
 //
@@ -31,7 +45,6 @@ export async function POST(request: Request) {
     return new Response("Bad Request", { status: 400 });
   }
 
-  // We only act on inbound text messages; ack everything else.
   if (payload?.typeWebhook !== "incomingMessageReceived") {
     return Response.json({ ok: true });
   }
@@ -43,20 +56,13 @@ export async function POST(request: Request) {
   const md = payload?.messageData ?? {};
   const waMessageId: string = payload?.idMessage ?? "";
 
-  // Extract text across the common Green message shapes.
-  const text: string =
-    md?.textMessageData?.textMessage ??
-    md?.extendedTextMessageData?.text ??
-    "";
-
-  // Group chats (@g.us) and non-text messages are ignored by the bot.
+  // Group chats are ignored.
   if (!chatId.endsWith("@c.us") || !idInstance) {
     return Response.json({ ok: true });
   }
 
   const supabase = createAdminClient();
 
-  // Route to the clinic that owns this Green instance.
   const { data: clinic } = await supabase
     .from("clinics")
     .select("id, settings")
@@ -73,39 +79,64 @@ export async function POST(request: Request) {
   const contact = chatIdToPhone(chatId);
 
   const patient = await findPatientByPhone(supabase, clinic.id, contact);
-  if (!patient) return Response.json({ ok: true }); // do not engage unknown senders
+  if (!patient) return Response.json({ ok: true });
 
   const conversationId = await getOrCreateConversation(supabase, clinic.id, patient.id, contact);
   if (!conversationId) return Response.json({ ok: true });
 
-  // Non-text (media) → persist a placeholder and escalate to a human.
-  if (!text.trim()) {
-    await supabase.from("messages").insert({
-      conversation_id: conversationId,
-      direction: "inbound",
-      body: "[מדיה]",
-      wa_message_id: waMessageId || null,
-      status: "delivered",
-      sent_at: new Date().toISOString(),
-    });
-    await supabase.from("conversations")
-      .update({ status: "human", last_message_at: new Date().toISOString() })
-      .eq("id", conversationId);
-    notifyEscalation({
-      clinicId: clinic.id,
-      patientName: `${patient.first_name} ${patient.last_name}`,
-      reason: "media",
-    });
+  // ── Detect message type ──────────────────────────────────────────────────
+  const typeMessage: string = md?.typeMessage ?? "";
+  const isText = typeMessage === "textMessage" || typeMessage === "extendedTextMessage";
+  const mediaCategory = MEDIA_TYPE_MAP[typeMessage];
+
+  const text: string =
+    md?.textMessageData?.textMessage ??
+    md?.extendedTextMessageData?.text ??
+    "";
+
+  // ── Handle media (video / image / audio / document) ──────────────────────
+  let persistedMediaUrl: string | null = null;
+  let persistedMediaType: string | null = null;
+  let body: string | null = text.trim() || null;
+
+  if (mediaCategory) {
+    const fileData = md?.fileMessageData ?? {};
+    const downloadUrl: string = fileData?.downloadUrl ?? "";
+    const mimeType: string = fileData?.mimeType ?? "";
+    const caption: string = (fileData?.caption ?? "").trim();
+
+    persistedMediaType = mediaCategory;
+    body = caption || null;
+
+    if (downloadUrl) {
+      try {
+        const res = await fetch(downloadUrl);
+        if (res.ok) {
+          const buffer = await res.arrayBuffer();
+          const resolvedMime = res.headers.get("content-type") ?? mimeType;
+          const ext = MIME_EXT[resolvedMime] ?? MIME_EXT[mimeType] ?? "bin";
+          const storagePath = `${clinic.id}/${waMessageId}.${ext}`;
+          const { error: uploadErr } = await supabase.storage
+            .from("whatsapp-media")
+            .upload(storagePath, buffer, { contentType: resolvedMime || mimeType, upsert: false });
+          if (!uploadErr) persistedMediaUrl = storagePath;
+        }
+      } catch (e) {
+        console.error("[green] media download failed:", e);
+      }
+    }
+  } else if (!isText) {
+    // Unknown message type (sticker, location, poll…) — ignore silently.
     return Response.json({ ok: true });
   }
 
-  const body = text.trim();
-
-  // Persist inbound (unique wa_message_id dedups Green retries).
+  // ── Persist message ──────────────────────────────────────────────────────
   await supabase.from("messages").insert({
     conversation_id: conversationId,
     direction: "inbound",
     body,
+    media_url: persistedMediaUrl,
+    media_type: persistedMediaType,
     wa_message_id: waMessageId || null,
     status: "delivered",
     sent_at: new Date().toISOString(),
@@ -114,7 +145,18 @@ export async function POST(request: Request) {
     .update({ last_message_at: new Date().toISOString() })
     .eq("id", conversationId);
 
-  // Opt-out keywords short-circuit the bot.
+  // Media-only (no caption) → store + escalate to human so therapist can review.
+  if (!body) {
+    await supabase.from("conversations").update({ status: "human" }).eq("id", conversationId);
+    notifyEscalation({
+      clinicId: clinic.id,
+      patientName: `${patient.first_name} ${patient.last_name}`,
+      reason: "media",
+    });
+    return Response.json({ ok: true });
+  }
+
+  // ── Opt-out keywords ─────────────────────────────────────────────────────
   const lower = body.toLowerCase();
   if (["stop", "עצור", "הסר", "בטל רישום"].some((k) => lower.includes(k))) {
     await supabase.from("patient_consents").upsert({
@@ -128,7 +170,7 @@ export async function POST(request: Request) {
     return Response.json({ ok: true });
   }
 
-  // Serialize processing per-conversation with a lease lock.
+  // ── Run AI agent ─────────────────────────────────────────────────────────
   const ctx = { conversationId, contact, clinicId: clinic.id, patient: patient as PatientLite };
   const gotLock = await acquireLock(supabase, conversationId);
   if (gotLock) {
