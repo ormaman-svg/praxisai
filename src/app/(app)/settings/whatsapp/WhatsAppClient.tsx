@@ -66,17 +66,34 @@ export default function WhatsAppClient({ initial }: { initial: Initial }) {
       evolution_instance: evoInstance.trim(),
     };
     if (evoApiKey.trim()) patch.evolution_api_key = evoApiKey.trim();
+
+    // 1. Save credentials
     const r = await fetch("/api/clinic/settings", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(patch),
     });
-    setSavingEvo(false);
     const d = await r.json().catch(() => null);
-    if (!r.ok) { setEvoMsg({ kind: "err", text: d?.error ?? "השמירה נכשלה." }); return; }
+    if (!r.ok) { setSavingEvo(false); setEvoMsg({ kind: "err", text: d?.error ?? "השמירה נכשלה." }); return; }
     setEvoApiKey("");
-    setEvoMsg({ kind: "ok", text: "פרטי Evolution API נשמרו. לחצו על 'טען QR' לחיבור." });
+
+    // 2. Auto-configure webhook in Evolution API
+    const setup = await fetch("/api/whatsapp/evolution/setup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ origin: window.location.origin }),
+    });
+    const sd = await setup.json().catch(() => null);
+    if (!setup.ok) {
+      setSavingEvo(false);
+      setEvoMsg({ kind: "err", text: sd?.error ?? "Webhook לא הוגדר — בדוק URL ו-API Key." });
+      return;
+    }
+
+    // 3. Load QR immediately
+    setSavingEvo(false);
     router.refresh();
+    await loadQr();
   }
 
   async function loadQr() {
@@ -265,7 +282,7 @@ export default function WhatsAppClient({ initial }: { initial: Initial }) {
 
         <div className="mt-4 flex justify-end">
           <button onClick={saveEvolution} disabled={savingEvo} className="btn-primary !bg-violet-600 hover:!bg-violet-700">
-            {savingEvo ? <Loader2 size={15} className="animate-spin" /> : "שמור ו-QR"}
+            {savingEvo ? <><Loader2 size={15} className="animate-spin" /> מגדיר...</> : "שמור וסרוק QR"}
           </button>
         </div>
       </div>
