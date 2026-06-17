@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { MessageCircle, Copy, Check, Loader2, ExternalLink } from "lucide-react";
+import { MessageCircle, Copy, Check, Loader2, ExternalLink, Zap, QrCode } from "lucide-react";
 
 type Initial = {
   wa_phone_number_id: string;
@@ -10,6 +10,8 @@ type Initial = {
   hasAccessToken: boolean;
   reminder24h: boolean;
   reminder2h: boolean;
+  green_id_instance: string;
+  hasGreenToken: boolean;
 };
 
 export default function WhatsAppClient({ initial }: { initial: Initial }) {
@@ -24,9 +26,45 @@ export default function WhatsAppClient({ initial }: { initial: Initial }) {
   const [copied, setCopied] = useState(false);
   const [webhookUrl, setWebhookUrl] = useState("");
 
+  // Green API (free, unofficial) state
+  const [greenIdInstance, setGreenIdInstance] = useState(initial.green_id_instance);
+  const [greenApiToken, setGreenApiToken] = useState("");
+  const [greenWebhookUrl, setGreenWebhookUrl] = useState("");
+  const [greenCopied, setGreenCopied] = useState(false);
+  const [savingGreen, setSavingGreen] = useState(false);
+  const [greenMsg, setGreenMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+
   useEffect(() => {
     setWebhookUrl(`${window.location.origin}/api/whatsapp/webhook`);
+    setGreenWebhookUrl(`${window.location.origin}/api/whatsapp/green`);
   }, []);
+
+  const greenConnected = !!initial.green_id_instance && initial.hasGreenToken;
+
+  async function saveGreen() {
+    setSavingGreen(true);
+    setGreenMsg(null);
+    const patch: Record<string, unknown> = { green_id_instance: greenIdInstance.trim() };
+    if (greenApiToken.trim()) patch.green_api_token = greenApiToken.trim();
+
+    const r = await fetch("/api/clinic/settings", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    });
+    setSavingGreen(false);
+    const d = await r.json().catch(() => null);
+    if (!r.ok) { setGreenMsg({ kind: "err", text: d?.error ?? "השמירה נכשלה." }); return; }
+    setGreenApiToken("");
+    setGreenMsg({ kind: "ok", text: "חיבור Green API נשמר. סרקו את ה-QR בקונסול והגדירו את ה-Webhook." });
+    router.refresh();
+  }
+
+  function copyGreenWebhook() {
+    navigator.clipboard.writeText(greenWebhookUrl);
+    setGreenCopied(true);
+    setTimeout(() => setGreenCopied(false), 1500);
+  }
 
   const connected = !!initial.wa_phone_number_id && initial.hasAccessToken;
 
@@ -75,6 +113,81 @@ export default function WhatsAppClient({ initial }: { initial: Initial }) {
               : "חיבור ישיר מול WhatsApp Cloud API הרשמי של Meta — ללא דמי מנוי למתווך"}
           </p>
         </div>
+      </div>
+
+      {/* ── Quick connect: Green API (free, unofficial) ── */}
+      <div className="card border-2 border-emerald-200 bg-emerald-50/30 p-6">
+        <div className="mb-4 flex items-center gap-2.5">
+          <div className="grid h-9 w-9 place-items-center rounded-xl bg-emerald-100 text-emerald-600">
+            <Zap size={18} />
+          </div>
+          <div className="flex-1">
+            <h2 className="flex items-center gap-2 text-sm font-bold text-slate-900">
+              חיבור מהיר — Green API (חינמי)
+              {greenConnected && <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10.5px] font-bold text-emerald-700"><Check size={11} /> מוגדר</span>}
+            </h2>
+            <p className="mt-0.5 text-[12px] text-slate-500">חיבור לא רשמי בסריקת QR — ללא אימות Meta וללא אישור תבניות. מושלם לחיבור זריז ולדמו.</p>
+          </div>
+        </div>
+
+        <ol className="mb-4 space-y-2.5">
+          {[
+            { n: 1, t: <>הירשמו בחינם ב-<a href="https://green-api.com" target="_blank" rel="noopener" className="inline-flex items-center gap-0.5 font-semibold text-emerald-700 hover:underline">green-api.com <ExternalLink size={11} /></a> וצרו Instance.</> },
+            { n: 2, t: <>סרקו את ה-<strong>QR</strong> בקונסול עם הוואטסאפ של הקליניקה (<QrCode size={12} className="inline" /> כמו WhatsApp Web).</> },
+            { n: 3, t: <>העתיקו <strong>idInstance</strong> ו-<strong>ApiTokenInstance</strong> מהקונסול והדביקו למטה.</> },
+            { n: 4, t: <>בקונסול, תחת <strong>Settings → Webhooks</strong>, הדביקו את כתובת ה-Webhook למטה והפעילו <code className="rounded bg-slate-100 px-1 text-[11px]">incomingMessageReceived</code>.</> },
+          ].map((step) => (
+            <li key={step.n} className="flex gap-3 text-[12.5px] leading-relaxed text-slate-600">
+              <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-emerald-100 text-[11px] font-bold text-emerald-700">{step.n}</span>
+              <span>{step.t}</span>
+            </li>
+          ))}
+        </ol>
+
+        <div className="mb-3">
+          <label className="label">כתובת Webhook ל-Green API</label>
+          <div className="mt-1.5 flex gap-2">
+            <input readOnly dir="ltr" value={greenWebhookUrl} className="input flex-1 bg-white font-mono text-[12px]" />
+            <button onClick={copyGreenWebhook} className="btn-ghost !border !border-line shrink-0">
+              {greenCopied ? <><Check size={15} className="text-emerald-500" /> הועתק</> : <><Copy size={15} /> העתקה</>}
+            </button>
+          </div>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label className="label">idInstance</label>
+            <input dir="ltr" className="input font-mono" placeholder="1101000001"
+                   value={greenIdInstance} onChange={(e) => setGreenIdInstance(e.target.value)} />
+          </div>
+          <div>
+            <label className="label">ApiTokenInstance</label>
+            <input dir="ltr" type="password" className="input font-mono"
+                   placeholder={initial.hasGreenToken ? "•••••••• (שמור — השאירו ריק כדי לא לשנות)" : "הדביקו את הטוקן"}
+                   value={greenApiToken} onChange={(e) => setGreenApiToken(e.target.value)} />
+          </div>
+        </div>
+
+        {greenMsg && (
+          <div className={`mt-3 rounded-lg border px-4 py-2.5 text-[13px] font-semibold ${
+            greenMsg.kind === "ok" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-red-200 bg-red-50 text-red-700"
+          }`}>
+            {greenMsg.text}
+          </div>
+        )}
+
+        <div className="mt-4 flex justify-end">
+          <button onClick={saveGreen} disabled={savingGreen} className="btn-primary !bg-emerald-600 hover:!bg-emerald-700">
+            {savingGreen ? <Loader2 size={15} className="animate-spin" /> : "שמירת חיבור מהיר"}
+          </button>
+        </div>
+      </div>
+
+      {/* ── Official Meta Cloud API ── */}
+      <div className="flex items-center gap-3 pt-2">
+        <div className="h-px flex-1 bg-line" />
+        <span className="text-[11.5px] font-semibold uppercase tracking-wider text-slate-400">או חיבור רשמי דרך Meta</span>
+        <div className="h-px flex-1 bg-line" />
       </div>
 
       {/* Step-by-step guide */}

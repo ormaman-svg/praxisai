@@ -36,6 +36,8 @@ export default async function WhatsAppSettingsPage() {
         hasAccessToken: !!s.wa_access_token,
         reminder24h: s.wa_reminder_24h !== false,
         reminder2h: s.wa_reminder_2h !== false,
+        green_id_instance: (s.green_id_instance as string) ?? "",
+        hasGreenToken: !!s.green_api_token,
       }}
     />
   );

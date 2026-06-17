@@ -53,19 +53,28 @@ export default function CopilotPanel({
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [expandedSug, setExpandedSug] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   async function analyze() {
     setLoading(true);
-    const r = await fetch("/api/copilot/analyze", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ patient_id: patientId, force: true }),
-    });
-    setLoading(false);
-    if (r.ok) {
-      const d = await r.json();
+    setError(null);
+    setExpanded(true);
+    try {
+      const r = await fetch("/api/copilot/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ patient_id: patientId, force: true }),
+      });
+      const d = await r.json().catch(() => null);
+      if (!r.ok) {
+        setError(d?.error ?? `שגיאה (${r.status}). נסו שוב.`);
+        return;
+      }
       setInsights(d);
-      setExpanded(true);
+    } catch (e: any) {
+      setError(e?.message ?? "שגיאת רשת. נסו שוב.");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -109,14 +118,29 @@ export default function CopilotPanel({
 
       {expanded && (
         <div className="border-t border-line px-4 pb-4 pt-3 space-y-4">
-          {!insights ? (
+          {error && (
+            <div className="flex items-start gap-2.5 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5">
+              <AlertTriangle size={14} className="mt-0.5 shrink-0 text-red-600" />
+              <div className="flex-1">
+                <p className="text-[12.5px] text-red-700">{error}</p>
+                <button onClick={analyze} disabled={loading} className="mt-1.5 text-[11.5px] font-semibold text-red-600 underline">
+                  נסה שוב
+                </button>
+              </div>
+            </div>
+          )}
+          {loading && !insights ? (
+            <div className="flex items-center justify-center gap-2 py-6 text-[13px] text-slate-500">
+              <Loader2 size={16} className="animate-spin text-violet-500" /> מנתח את נתוני המטופל…
+            </div>
+          ) : !insights && !error ? (
             <div className="py-6 text-center">
               <p className="mb-3 text-[13px] text-slate-500">הפעל את ה-AI לניתוח ראשוני של המטופל</p>
               <button onClick={analyze} disabled={loading} className="btn-primary gap-2">
                 {loading ? <><Loader2 size={14} className="animate-spin" /> מנתח…</> : <><Sparkles size={14} /> הפעל ניתוח</>}
               </button>
             </div>
-          ) : (
+          ) : !insights ? null : (
             <>
               {/* Flags */}
               {insights.flags.length > 0 && (

@@ -5,7 +5,8 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendTemplate, sendText } from "@/lib/whatsapp/client";
-import type { TemplateKey } from "@/lib/whatsapp/templates";
+import { sendText as greenSendText } from "@/lib/whatsapp/green-api";
+import { renderTemplateText, type TemplateKey } from "@/lib/whatsapp/templates";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
@@ -82,8 +83,13 @@ async function sendOne(supabase: SupabaseClient, msg: DueMessage, now: string): 
   const settings = msg.clinics?.settings;
   const phoneNumberId = settings?.wa_phone_number_id;
   const accessToken = settings?.wa_access_token;
+  const greenId = settings?.green_id_instance;
+  const greenToken = settings?.green_api_token;
 
-  if (!phone || !phoneNumberId || !accessToken) {
+  const hasMeta = !!phoneNumberId && !!accessToken;
+  const hasGreen = !!greenId && !!greenToken;
+
+  if (!phone || (!hasMeta && !hasGreen)) {
     await supabase
       .from("scheduled_messages")
       .update({ status: "failed", last_error: "missing phone or WhatsApp credentials" })
@@ -93,10 +99,18 @@ async function sendOne(supabase: SupabaseClient, msg: DueMessage, now: string): 
 
   try {
     const vars = msg.template_vars ?? [];
-    // free_text: vars[0] is the raw message body (used inside the 24h service window)
-    const waId = msg.template_key === "free_text"
-      ? await sendText({ phoneNumberId, accessToken }, phone, vars[0] ?? "")
-      : await sendTemplate({ phoneNumberId, accessToken }, phone, msg.template_key as TemplateKey, vars);
+    let waId: string;
+
+    if (hasGreen) {
+      // Green API has no approved templates — always send rendered free text.
+      const text = renderTemplateText(msg.template_key, vars);
+      waId = await greenSendText({ idInstance: greenId!, apiToken: greenToken! }, phone, text);
+    } else {
+      // free_text: vars[0] is the raw message body (used inside the 24h service window)
+      waId = msg.template_key === "free_text"
+        ? await sendText({ phoneNumberId: phoneNumberId!, accessToken: accessToken! }, phone, vars[0] ?? "")
+        : await sendTemplate({ phoneNumberId: phoneNumberId!, accessToken: accessToken! }, phone, msg.template_key as TemplateKey, vars);
+    }
 
     await supabase
       .from("scheduled_messages")

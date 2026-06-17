@@ -42,3 +42,27 @@ export const TEMPLATES = {
 } as const;
 
 export type TemplateKey = keyof typeof TEMPLATES;
+
+// Render a template to plain Hebrew text. Used by channels that have no
+// approved templates (e.g. Green API), and as the message body in our inbox.
+export function renderTemplateText(key: string, vars: string[]): string {
+  const v = (i: number) => vars[i] ?? "";
+  switch (key) {
+    case "free_text":
+      return v(0);
+    case "reminder_24h":
+      return `שלום ${v(0)}, תזכורת לטיפול מחר בשעה ${v(1)} עם ${v(2)}. השיבו אישור או ביטול.`;
+    case "reminder_2h":
+      return `שלום ${v(0)}, טיפולך מתחיל בעוד כשעתיים בשעה ${v(1)}. נתראה!`;
+    case "arrival_confirm":
+      return `שלום ${v(0)}, האם הגעתם היום לקליניקה? (כן/לא)`;
+    case "payment_request":
+      return `שלום ${v(0)}, יתרתכם לתשלום: ${v(1)} ₪ עבור ${v(2)}.${v(3) ? ` לתשלום מאובטח: ${v(3)}` : ""}`;
+    case "hep_nudge":
+      return `שלום ${v(0)}, האם ביצעת היום את תרגילי הבית? שלחו: כן/לא + רמת כאב 0-10`;
+    case "prom_collect":
+      return `שלום ${v(0)}, שאלון שבועי: כיצד הרגשתם מבחינת ${v(1)}? שלחו ציון 0-10`;
+    default:
+      return v(0);
+  }
+}

@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { invoke } from "@/lib/ai/invoke";
 
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 // POST /api/copilot/analyze
 // Body: { patient_id: string; force?: boolean }
@@ -10,6 +10,10 @@ export async function POST(request: Request) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return new Response("Unauthorized", { status: 401 });
+
+  if (!process.env.CL_KEY) {
+    return Response.json({ error: "CL_KEY חסר בהגדרות הסביבה של Vercel." }, { status: 500 });
+  }
 
   const body = await request.json().catch(() => null);
   const patientId: string = body?.patient_id;
@@ -147,21 +151,43 @@ ${lastNotes.join("\n\n")}
   let flags: any[] = [];
   let suggestions: any[] = [];
 
+  let rawText = "";
   try {
     const result = await invoke({
       system: systemPrompt,
       messages: [{ role: "user", content: userMessage }],
-      maxTokens: 1500,
+      maxTokens: 2000,
     });
+    rawText = result.text ?? "";
+  } catch (e: any) {
+    console.error("[copilot] invoke failed:", e?.message ?? e);
+    return Response.json(
+      { error: `שגיאה בקריאה ל-AI: ${e?.message ?? "unknown"}` },
+      { status: 502 }
+    );
+  }
 
-    const jsonMatch = result.text.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0]);
-      flags = Array.isArray(parsed.flags) ? parsed.flags.slice(0, 8) : [];
-      suggestions = Array.isArray(parsed.suggestions) ? parsed.suggestions.slice(0, 6) : [];
-    }
-  } catch {
-    // Return empty insights rather than erroring
+  // Strip markdown fences and extract the JSON object.
+  const cleaned = rawText.replace(/```json/gi, "").replace(/```/g, "").trim();
+  const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) {
+    console.error("[copilot] no JSON in response:", rawText.slice(0, 300));
+    return Response.json(
+      { error: "ה-AI לא החזיר פלט תקין. נסו שוב.", debug: rawText.slice(0, 300) },
+      { status: 502 }
+    );
+  }
+
+  try {
+    const parsed = JSON.parse(jsonMatch[0]);
+    flags = Array.isArray(parsed.flags) ? parsed.flags.slice(0, 8) : [];
+    suggestions = Array.isArray(parsed.suggestions) ? parsed.suggestions.slice(0, 6) : [];
+  } catch (e: any) {
+    console.error("[copilot] JSON parse failed:", e?.message, jsonMatch[0].slice(0, 300));
+    return Response.json(
+      { error: "פלט ה-AI לא היה JSON תקין. נסו שוב." },
+      { status: 502 }
+    );
   }
 
   const now = new Date().toISOString();
