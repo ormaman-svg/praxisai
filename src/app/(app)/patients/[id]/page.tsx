@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { ArrowRight, Activity, Clock, BarChart2, Ruler, Printer } from "lucide-react";
+import { ArrowRight, Activity, Clock, BarChart2, Ruler, Printer, FileText, ExternalLink } from "lucide-react";
 import { DOC_TYPE_HE, TREATMENT_TYPE_HE } from "@/lib/types";
 import { getClinicTemplate } from "@/lib/clinic-template-server";
 import { getHomeProgramConfig } from "@/lib/clinic-templates";
@@ -9,8 +9,10 @@ import { Donut } from "@/components/charts";
 import TreatmentForm from "./TreatmentForm";
 import VasChart from "./VasChart";
 import RomChart from "./RomChart";
+import PromChart from "./PromChart";
 import HepPanel from "./HepPanel";
 import InvoicesPanel from "./InvoicesPanel";
+import CopilotPanel from "./CopilotPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +22,7 @@ export default async function PatientPage({ params }: { params: { id: string } }
   const { data: patient } = await supabase.from("patients").select("*").eq("id", params.id).single();
   if (!patient) notFound();
 
-  const [{ data: treatments }, { data: docs }, { data: measurements }, { data: rawPrograms }, { data: invoices }, template] = await Promise.all([
+  const [{ data: treatments }, { data: docs }, { data: measurements }, { data: rawPrograms }, { data: invoices }, template, { data: copilotCache }] = await Promise.all([
     supabase.from("treatments")
       .select("*, profiles:therapist_id(full_name)")
       .eq("patient_id", patient.id).order("treated_at", { ascending: false }),
@@ -31,6 +33,7 @@ export default async function PatientPage({ params }: { params: { id: string } }
       .eq("patient_id", patient.id).eq("active", true).order("created_at", { ascending: false }),
     supabase.from("patient_invoices").select("*").eq("patient_id", patient.id).order("created_at", { ascending: false }),
     getClinicTemplate(supabase, patient.clinic_id),
+    supabase.from("copilot_insights").select("flags, suggestions, generated_at, treatment_count").eq("patient_id", patient.id).maybeSingle(),
   ]);
 
   // Shape HEP programs: sort items, attach the latest log.
@@ -56,6 +59,18 @@ export default async function PatientPage({ params }: { params: { id: string } }
     .filter((t) => t.vas !== null)
     .map((t) => ({ date: t.treated_at, value: t.vas as number }))
     .reverse();
+
+  // Group PROM measurements by scale_label for separate charts
+  const promByScale = new Map<string, { date: string; value: number }[]>();
+  for (const m of (measurements ?? []).filter((m) => m.kind === "PROM")) {
+    const label = (m as any).scale_label ?? "PROM";
+    if (!promByScale.has(label)) promByScale.set(label, []);
+    promByScale.get(label)!.push({ date: m.recorded_at, value: Number(m.value) });
+  }
+
+  const copilotInsights = copilotCache
+    ? { ...copilotCache, cached: true }
+    : null;
 
   const age = patient.dob ? Math.floor((Date.now() - new Date(patient.dob).getTime()) / 3.15576e10) : null;
 
@@ -130,7 +145,31 @@ export default async function PatientPage({ params }: { params: { id: string } }
             {[age ? `גיל ${age}` : null, patient.kupah, patient.diagnosis].filter(Boolean).join(" · ") || "—"}
           </p>
         </div>
-        <div className="text-sm text-slate-500" dir="ltr">{patient.phone ?? ""}</div>
+        <div className="flex flex-col items-end gap-2">
+          <div className="text-sm text-slate-500" dir="ltr">{patient.phone ?? ""}</div>
+          <div className="flex items-center gap-2">
+            <a
+              href={`/api/reports/referrer?patient_id=${patient.id}&type=referrer&print=1`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 rounded-md border border-line px-3 py-1.5 text-[12px] font-semibold text-slate-600 hover:bg-slate-50"
+              title="ייצא דוח תוצאות לגורם המפנה"
+            >
+              <FileText size={13} /> דוח גורם מפנה
+            </a>
+            {patient.bituach_leumi_case && (
+              <a
+                href={`/api/reports/referrer?patient_id=${patient.id}&type=bituach_leumi&print=1`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-[12px] font-semibold text-blue-700 hover:bg-blue-100"
+                title="ייצא דוח ביטוח לאומי"
+              >
+                <ExternalLink size={12} /> ביטוח לאומי
+              </a>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* KPI strip */}
@@ -220,6 +259,16 @@ export default async function PatientPage({ params }: { params: { id: string } }
             </div>
           )}
 
+          {/* PROM trends — one card per scale */}
+          {Array.from(promByScale.entries()).map(([label, series]) =>
+            series.length >= 2 ? (
+              <div key={label} className="card p-5">
+                <h2 className="mb-3 text-sm font-bold text-slate-900">{label} — מגמה</h2>
+                <PromChart data={series} scaleLabel={label} improvementLower={false} />
+              </div>
+            ) : null
+          )}
+
           {/* Treatment type distribution */}
           {typeDonut.length >= 2 && (
             <div className="card p-5">
@@ -239,6 +288,9 @@ export default async function PatientPage({ params }: { params: { id: string } }
               config={homeProgram}
             />
           )}
+
+          {/* AI Clinical Co-pilot */}
+          <CopilotPanel patientId={patient.id} initialInsights={copilotInsights} />
 
           {/* Patient invoices */}
           <InvoicesPanel
