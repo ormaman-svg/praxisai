@@ -38,6 +38,9 @@ export default async function WhatsAppSettingsPage() {
         reminder2h: s.wa_reminder_2h !== false,
         green_id_instance: (s.green_id_instance as string) ?? "",
         hasGreenToken: !!s.green_api_token,
+        evolution_host: (s.evolution_host as string) ?? "",
+        evolution_instance: (s.evolution_instance as string) ?? "",
+        hasEvolutionKey: !!s.evolution_api_key,
       }}
     />
   );

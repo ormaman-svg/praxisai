@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { MessageCircle, Copy, Check, Loader2, ExternalLink, Zap, QrCode } from "lucide-react";
+import { MessageCircle, Copy, Check, Loader2, ExternalLink, Zap, QrCode, RefreshCw, Video } from "lucide-react";
 
 type Initial = {
   wa_phone_number_id: string;
@@ -12,6 +12,9 @@ type Initial = {
   reminder2h: boolean;
   green_id_instance: string;
   hasGreenToken: boolean;
+  evolution_host: string;
+  evolution_instance: string;
+  hasEvolutionKey: boolean;
 };
 
 export default function WhatsAppClient({ initial }: { initial: Initial }) {
@@ -34,12 +37,70 @@ export default function WhatsAppClient({ initial }: { initial: Initial }) {
   const [savingGreen, setSavingGreen] = useState(false);
   const [greenMsg, setGreenMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
 
+  // Evolution API (Baileys, free self-hosted) state
+  const [evoHost, setEvoHost] = useState(initial.evolution_host);
+  const [evoInstance, setEvoInstance] = useState(initial.evolution_instance);
+  const [evoApiKey, setEvoApiKey] = useState("");
+  const [evoWebhookUrl, setEvoWebhookUrl] = useState("");
+  const [evoCopied, setEvoCopied] = useState(false);
+  const [savingEvo, setSavingEvo] = useState(false);
+  const [evoMsg, setEvoMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+  const [evoState, setEvoState] = useState<"open" | "close" | "connecting" | null>(null);
+  const [qrBase64, setQrBase64] = useState<string | null>(null);
+  const [loadingQr, setLoadingQr] = useState(false);
+
   useEffect(() => {
     setWebhookUrl(`${window.location.origin}/api/whatsapp/webhook`);
     setGreenWebhookUrl(`${window.location.origin}/api/whatsapp/green`);
+    setEvoWebhookUrl(`${window.location.origin}/api/whatsapp/evolution`);
   }, []);
 
   const greenConnected = !!initial.green_id_instance && initial.hasGreenToken;
+  const evoConnected = !!initial.evolution_instance && initial.hasEvolutionKey;
+
+  async function saveEvolution() {
+    setSavingEvo(true);
+    setEvoMsg(null);
+    const patch: Record<string, unknown> = {
+      evolution_host: evoHost.trim().replace(/\/$/, ""),
+      evolution_instance: evoInstance.trim(),
+    };
+    if (evoApiKey.trim()) patch.evolution_api_key = evoApiKey.trim();
+    const r = await fetch("/api/clinic/settings", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    });
+    setSavingEvo(false);
+    const d = await r.json().catch(() => null);
+    if (!r.ok) { setEvoMsg({ kind: "err", text: d?.error ?? "השמירה נכשלה." }); return; }
+    setEvoApiKey("");
+    setEvoMsg({ kind: "ok", text: "פרטי Evolution API נשמרו. לחצו על 'טען QR' לחיבור." });
+    router.refresh();
+  }
+
+  async function loadQr() {
+    setLoadingQr(true);
+    setQrBase64(null);
+    try {
+      const r = await fetch("/api/whatsapp/evolution/qr");
+      const d = await r.json().catch(() => null);
+      if (!r.ok) { setEvoMsg({ kind: "err", text: d?.error ?? "טעינת QR נכשלה." }); return; }
+      setEvoState(d.state);
+      setQrBase64(d.qrBase64 ?? null);
+      if (d.state === "open") setEvoMsg({ kind: "ok", text: "מחובר! הוואטסאפ פעיל." });
+    } catch {
+      setEvoMsg({ kind: "err", text: "שגיאת רשת בטעינת QR." });
+    } finally {
+      setLoadingQr(false);
+    }
+  }
+
+  function copyEvoWebhook() {
+    navigator.clipboard.writeText(evoWebhookUrl);
+    setEvoCopied(true);
+    setTimeout(() => setEvoCopied(false), 1500);
+  }
 
   async function saveGreen() {
     setSavingGreen(true);
@@ -113,6 +174,106 @@ export default function WhatsAppClient({ initial }: { initial: Initial }) {
               : "חיבור ישיר מול WhatsApp Cloud API הרשמי של Meta — ללא דמי מנוי למתווך"}
           </p>
         </div>
+      </div>
+
+      {/* ── Evolution API (Baileys, free self-hosted, full media) ── */}
+      <div className="card border-2 border-violet-200 bg-violet-50/30 p-6">
+        <div className="mb-4 flex items-center gap-2.5">
+          <div className="grid h-9 w-9 place-items-center rounded-xl bg-violet-100 text-violet-600">
+            <Video size={18} />
+          </div>
+          <div className="flex-1">
+            <h2 className="flex items-center gap-2 text-sm font-bold text-slate-900">
+              Evolution API (Baileys) — חינמי + וידאו מלא
+              {evoConnected && <span className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-[10.5px] font-bold text-violet-700"><Check size={11} /> מוגדר</span>}
+              {evoState === "open" && <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10.5px] font-bold text-emerald-700"><Check size={11} /> מחובר</span>}
+            </h2>
+            <p className="mt-0.5 text-[12px] text-slate-500">
+              מבוסס Baileys (כמו Rio) — סריקת QR, ללא אישור Meta, תמיכה מלאה בוידאו/תמונות/קבצים.
+            </p>
+          </div>
+        </div>
+
+        <ol className="mb-4 space-y-2.5">
+          {[
+            { n: 1, t: <>הפעילו Evolution API על שרת חינמי: <a href="https://railway.app/template/evolution-api" target="_blank" rel="noopener" className="inline-flex items-center gap-0.5 font-semibold text-violet-700 hover:underline">Railway <ExternalLink size={11} /></a> או <a href="https://fly.io" target="_blank" rel="noopener" className="inline-flex items-center gap-0.5 font-semibold text-violet-700 hover:underline">Fly.io <ExternalLink size={11} /></a>.</> },
+            { n: 2, t: <>צרו instance חדש בממשק Evolution (/instance/create) — קבלו שם instance ו-API key.</> },
+            { n: 3, t: <>הכניסו את הפרטים למטה ולחצו "שמור". אחר כך לחצו "טען QR" וסרקו עם הטלפון.</> },
+            { n: 4, t: <>בהגדרות ה-instance ב-Evolution, הגדירו Webhook URL לכתובת למטה + אפשרו events: <code className="rounded bg-slate-100 px-1 text-[11px]">messages.upsert</code>.</> },
+          ].map((step) => (
+            <li key={step.n} className="flex gap-3 text-[12.5px] leading-relaxed text-slate-600">
+              <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-violet-100 text-[11px] font-bold text-violet-700">{step.n}</span>
+              <span>{step.t}</span>
+            </li>
+          ))}
+        </ol>
+
+        <div className="mb-3 grid gap-3 sm:grid-cols-3">
+          <div className="sm:col-span-3">
+            <label className="label">Evolution API URL</label>
+            <input dir="ltr" className="input font-mono" placeholder="https://evo.my-server.com"
+                   value={evoHost} onChange={(e) => setEvoHost(e.target.value)} />
+          </div>
+          <div>
+            <label className="label">Instance Name</label>
+            <input dir="ltr" className="input font-mono" placeholder="clinic_abc"
+                   value={evoInstance} onChange={(e) => setEvoInstance(e.target.value)} />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="label">API Key</label>
+            <input dir="ltr" type="password" className="input font-mono"
+                   placeholder={initial.hasEvolutionKey ? "•••••••• (שמור — השאירו ריק כדי לא לשנות)" : "מה-/instance/create"}
+                   value={evoApiKey} onChange={(e) => setEvoApiKey(e.target.value)} />
+          </div>
+        </div>
+
+        {/* QR Code */}
+        {evoConnected && (
+          <div className="mb-3 flex flex-col items-center gap-3 rounded-xl border border-violet-100 bg-white p-4">
+            {qrBase64 ? (
+              <img src={qrBase64} alt="WhatsApp QR" className="h-48 w-48 rounded-lg" />
+            ) : evoState === "open" ? (
+              <p className="text-sm font-semibold text-emerald-600">הוואטסאפ מחובר ופעיל.</p>
+            ) : (
+              <p className="text-[12.5px] text-slate-400">לחצו "טען QR" לסריקה עם הוואטסאפ של הקליניקה.</p>
+            )}
+            <button onClick={loadQr} disabled={loadingQr}
+                    className="btn-ghost !border !border-line text-[12.5px]">
+              {loadingQr ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+              {evoState === "open" ? "בדוק סטטוס" : "טען QR"}
+            </button>
+          </div>
+        )}
+
+        <div className="mb-3">
+          <label className="label">כתובת Webhook לEvolution API</label>
+          <div className="mt-1.5 flex gap-2">
+            <input readOnly dir="ltr" value={evoWebhookUrl} className="input flex-1 bg-white font-mono text-[12px]" />
+            <button onClick={copyEvoWebhook} className="btn-ghost !border !border-line shrink-0">
+              {evoCopied ? <><Check size={15} className="text-emerald-500" /> הועתק</> : <><Copy size={15} /> העתקה</>}
+            </button>
+          </div>
+        </div>
+
+        {evoMsg && (
+          <div className={`mt-3 rounded-lg border px-4 py-2.5 text-[13px] font-semibold ${
+            evoMsg.kind === "ok" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-red-200 bg-red-50 text-red-700"
+          }`}>
+            {evoMsg.text}
+          </div>
+        )}
+
+        <div className="mt-4 flex justify-end">
+          <button onClick={saveEvolution} disabled={savingEvo} className="btn-primary !bg-violet-600 hover:!bg-violet-700">
+            {savingEvo ? <Loader2 size={15} className="animate-spin" /> : "שמור ו-QR"}
+          </button>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <div className="h-px flex-1 bg-line" />
+        <span className="text-[11.5px] font-semibold uppercase tracking-wider text-slate-400">או Green API (טקסט בלבד)</span>
+        <div className="h-px flex-1 bg-line" />
       </div>
 
       {/* ── Quick connect: Green API (free, unofficial) ── */}

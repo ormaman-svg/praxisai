@@ -6,6 +6,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendTemplate, sendText } from "@/lib/whatsapp/client";
 import { sendText as greenSendText } from "@/lib/whatsapp/green-api";
+import { sendText as evolutionSendText } from "@/lib/whatsapp/evolution-api";
 import { renderTemplateText, type TemplateKey } from "@/lib/whatsapp/templates";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -85,11 +86,15 @@ async function sendOne(supabase: SupabaseClient, msg: DueMessage, now: string): 
   const accessToken = settings?.wa_access_token;
   const greenId = settings?.green_id_instance;
   const greenToken = settings?.green_api_token;
+  const evolutionHost = settings?.evolution_host;
+  const evolutionInstance = settings?.evolution_instance;
+  const evolutionKey = settings?.evolution_api_key;
 
   const hasMeta = !!phoneNumberId && !!accessToken;
   const hasGreen = !!greenId && !!greenToken;
+  const hasEvolution = !!evolutionHost && !!evolutionInstance && !!evolutionKey;
 
-  if (!phone || (!hasMeta && !hasGreen)) {
+  if (!phone || (!hasMeta && !hasGreen && !hasEvolution)) {
     await supabase
       .from("scheduled_messages")
       .update({ status: "failed", last_error: "missing phone or WhatsApp credentials" })
@@ -101,7 +106,15 @@ async function sendOne(supabase: SupabaseClient, msg: DueMessage, now: string): 
     const vars = msg.template_vars ?? [];
     let waId: string;
 
-    if (hasGreen) {
+    if (hasEvolution) {
+      // Evolution API (Baileys) — send rendered free text (no approved templates needed)
+      const text = renderTemplateText(msg.template_key, vars);
+      waId = await evolutionSendText(
+        { host: evolutionHost!, instance: evolutionInstance!, apiKey: evolutionKey! },
+        phone,
+        text
+      );
+    } else if (hasGreen) {
       // Green API has no approved templates — always send rendered free text.
       const text = renderTemplateText(msg.template_key, vars);
       waId = await greenSendText({ idInstance: greenId!, apiToken: greenToken! }, phone, text);
