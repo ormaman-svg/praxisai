@@ -3,6 +3,7 @@
 // the super-admin clinic-creation route.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ClinicalTemplate } from "./clinic-templates";
+import { getHomeProgramConfig } from "./clinic-templates";
 import { buildDemoDataset } from "./demo-data";
 
 /* ── Demo inbox conversations ───────────────────────────────────────── */
@@ -146,11 +147,126 @@ function pickConvTemplate(templateId: string): DemoConv[] {
   return DEMO_CONVERSATIONS.physio;
 }
 
+/* ── Demo home-program (HEP) exercises ──────────────────────────────── */
+
+type DemoExercise = {
+  name: string;
+  sets: number | null;
+  reps: number | null;
+  hold_sec: number | null;
+  frequency: string;       // 'daily' | '2x_daily' | 'alternate_days'
+  description: string;
+};
+type DemoProgram = { title: string; instructions: string; items: DemoExercise[] };
+
+const DEMO_PROGRAMS: Record<string, DemoProgram> = {
+  physio: {
+    title: "תוכנית תרגול לבית — שיקום אורתופדי",
+    instructions: "לבצע מדי יום. להפסיק במקרה של כאב חד ולעדכן את המטפל.",
+    items: [
+      { name: "מתיחת שריר ארבע ראשי", sets: 3, reps: 10, hold_sec: 20, frequency: "daily", description: "בעמידה, אחזו בקרסול ומשכו את העקב לעבר הישבן עד תחושת מתיחה קלה בקדמת הירך." },
+      { name: "גשר אגן לחיזוק", sets: 3, reps: 12, hold_sec: 5, frequency: "daily", description: "שכיבה על הגב וברכיים כפופות, הרימו את האגן תוך כיווץ שרירי הישבן והחזיקו." },
+      { name: "יציבות על רגל אחת", sets: 3, reps: 1, hold_sec: 30, frequency: "daily", description: "עמדו על רגל אחת ליד משטח יציב לתמיכה. שמרו על שיווי משקל." },
+      { name: "מתיחת שרירי שוק", sets: 2, reps: 10, hold_sec: 20, frequency: "daily", description: "בעמידה מול קיר, רגל אחת מאחור עם עקב על הרצפה, רכנו קדימה." },
+    ],
+  },
+  neuro: {
+    title: "תוכנית תרגול תפקודי לבית",
+    instructions: "בצעו בנוכחות מלווה לבטיחות. תדירות יומית מומלצת.",
+    items: [
+      { name: "העברת משקל מצד לצד", sets: 2, reps: 15, hold_sec: 3, frequency: "daily", description: "בעמידה יציבה, העבירו משקל מרגל לרגל באיטיות תוך שמירה על יציבה." },
+      { name: "קימה מישיבה לעמידה", sets: 3, reps: 8, hold_sec: 0, frequency: "daily", description: "מכיסא יציב עם משענות, קומו לעמידה ושבו חזרה בשליטה." },
+      { name: "תרגול אחיזה ושחרור", sets: 3, reps: 12, hold_sec: 2, frequency: "2x_daily", description: "אחזו ושחררו כדור גומי רך לחיזוק כף היד והאצבעות." },
+      { name: "תרגול שיווי משקל ליד משטח", sets: 2, reps: 1, hold_sec: 30, frequency: "daily", description: "עמדו ליד משטח יציב ותרגלו שמירת יציבה עם רגליים צמודות." },
+    ],
+  },
+  pediatric: {
+    title: "תוכנית משחק ותרגול לבית",
+    instructions: "לשלב במשחק יומיומי. לעודד ולתגמל את הילד/ה.",
+    items: [
+      { name: "זחילה במנהרת בד", sets: 2, reps: 5, hold_sec: 0, frequency: "daily", description: "עודדו את הילד/ה לזחול דרך מנהרה לחיזוק חגורת הכתפיים." },
+      { name: "קפיצות על טרמפולינה קטנה", sets: 2, reps: 15, hold_sec: 0, frequency: "daily", description: "קפיצות מבוקרות לשיפור שיווי משקל וויסות חושי." },
+      { name: "השחלת חרוזים", sets: 1, reps: 10, hold_sec: 0, frequency: "daily", description: "השחלת חרוזים גדולים על חוט לחיזוק מוטוריקה עדינה." },
+      { name: "משחק כדור — תפיסה וזריקה", sets: 2, reps: 10, hold_sec: 0, frequency: "daily", description: "תפיסה וזריקה של כדור רך לשיפור קואורדינציה עין-יד." },
+    ],
+  },
+  pelvic: {
+    title: "תוכנית תרגול רצפת אגן לבית",
+    instructions: "לבצע בשכיבה או ישיבה נוחה. הקפידו על נשימה רגועה.",
+    items: [
+      { name: "כיווצי רצפת אגן (קגל) איטיים", sets: 3, reps: 10, hold_sec: 5, frequency: "daily", description: "כווצו את שרירי רצפת האגן כאילו עוצרים מתן שתן, החזיקו 5 שניות ושחררו." },
+      { name: "כיווצים מהירים", sets: 3, reps: 10, hold_sec: 1, frequency: "daily", description: "כיווץ ושחרור מהירים של רצפת האגן לחיזוק תגובה מהירה." },
+      { name: "נשימה סרעפתית", sets: 2, reps: 8, hold_sec: 4, frequency: "2x_daily", description: "נשימה עמוקה לבטן תוך הרפיית רצפת האגן בשאיפה." },
+    ],
+  },
+  ot: {
+    title: "תוכנית תרגול תפקודי לבית",
+    instructions: "לשלב בפעילויות היומיום. לעדכן את המטפל על קשיים.",
+    items: [
+      { name: "תרגול אחיזת עיפרון וכתיבה", sets: 2, reps: 10, hold_sec: 0, frequency: "daily", description: "תרגול כתיבה ושרטוט קווים לחיזוק אחיזה ושליטה מוטורית." },
+      { name: "מיון והברגת אומים", sets: 2, reps: 10, hold_sec: 0, frequency: "daily", description: "הברגה ופירוק של אומים וברגים לחיזוק מוטוריקה עדינה." },
+      { name: "תרגול לבישה עצמאית", sets: 1, reps: 1, hold_sec: 0, frequency: "daily", description: "תרגול לבישת חולצה וכפתורים באופן עצמאי." },
+    ],
+  },
+  slp: {
+    title: "תוכנית תרגול תקשורת לבית",
+    instructions: "לתרגל בסביבה שקטה, מספר דקות מדי יום.",
+    items: [
+      { name: "תרגול הפקת הצליל המטרה", sets: null, reps: null, hold_sec: null, frequency: "daily", description: "תרגול הצליל ברמת ההברה והמילה מול מראה, 5–10 דקות." },
+      { name: "תרגילי נשיפה לחיזוק שרירי הפה", sets: null, reps: null, hold_sec: null, frequency: "daily", description: "נשיפה דרך קשית לתוך מים או ניפוח בלון לחיזוק שרירי הפה." },
+      { name: "קריאת מילים בקול", sets: null, reps: null, hold_sec: null, frequency: "daily", description: "קריאת רשימת מילים בקול רם בקצב איטי וברור." },
+    ],
+  },
+  psych: {
+    title: "משימות טיפוליות לבית",
+    instructions: "לבצע בין הפגישות. נדבר על כך בפגישה הבאה.",
+    items: [
+      { name: "יומן מחשבות אוטומטיות", sets: null, reps: null, hold_sec: null, frequency: "daily", description: "רשמו מצב מעורר, המחשבה האוטומטית, הרגש ועוצמתו (0–100)." },
+      { name: "תרגול נשימה והרפיה", sets: null, reps: null, hold_sec: null, frequency: "2x_daily", description: "תרגול נשימה סרעפתית 5 דקות להפחתת מתח." },
+      { name: "הפעלה התנהגותית — פעילות מהנה", sets: null, reps: null, hold_sec: null, frequency: "daily", description: "תכננו ובצעו פעילות מהנה אחת ביום ותעדו את ההשפעה על מצב הרוח." },
+    ],
+  },
+  default: {
+    title: "תוכנית תרגול לבית",
+    instructions: "לבצע בהתאם להנחיות המטפל.",
+    items: [
+      { name: "תרגיל לחיזוק כללי", sets: 3, reps: 10, hold_sec: 5, frequency: "daily", description: "תרגיל חיזוק בסיסי בהתאם להמלצת המטפל." },
+      { name: "תרגיל מתיחה והרפיה", sets: 2, reps: 8, hold_sec: 15, frequency: "daily", description: "מתיחה עדינה לשמירה על טווחי תנועה." },
+    ],
+  },
+};
+
+function pickProgram(templateId: string): DemoProgram {
+  if (/pelvic/.test(templateId)) return DEMO_PROGRAMS.pelvic;
+  if (/(ortho|vestibular|chiro|rehab|inpatient)/.test(templateId)) return DEMO_PROGRAMS.physio;
+  if (/neuro/.test(templateId)) return DEMO_PROGRAMS.neuro;
+  if (/(pediatric|ot_pediatric)/.test(templateId)) return DEMO_PROGRAMS.pediatric;
+  if (/slp/.test(templateId)) return DEMO_PROGRAMS.slp;
+  if (/ot_adult/.test(templateId)) return DEMO_PROGRAMS.ot;
+  if (/(psych|psychology)/.test(templateId)) return DEMO_PROGRAMS.psych;
+  return DEMO_PROGRAMS.default;
+}
+
+/* ── Demo documents (with realistic content) ────────────────────────── */
+
 const DOC_TITLES: { type: string; title: string }[] = [
   { type: "referral", title: "מכתב הפניה" },
-  { type: "status_report", title: "דוח מצב טיפולי" },
+  { type: "status_report", title: "דו״ח התקדמות טיפולי" },
   { type: "discharge_summary", title: "סיכום סיום טיפול" },
 ];
+
+function buildDocContent(type: string, patientName: string, diagnosis: string, professionName: string): string {
+  const today = new Date().toLocaleDateString("he-IL", { day: "numeric", month: "long", year: "numeric" });
+  if (type === "referral") {
+    return `לכבוד הרופא/ה המטפל/ת,\n\nהנדון: ${patientName}\nתאריך: ${today}\n\nמטופל/ת בטיפולנו ב${professionName} עקב ${diagnosis}. בבדיקה נמצאו ממצאים התואמים לאבחנה. מומלץ המשך בירור והערכה רפואית בהתאם.\n\nאשמח לעמוד לרשותכם בכל שאלה.\nבברכה,\nצוות הקליניקה`;
+  }
+  if (type === "status_report") {
+    return `דו״ח התקדמות טיפולי\n\nשם המטופל/ת: ${patientName}\nתאריך: ${today}\nאבחנה: ${diagnosis}\n\nהמטופל/ת נמצא/ת בתהליך טיפול ב${professionName}. נצפתה התקדמות טובה ביחס ליעדי הטיפול, עם שיפור ביכולת התפקודית ובתסמינים. מומלץ המשך תוכנית הטיפול והתרגול הביתי.\n\nבברכה,\nצוות הקליניקה`;
+  }
+  return `סיכום סיום טיפול\n\nשם המטופל/ת: ${patientName}\nתאריך: ${today}\nאבחנה: ${diagnosis}\n\nהמטופל/ת סיים/ה סדרת טיפולים ב${professionName}. הושגו יעדי הטיפול העיקריים עם שיפור משמעותי במצב התפקודי. ניתנו המלצות לתרגול ושמירה עצמית בבית. מומלץ מעקב בהתאם לצורך.\n\nבברכה,\nצוות הקליניקה`;
+}
+
+const INVOICE_DESCRIPTIONS = ["טיפול", "סדרת טיפולים", "הערכה ראשונית", "טיפול המשך"];
 
 export type DemoSeedResult = { patients: number; treatments: number; measurements: number };
 
@@ -170,12 +286,19 @@ export async function seedDemoClinic(
   await admin.from("documents").delete().eq("clinic_id", clinicId);
   await admin.from("appointments").delete().eq("clinic_id", clinicId);
   await admin.from("measurements").delete().eq("clinic_id", clinicId);
+  await admin.from("exercise_programs").delete().eq("clinic_id", clinicId);
+  await admin.from("patient_invoices").delete().eq("clinic_id", clinicId);
   await admin.from("treatments").delete().eq("clinic_id", clinicId);
   await admin.from("conversations").delete().eq("clinic_id", clinicId);
   await admin.from("patients").delete().eq("clinic_id", clinicId);
 
   let patients = 0, treatments = 0, measurements = 0;
   const patientIds: string[] = [];
+  // Per-patient info collected during seeding, reused for HEP / invoices / docs.
+  const seeded: {
+    id: string; firstName: string; lastName: string; diagnosis: string;
+    latestTreatmentId: string | null;
+  }[] = [];
 
   for (const unit of dataset) {
     const { data: p, error: pErr } = await admin.from("patients").insert({
@@ -212,6 +335,17 @@ export async function seedDemoClinic(
     ).select("id, treated_at");
     treatments += trows?.length ?? 0;
 
+    const latestTreatmentId = trows?.length
+      ? [...trows].sort((a, b) => +new Date(b.treated_at) - +new Date(a.treated_at))[0].id as string
+      : null;
+    seeded.push({
+      id: p.id,
+      firstName: unit.patient.first_name,
+      lastName: unit.patient.last_name,
+      diagnosis: unit.patient.diagnosis,
+      latestTreatmentId,
+    });
+
     if (unit.measurements.length && trows?.length) {
       const idByDate = new Map(trows.map((r) => [r.treated_at as string, r.id as string]));
       const { data: mrows } = await admin.from("measurements").insert(
@@ -231,23 +365,79 @@ export async function seedDemoClinic(
     }
   }
 
-  if (patientIds.length) {
-    const docs = Array.from({ length: 3 }, (_, i) => {
+  // ── Per-patient documents (with realistic content) ──────────────────
+  if (seeded.length) {
+    const docs = seeded.map((s, i) => {
       const d = DOC_TITLES[i % DOC_TITLES.length];
       return {
         clinic_id: clinicId,
-        patient_id: patientIds[Math.floor(Math.random() * patientIds.length)],
+        patient_id: s.id,
         type: d.type,
         title: d.title,
-        content: "",
-        status: "draft",
+        content: buildDocContent(d.type, `${s.firstName} ${s.lastName}`, s.diagnosis, template.profession),
+        // Mix of finalized and AI-drafted documents for a realistic inbox.
+        status: i % 3 === 0 ? "final" : "draft",
         created_by: createdBy,
-        ai_generated: false,
-        created_at: new Date(Date.now() - (i + 1) * 5 * 864e5).toISOString(),
+        ai_generated: i % 2 === 0,
+        created_at: new Date(Date.now() - (i + 1) * 3 * 864e5).toISOString(),
       };
     });
     await admin.from("documents").insert(docs);
+  }
 
+  // ── Per-patient home-program (HEP) — only where clinically relevant ──
+  const homeProgram = getHomeProgramConfig(template.profession);
+  if (homeProgram && seeded.length) {
+    const tpl = pickProgram(template.id);
+    for (const s of seeded) {
+      const { data: prog } = await admin.from("exercise_programs").insert({
+        clinic_id: clinicId,
+        patient_id: s.id,
+        treatment_id: s.latestTreatmentId,
+        title: tpl.title,
+        instructions: tpl.instructions,
+        active: true,
+        created_by: createdBy,
+      }).select("id").single();
+      if (!prog?.id) continue;
+      await admin.from("program_items").insert(
+        tpl.items.map((it, idx) => ({
+          program_id: prog.id,
+          name: it.name,
+          sets: homeProgram.showSetsReps ? it.sets : null,
+          reps: homeProgram.showSetsReps ? it.reps : null,
+          hold_sec: homeProgram.showSetsReps ? it.hold_sec : null,
+          frequency: it.frequency,
+          description: it.description,
+          sort_order: idx,
+        })),
+      );
+    }
+  }
+
+  // ── Per-patient invoices (mix of paid / pending) ────────────────────
+  if (seeded.length) {
+    const invoices = seeded.map((s, i) => {
+      const paid = i % 3 !== 0; // ~2/3 paid
+      const amount = 150 + Math.floor(Math.random() * 7) * 50; // 150–450 ₪
+      const desc = `${INVOICE_DESCRIPTIONS[i % INVOICE_DESCRIPTIONS.length]} ${template.profession}`;
+      const createdAt = new Date(Date.now() - (i + 1) * 4 * 864e5);
+      return {
+        clinic_id: clinicId,
+        patient_id: s.id,
+        amount_ils: amount,
+        description: desc,
+        status: paid ? "paid" : "pending",
+        stripe_payment_link: paid ? null : "https://meshulam.co.il/demo",
+        paid_at: paid ? createdAt.toISOString() : null,
+        created_by: createdBy,
+        created_at: createdAt.toISOString(),
+      };
+    });
+    await admin.from("patient_invoices").insert(invoices);
+  }
+
+  if (patientIds.length) {
     const appts = Array.from({ length: 6 }, () => {
       const start = new Date();
       start.setDate(start.getDate() + Math.floor(Math.random() * 12) + 1);

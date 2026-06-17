@@ -27,7 +27,7 @@ export default async function DashboardPage() {
     supabase.from("documents").select("id", { count: "exact", head: true }).eq("clinic_id", clinicId).eq("status", "draft"),
     supabase.from("clinic_members").select("id", { count: "exact", head: true }).eq("clinic_id", clinicId).eq("status", "active"),
     supabase.from("treatments")
-      .select("id, treated_at, type, vas, patients(first_name,last_name), profiles:therapist_id(full_name)")
+      .select("id, treated_at, type, vas, patient_id, patients(first_name,last_name), profiles:therapist_id(full_name)")
       .eq("clinic_id", clinicId).order("treated_at", { ascending: false }).limit(6),
   ]);
 
@@ -75,7 +75,13 @@ export default async function DashboardPage() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="text-[13.5px] font-semibold text-slate-800">
-                    {t.patients ? `${t.patients.first_name} ${t.patients.last_name}` : "מטופל"}
+                    {t.patient_id ? (
+                      <Link href={`/patients/${t.patient_id}`} className="hover:text-brand">
+                        {t.patients ? `${t.patients.first_name} ${t.patients.last_name}` : "מטופל"}
+                      </Link>
+                    ) : (
+                      t.patients ? `${t.patients.first_name} ${t.patients.last_name}` : "מטופל"
+                    )}
                   </div>
                   <div className="text-xs text-slate-500">
                     {TREATMENT_TYPE_HE[t.type] ?? t.type}

@@ -43,13 +43,15 @@ function NavLink({ href, label, icon: Icon, active }: {
 }
 
 export default function Sidebar({
-  memberships, activeClinicId, role, userName, userEmail,
+  memberships, activeClinicId, role, userName, userEmail, clinicTypeIcon, clinicTypeLabel,
 }: {
   memberships: Membership[];
   activeClinicId: string;
   role: MemberRole;
   userName: string;
   userEmail: string;
+  clinicTypeIcon?: string;
+  clinicTypeLabel?: string;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -76,9 +78,22 @@ export default function Sidebar({
       </div>
 
       {/* Clinic switcher */}
-      <div className="px-3 pb-4">
+      <div className="px-3 pb-3">
         <ClinicSwitcher memberships={memberships} activeClinicId={activeClinicId} />
       </div>
+
+      {/* Clinic type badge */}
+      {clinicTypeLabel && (
+        <div className="px-4 pb-3">
+          <div
+            className="flex items-center gap-2 rounded-lg border border-violet-400/[0.15] bg-violet-500/[0.08] px-2.5 py-1.5"
+            title={`סוג קליניקה: ${clinicTypeLabel}`}
+          >
+            <span className="text-sm leading-none">{clinicTypeIcon ?? "🩺"}</span>
+            <span className="truncate text-[11.5px] font-semibold text-violet-200">{clinicTypeLabel}</span>
+          </div>
+        </div>
+      )}
 
       <div className="mx-4 mb-3 h-px bg-white/[0.06]" />
 

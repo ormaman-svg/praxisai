@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronRight, ChevronLeft, Plus, X, CalendarDays, Trash2, Check, Ban, UserX } from "lucide-react";
+import Link from "next/link";
+import { ChevronRight, ChevronLeft, Plus, X, CalendarDays, Trash2, Check, Ban, UserX, ArrowUpLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { APPT_STATUS_HE, type Appointment, type AppointmentStatus } from "@/lib/types";
 
@@ -305,7 +306,17 @@ export default function ScheduleClient({
         <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/40 p-4" onClick={() => setModal(null)}>
           <div className="card w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-slate-900">{patientName(modal.appt.patient_id)}</h2>
+              {modal.appt.patient_id ? (
+                <Link
+                  href={`/patients/${modal.appt.patient_id}`}
+                  className="group inline-flex items-center gap-1.5 text-lg font-bold text-slate-900 hover:text-brand"
+                >
+                  {patientName(modal.appt.patient_id)}
+                  <ArrowUpLeft size={15} className="text-slate-400 transition-colors group-hover:text-brand" />
+                </Link>
+              ) : (
+                <h2 className="text-lg font-bold text-slate-900">{patientName(modal.appt.patient_id)}</h2>
+              )}
               <button onClick={() => setModal(null)} className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100"><X size={18} /></button>
             </div>
             <div className="space-y-1.5 text-sm text-slate-600">

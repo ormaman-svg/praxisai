@@ -46,7 +46,7 @@ const fmt = (s: number) =>
 
 /* ══════════════════════════════════════════════════════════════════ */
 
-export default function ScribeClient({ template }: { template: ClinicalTemplate }) {
+export default function ScribeClient({ template, initialPatientId = "" }: { template: ClinicalTemplate; initialPatientId?: string }) {
   const supabase = createClient();
 
   /* state */
@@ -60,7 +60,7 @@ export default function ScribeClient({ template }: { template: ClinicalTemplate 
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [patients, setPatients] = useState<{ id: string; first_name: string; last_name: string }[]>([]);
-  const [patientId, setPatientId] = useState("");
+  const [patientId, setPatientId] = useState(initialPatientId);
   const [cmdStatus, setCmdStatus] = useState<string>("ממתין לפקודה…");
   const [listening, setListening] = useState(false);
 

@@ -5,7 +5,11 @@ import ScribeClient from "./ScribeClient";
 
 export const dynamic = "force-dynamic";
 
-export default async function ScribePage() {
+export default async function ScribePage({
+  searchParams,
+}: {
+  searchParams: { patient?: string };
+}) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -13,5 +17,5 @@ export default async function ScribePage() {
   const clinicId = await resolveClinicId(supabase, user.id);
   const template = await getClinicTemplate(supabase, clinicId);
 
-  return <ScribeClient template={template} />;
+  return <ScribeClient template={template} initialPatientId={searchParams.patient ?? ""} />;
 }

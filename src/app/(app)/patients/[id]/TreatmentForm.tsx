@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus } from "lucide-react";
+import Link from "next/link";
+import { Plus, Pencil, Mic } from "lucide-react";
 import { TREATMENT_TYPE_HE } from "@/lib/types";
 import type { ClinicalTemplate } from "@/lib/clinic-templates";
 
@@ -40,9 +41,23 @@ export default function TreatmentForm({ patientId, template }: { patientId: stri
 
   if (!open) {
     return (
-      <button onClick={() => setOpen(true)} className="btn-primary">
-        <Plus size={16} /> תיעוד טיפול חדש
-      </button>
+      <div className="card p-4">
+        <div className="mb-3 flex items-center gap-2">
+          <Plus size={16} className="text-brand" />
+          <h2 className="text-sm font-bold text-slate-900">תיעוד טיפול חדש</h2>
+        </div>
+        <p className="mb-3 text-[12.5px] text-slate-500">בחרו כיצד לתעד את הטיפול:</p>
+        <div className="grid grid-cols-2 gap-2.5">
+          <button onClick={() => setOpen(true)} className="btn-ghost !flex-col !items-start !gap-1 !py-3 text-start">
+            <span className="flex items-center gap-1.5 font-bold text-slate-800"><Pencil size={15} /> תיעוד ידני</span>
+            <span className="text-[11.5px] font-normal text-slate-500">מילוי הסעיפים בעצמכם</span>
+          </button>
+          <Link href={`/scribe?patient=${patientId}`} className="btn-primary !flex-col !items-start !gap-1 !py-3 text-start">
+            <span className="flex items-center gap-1.5 font-bold"><Mic size={15} /> תיעוד עם AI</span>
+            <span className="text-[11.5px] font-normal text-white/80">הקלטה ותמלול אוטומטי</span>
+          </Link>
+        </div>
+      </div>
     );
   }
 

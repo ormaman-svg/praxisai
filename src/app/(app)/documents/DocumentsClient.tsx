@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, X, FileText, Sparkles, Loader2, PenLine, BadgeCheck, Download, FileDown } from "lucide-react";
+import Link from "next/link";
+import { Plus, X, FileText, Sparkles, Loader2, PenLine, BadgeCheck, Download, FileDown, ArrowUpLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { DOC_TYPE_HE } from "@/lib/types";
 import SignaturePad from "@/components/SignaturePad";
@@ -11,6 +12,7 @@ type DocRow = {
   id: string; type: string; title: string; content: string;
   status: "draft" | "final"; created_at: string; ai_generated: boolean;
   signature_data: string | null; signed_by_name: string | null; signed_at: string | null;
+  patient_id: string | null;
   patients: { first_name: string; last_name: string } | null;
 };
 
@@ -236,7 +238,19 @@ export default function DocumentsClient({
                 <h2 className="text-lg font-bold text-slate-900">{viewDoc.title}</h2>
                 <p className="mt-0.5 text-xs text-slate-500">
                   {DOC_TYPE_HE[viewDoc.type] ?? viewDoc.type}
-                  {viewDoc.patients ? ` · ${viewDoc.patients.first_name} ${viewDoc.patients.last_name}` : ""}
+                  {viewDoc.patients && (
+                    <>
+                      {" · "}
+                      {viewDoc.patient_id ? (
+                        <Link href={`/patients/${viewDoc.patient_id}`} className="inline-flex items-center gap-1 font-semibold text-brand hover:underline">
+                          {viewDoc.patients.first_name} {viewDoc.patients.last_name}
+                          <ArrowUpLeft size={11} />
+                        </Link>
+                      ) : (
+                        `${viewDoc.patients.first_name} ${viewDoc.patients.last_name}`
+                      )}
+                    </>
+                  )}
                   {" · "}
                   {new Date(viewDoc.created_at).toLocaleDateString("he-IL")}
                 </p>

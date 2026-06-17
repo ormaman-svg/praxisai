@@ -5,6 +5,7 @@ import { getActiveClinicId } from "@/lib/clinic";
 import { isSuperAdminEmail } from "@/lib/super-admins";
 import Sidebar from "@/components/Sidebar";
 import OnboardingCenter, { type OnboardingStep } from "@/components/onboarding/OnboardingCenter";
+import { resolveTemplateFromSettings } from "@/lib/clinic-templates";
 import type { Membership } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -80,6 +81,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     supabase.from("user_onboarding").select("tour_done, dismissed_at").eq("user_id", user.id).single(),
   ]);
   const hasTemplate = !!(clinicSettings.data?.settings as any)?.template_id;
+  const clinicTemplate = resolveTemplateFromSettings(clinicSettings.data?.settings);
 
   const onboardingSteps: OnboardingStep[] = [
     {
@@ -136,6 +138,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         role={active.role}
         userName={profile?.full_name || user.email || ""}
         userEmail={user.email ?? ""}
+        clinicTypeIcon={clinicTemplate.icon}
+        clinicTypeLabel={clinicTemplate.name}
       />
       <main className="flex-1 min-w-0 p-6 lg:p-8">{children}</main>
       <OnboardingCenter

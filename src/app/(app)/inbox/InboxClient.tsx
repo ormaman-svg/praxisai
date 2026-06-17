@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { MessageCircle, Bot, UserRound, Send, ArrowLeft, Loader2, Play, FileAudio } from "lucide-react";
+import Link from "next/link";
+import { MessageCircle, Bot, UserRound, Send, ArrowLeft, Loader2, Play, FileAudio, ArrowUpLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 type Conversation = {
@@ -182,7 +183,17 @@ export default function InboxClient({
                 <ArrowLeft size={18} />
               </button>
               <div className="min-w-0 flex-1">
-                <div className="truncate text-[14px] font-bold text-slate-900">{name(active)}</div>
+                {active.patient_id ? (
+                  <Link
+                    href={`/patients/${active.patient_id}`}
+                    className="group inline-flex items-center gap-1.5 truncate text-[14px] font-bold text-slate-900 hover:text-brand"
+                  >
+                    {name(active)}
+                    <ArrowUpLeft size={13} className="shrink-0 text-slate-400 transition-colors group-hover:text-brand" />
+                  </Link>
+                ) : (
+                  <div className="truncate text-[14px] font-bold text-slate-900">{name(active)}</div>
+                )}
                 <div className="text-[11.5px] text-slate-400" dir="ltr">{active.wa_contact}</div>
               </div>
               {active.status === "bot" ? (
