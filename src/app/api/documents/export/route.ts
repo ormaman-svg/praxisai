@@ -117,6 +117,7 @@ export async function GET(request: Request) {
 ${signatureBlock}
 
 <div class="footer">נוצר על ידי praxisAI &middot; ${new Date().toLocaleDateString("he-IL")}</div>
+${searchParams.get("print") === "1" ? `<script>window.addEventListener("load",function(){setTimeout(function(){window.print();},350);});</script>` : ""}
 </body>
 </html>`;
 

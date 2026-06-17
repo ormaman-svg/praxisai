@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Receipt, X, Send, Loader2, Check, Copy } from "lucide-react";
+import { Receipt, X, Send, Loader2, Check, Copy, Printer } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 type Invoice = {
@@ -68,6 +68,10 @@ export default function InvoicesPanel({
     setTimeout(() => setSentId(null), 2000);
   }
 
+  function openPdf(inv: Invoice) {
+    window.open(`/api/billing/patient-invoice/export?id=${inv.id}&print=1`, "_blank", "noopener");
+  }
+
   function copyLink(inv: Invoice) {
     if (!inv.stripe_payment_link) return;
     navigator.clipboard.writeText(inv.stripe_payment_link);
@@ -103,11 +107,20 @@ export default function InvoicesPanel({
         <ul className="space-y-2">
           {invoices.map((inv) => (
             <li key={inv.id} className="rounded-lg border border-line p-3">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[14px] font-bold text-slate-900">{inv.amount_ils} ₪</span>
-                <span className={`badge ${STATUS[inv.status].cls}`}>{STATUS[inv.status].he}</span>
-              </div>
-              {inv.description && <div className="mt-0.5 text-[12px] text-slate-500">{inv.description}</div>}
+              <button
+                onClick={() => openPdf(inv)}
+                className="group block w-full text-start"
+                title="פתיחת חשבונית להדפסה / PDF"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-1.5 text-[14px] font-bold text-slate-900 group-hover:text-brand">
+                    {inv.amount_ils} ₪
+                    <Printer size={13} className="text-slate-400 transition-colors group-hover:text-brand" />
+                  </span>
+                  <span className={`badge ${STATUS[inv.status].cls}`}>{STATUS[inv.status].he}</span>
+                </div>
+                {inv.description && <div className="mt-0.5 text-[12px] text-slate-500 group-hover:text-slate-700">{inv.description}</div>}
+              </button>
               {inv.status === "pending" && (
                 <div className="mt-2 space-y-2">
                   <div className="flex items-center gap-3">

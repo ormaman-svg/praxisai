@@ -103,14 +103,8 @@ export default function DocumentsClient({
 
   function exportPDF(doc: DocRow) {
     setExporting("pdf");
-    const url = `/api/documents/export?id=${doc.id}&format=pdf-html`;
-    const win = window.open(url, "_blank", "width=900,height=700");
-    if (win) {
-      win.addEventListener("load", () => {
-        win.focus();
-        win.print();
-      });
-    }
+    // The export route auto-triggers the print dialog when print=1.
+    window.open(`/api/documents/export?id=${doc.id}&format=pdf-html&print=1`, "_blank", "noopener");
     setTimeout(() => setExporting(null), 1200);
   }
 

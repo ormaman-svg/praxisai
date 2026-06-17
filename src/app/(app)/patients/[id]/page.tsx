@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { ArrowRight, Activity, Clock, BarChart2, Ruler } from "lucide-react";
+import { ArrowRight, Activity, Clock, BarChart2, Ruler, Printer } from "lucide-react";
 import { DOC_TYPE_HE, TREATMENT_TYPE_HE } from "@/lib/types";
 import { getClinicTemplate } from "@/lib/clinic-template-server";
 import { getHomeProgramConfig } from "@/lib/clinic-templates";
@@ -258,14 +258,25 @@ export default async function PatientPage({ params }: { params: { id: string } }
             ) : (
               <ul className="divide-y divide-line">
                 {docs!.map((d) => (
-                  <li key={d.id} className="flex items-center gap-3 px-5 py-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-[13px] font-semibold text-slate-800">{d.title}</div>
-                      <div className="text-xs text-slate-400">{DOC_TYPE_HE[d.type] ?? d.type}</div>
-                    </div>
-                    <span className={`badge ${d.status === "final" ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"}`}>
-                      {d.status === "final" ? "סופי" : "טיוטה"}
-                    </span>
+                  <li key={d.id}>
+                    <a
+                      href={`/api/documents/export?id=${d.id}&format=pdf-html&print=1`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group flex items-center gap-3 px-5 py-3 transition-colors hover:bg-slate-50"
+                      title="פתיחת מסמך להדפסה / PDF"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="truncate text-[13px] font-semibold text-slate-800 group-hover:text-brand">{d.title}</span>
+                          <Printer size={12} className="shrink-0 text-slate-400 transition-colors group-hover:text-brand" />
+                        </div>
+                        <div className="text-xs text-slate-400">{DOC_TYPE_HE[d.type] ?? d.type}</div>
+                      </div>
+                      <span className={`badge ${d.status === "final" ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"}`}>
+                        {d.status === "final" ? "סופי" : "טיוטה"}
+                      </span>
+                    </a>
                   </li>
                 ))}
               </ul>
