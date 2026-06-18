@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { MessageCircle, Bot, UserRound, Send, ArrowLeft, Loader2, Play, FileAudio, ArrowUpLeft, UserPlus, X, Search, Trash2 } from "lucide-react";
+import { MessageCircle, Bot, UserRound, Send, ArrowLeft, Loader2, Play, FileAudio, ArrowUpLeft, UserPlus, X, Search, Trash2, CornerUpLeft, Share2, Copy, ChevronDown, MessageSquarePlus } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 type PatientStatus = "active" | "discharged" | "on_hold";
@@ -22,8 +22,13 @@ type Msg = {
   body: string | null;
   media_url: string | null;
   media_type: string | null;
+  reply_to_id: string | null;
+  wa_message_id: string | null;
   created_at: string;
 };
+
+// WhatsApp's revoke window for "delete for everyone" (~2 days). We mirror it.
+const REVOKE_WINDOW_MS = 2 * 24 * 60 * 60 * 1000;
 
 // Primary badge marks whether the contact is a registered (active) patient,
 // not the bot/human channel state.
@@ -103,6 +108,10 @@ export default function InboxClient({
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [replyTo, setReplyTo] = useState<Msg | null>(null);
+  const [menuMsgId, setMenuMsgId] = useState<string | null>(null);
+  const [forwardMsg, setForwardMsg] = useState<Msg | null>(null);
+  const [newChatOpen, setNewChatOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Add-patient panel (shown for conversations without a linked patient)
@@ -121,7 +130,7 @@ export default function InboxClient({
     (async () => {
       const { data } = await supabase
         .from("messages")
-        .select("id, direction, body, media_url, media_type, created_at")
+        .select("id, direction, body, media_url, media_type, reply_to_id, wa_message_id, created_at")
         .eq("conversation_id", activeId)
         .order("created_at", { ascending: true });
       if (!cancelled) setMessages((data ?? []) as Msg[]);
@@ -233,10 +242,34 @@ export default function InboxClient({
     const r = await fetch("/api/whatsapp/send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ conversation_id: active.id, text: draft.trim() }),
+      body: JSON.stringify({ conversation_id: active.id, text: draft.trim(), reply_to: replyTo?.id ?? null }),
     });
     setSending(false);
-    if (r.ok) setDraft("");
+    if (r.ok) { setDraft(""); setReplyTo(null); }
+  }
+
+  function copyMessage(m: Msg) {
+    setMenuMsgId(null);
+    if (m.body) navigator.clipboard?.writeText(m.body).catch(() => {});
+  }
+
+  // scope: "me" (our inbox only) or "everyone" (also revoke on WhatsApp)
+  async function deleteMessage(m: Msg, scope: "me" | "everyone") {
+    setMenuMsgId(null);
+    if (scope === "everyone" && !confirm("למחוק את ההודעה גם אצל הנמען?")) return;
+    const r = await fetch(`/api/inbox/messages/${m.id}?scope=${scope}`, { method: "DELETE" });
+    if (!r.ok) { alert("מחיקה נכשלה."); return; }
+    setMessages((prev) => prev.filter((x) => x.id !== m.id));
+  }
+
+  // True when "delete for everyone" is allowed: our outbound message, sent via
+  // WhatsApp, still inside the revoke window.
+  function canRevoke(m: Msg): boolean {
+    return (
+      m.direction === "outbound" &&
+      !!m.wa_message_id &&
+      Date.now() - new Date(m.created_at).getTime() < REVOKE_WINDOW_MS
+    );
   }
 
   const name = (c: Conversation) =>
@@ -278,7 +311,12 @@ export default function InboxClient({
 
   return (
     <div className="mx-auto max-w-6xl">
-      <h1 className="mb-5 text-2xl font-bold text-slate-900">תיבת הודעות</h1>
+      <div className="mb-5 flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-slate-900">תיבת הודעות</h1>
+        <button onClick={() => setNewChatOpen(true)} className="btn-primary !py-2 !text-[13px]">
+          <MessageSquarePlus size={16} /> הודעה חדשה
+        </button>
+      </div>
 
       <div className="card flex h-[calc(100vh-12rem)] overflow-hidden">
         {/* Conversation list */}
@@ -426,37 +464,99 @@ export default function InboxClient({
             )}
 
             <div ref={scrollRef} className="flex-1 space-y-2.5 overflow-y-auto bg-slate-50/50 px-5 py-4">
-              {messages.map((m) => (
-                <div key={m.id} className={`flex ${m.direction === "outbound" ? "justify-start" : "justify-end"}`}>
+              {messages.map((m) => {
+                const out = m.direction === "outbound";
+                const quoted = m.reply_to_id ? messages.find((x) => x.id === m.reply_to_id) : null;
+                return (
+                <div key={m.id} className={`group flex items-end gap-1 ${out ? "justify-start" : "justify-end"}`}>
+                  {/* Action menu trigger (appears on hover) */}
+                  <div className="relative self-center">
+                    <button
+                      onClick={() => setMenuMsgId(menuMsgId === m.id ? null : m.id)}
+                      className="rounded-full p-1 text-slate-300 opacity-0 transition-opacity hover:bg-slate-200 hover:text-slate-600 group-hover:opacity-100"
+                      title="פעולות"
+                    >
+                      <ChevronDown size={15} />
+                    </button>
+                    {menuMsgId === m.id && (
+                      <>
+                        <div className="fixed inset-0 z-10" onClick={() => setMenuMsgId(null)} />
+                        <div className="absolute z-20 mt-1 min-w-[150px] overflow-hidden rounded-xl border border-line bg-white py-1 text-[13px] shadow-lg start-0">
+                          <button onClick={() => { setReplyTo(m); setMenuMsgId(null); }} className="flex w-full items-center gap-2 px-3 py-1.5 text-start hover:bg-slate-50">
+                            <CornerUpLeft size={14} className="text-slate-400" /> תגובה
+                          </button>
+                          <button onClick={() => { setForwardMsg(m); setMenuMsgId(null); }} className="flex w-full items-center gap-2 px-3 py-1.5 text-start hover:bg-slate-50">
+                            <Share2 size={14} className="text-slate-400" /> העברה
+                          </button>
+                          {m.body && (
+                            <button onClick={() => copyMessage(m)} className="flex w-full items-center gap-2 px-3 py-1.5 text-start hover:bg-slate-50">
+                              <Copy size={14} className="text-slate-400" /> העתקה
+                            </button>
+                          )}
+                          <button onClick={() => deleteMessage(m, "me")} className="flex w-full items-center gap-2 px-3 py-1.5 text-start text-red-600 hover:bg-red-50">
+                            <Trash2 size={14} /> מחק עבורי
+                          </button>
+                          {canRevoke(m) && (
+                            <button onClick={() => deleteMessage(m, "everyone")} className="flex w-full items-center gap-2 px-3 py-1.5 text-start text-red-600 hover:bg-red-50">
+                              <Trash2 size={14} /> מחק אצל כולם
+                            </button>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+
                   <div className={`max-w-[75%] rounded-2xl px-3.5 py-2 text-[13px] leading-relaxed ${
-                    m.direction === "outbound" ? "bg-brand text-white" : "border border-line bg-white text-slate-700"
+                    out ? "bg-brand text-white" : "border border-line bg-white text-slate-700"
                   }`}>
+                    {quoted && (
+                      <div className={`mb-1.5 truncate rounded-lg border-s-2 px-2 py-1 text-[11.5px] ${
+                        out ? "border-white/50 bg-white/15 text-white/80" : "border-brand/50 bg-slate-50 text-slate-500"
+                      }`}>
+                        {quoted.body ?? "📎 מדיה"}
+                      </div>
+                    )}
                     {m.media_url && m.media_type && (
                       <div className="mb-1.5">
                         <MediaContent storagePath={m.media_url} mediaType={m.media_type} />
                       </div>
                     )}
                     {m.body && <div style={{ whiteSpace: "pre-wrap" }}>{m.body}</div>}
-                    <div className={`mt-0.5 text-[10px] ${m.direction === "outbound" ? "text-white/60" : "text-slate-400"}`} dir="ltr">
+                    <div className={`mt-0.5 text-[10px] ${out ? "text-white/60" : "text-slate-400"}`} dir="ltr">
                       {new Date(m.created_at).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}
                     </div>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
 
             {active.status === "human" ? (
-              <div className="flex items-center gap-2 border-t border-line px-4 py-3">
-                <input
-                  className="input flex-1"
-                  placeholder="כתבו הודעה…"
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && send()}
-                />
-                <button onClick={send} disabled={sending || !draft.trim()} className="btn-primary shrink-0">
-                  <Send size={15} />
-                </button>
+              <div className="border-t border-line">
+                {replyTo && (
+                  <div className="flex items-center gap-2 border-b border-line bg-slate-50 px-4 py-2">
+                    <CornerUpLeft size={14} className="shrink-0 text-brand" />
+                    <div className="min-w-0 flex-1 border-s-2 border-brand/50 ps-2">
+                      <div className="text-[11px] font-semibold text-brand">תגובה</div>
+                      <div className="truncate text-[12px] text-slate-500">{replyTo.body ?? "📎 מדיה"}</div>
+                    </div>
+                    <button onClick={() => setReplyTo(null)} className="rounded p-1 text-slate-400 hover:text-slate-600">
+                      <X size={14} />
+                    </button>
+                  </div>
+                )}
+                <div className="flex items-center gap-2 px-4 py-3">
+                  <input
+                    className="input flex-1"
+                    placeholder="כתבו הודעה…"
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && send()}
+                  />
+                  <button onClick={send} disabled={sending || !draft.trim()} className="btn-primary shrink-0">
+                    <Send size={15} />
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="border-t border-line px-4 py-3 text-center text-[12px] text-slate-400">
@@ -472,6 +572,149 @@ export default function InboxClient({
           </div>
         )}
       </div>
+
+      {forwardMsg && (
+        <ForwardModal
+          msg={forwardMsg}
+          conversations={conversations}
+          onClose={() => setForwardMsg(null)}
+          onDone={(convId) => { setForwardMsg(null); setActiveId(convId); }}
+        />
+      )}
+      {newChatOpen && (
+        <NewChatModal
+          onClose={() => setNewChatOpen(false)}
+          onCreated={(conv) => {
+            setNewChatOpen(false);
+            setConversations((prev) => [conv, ...prev.filter((c) => c.id !== conv.id)]);
+            setActiveId(conv.id);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function convLabel(c: Conversation): string {
+  if (c.patients) return `${c.patients.first_name} ${c.patients.last_name}`;
+  return c.display_name ?? c.wa_contact ?? "לא ידוע";
+}
+
+function ForwardModal({
+  msg, conversations, onClose, onDone,
+}: {
+  msg: Msg;
+  conversations: Conversation[];
+  onClose: () => void;
+  onDone: (conversationId: string) => void;
+}) {
+  const [q, setQ] = useState("");
+  const [phone, setPhone] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const list = q.trim()
+    ? conversations.filter((c) => convLabel(c).toLowerCase().includes(q.trim().toLowerCase()) || (c.wa_contact ?? "").includes(q.trim()))
+    : conversations;
+
+  async function forward(body: Record<string, unknown>) {
+    setBusy(true); setErr(null);
+    const r = await fetch("/api/whatsapp/forward", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message_id: msg.id, ...body }),
+    });
+    const d = await r.json().catch(() => null);
+    setBusy(false);
+    if (!r.ok) { setErr(d?.error ?? "ההעברה נכשלה."); return; }
+    onDone(d.conversation_id);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={onClose}>
+      <div className="card w-full max-w-md p-5" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-[15px] font-bold text-slate-900">העברת הודעה</h2>
+          <button onClick={onClose} className="rounded p-1 text-slate-400 hover:text-slate-600"><X size={16} /></button>
+        </div>
+        <div className="mb-3 truncate rounded-lg bg-slate-50 px-3 py-2 text-[12.5px] text-slate-500">
+          {msg.body ?? "📎 מדיה"}
+        </div>
+
+        <div className="mb-2 flex items-end gap-2">
+          <div className="flex-1">
+            <label className="mb-1 block text-[12px] text-slate-500">העברה למספר חדש</label>
+            <input dir="ltr" className="input w-full !py-1.5 text-[13px]" placeholder="05XXXXXXXX" value={phone} onChange={(e) => setPhone(e.target.value)} />
+          </div>
+          <button disabled={busy || !phone.trim()} onClick={() => forward({ to_phone: phone.trim() })} className="btn-primary !py-2 !text-[12.5px]">שלח</button>
+        </div>
+
+        <div className="mb-1 mt-3 text-[12px] text-slate-500">או בחרו שיחה קיימת</div>
+        <input className="input mb-2 w-full !py-1.5 text-[13px]" placeholder="חיפוש שיחה…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <div className="max-h-56 overflow-y-auto rounded-lg border border-line">
+          {list.length === 0 ? (
+            <div className="px-3 py-4 text-center text-[12.5px] text-slate-400">אין שיחות</div>
+          ) : (
+            <ul className="divide-y divide-line">
+              {list.map((c) => (
+                <li key={c.id}>
+                  <button disabled={busy} onClick={() => forward({ to_conversation_id: c.id })} className="flex w-full items-center justify-between px-3 py-2 text-start hover:bg-slate-50">
+                    <span className="truncate text-[13px] text-slate-700">{convLabel(c)}</span>
+                    {busy && <Loader2 size={13} className="animate-spin text-slate-400" />}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        {err && <p className="mt-2 text-[12px] text-red-600">{err}</p>}
+      </div>
+    </div>
+  );
+}
+
+function NewChatModal({
+  onClose, onCreated,
+}: {
+  onClose: () => void;
+  onCreated: (conv: Conversation) => void;
+}) {
+  const [phone, setPhone] = useState("");
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true); setErr(null);
+    const r = await fetch("/api/whatsapp/new-chat", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone: phone.trim(), text: text.trim() }),
+    });
+    const d = await r.json().catch(() => null);
+    setBusy(false);
+    if (!r.ok) { setErr(d?.error ?? "השליחה נכשלה."); return; }
+    onCreated(d.conversation as Conversation);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={onClose}>
+      <form className="card w-full max-w-md p-5" onClick={(e) => e.stopPropagation()} onSubmit={submit}>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-[15px] font-bold text-slate-900">הודעה חדשה</h2>
+          <button type="button" onClick={onClose} className="rounded p-1 text-slate-400 hover:text-slate-600"><X size={16} /></button>
+        </div>
+        <label className="mb-1 block text-[12px] text-slate-500">מספר טלפון</label>
+        <input dir="ltr" required className="input mb-3 w-full" placeholder="05XXXXXXXX" value={phone} onChange={(e) => setPhone(e.target.value)} />
+        <label className="mb-1 block text-[12px] text-slate-500">הודעה</label>
+        <textarea required className="input mb-3 h-24 w-full resize-none" placeholder="כתבו הודעה…" value={text} onChange={(e) => setText(e.target.value)} />
+        {err && <p className="mb-2 text-[12px] text-red-600">{err}</p>}
+        <div className="flex justify-end gap-2">
+          <button type="button" onClick={onClose} className="btn-ghost !border !border-line">ביטול</button>
+          <button type="submit" disabled={busy || !phone.trim() || !text.trim()} className="btn-primary">
+            {busy ? <Loader2 size={15} className="animate-spin" /> : <><Send size={14} /> שלח</>}
+          </button>
+        </div>
+      </form>
     </div>
   );
 }

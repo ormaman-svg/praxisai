@@ -23,15 +23,45 @@ function headers(apiKey: string): Record<string, string> {
   return { "Content-Type": "application/json", apikey: apiKey };
 }
 
-export async function sendText(creds: EvolutionCreds, to: string, text: string): Promise<string> {
+// A WhatsApp message key — enough to quote, delete, or reference a message.
+export type WaMsgKey = { id: string; remoteJid: string; fromMe: boolean };
+
+export async function sendText(
+  creds: EvolutionCreds,
+  to: string,
+  text: string,
+  quoted?: { key: WaMsgKey; text: string }
+): Promise<string> {
+  const body: Record<string, unknown> = { number: toChatId(to), text };
+  if (quoted) {
+    body.quoted = {
+      key: quoted.key,
+      message: { conversation: quoted.text },
+    };
+  }
   const r = await fetch(`${creds.host}/message/sendText/${creds.instance}`, {
     method: "POST",
     headers: headers(creds.apiKey),
-    body: JSON.stringify({ number: toChatId(to), text }),
+    body: JSON.stringify(body),
   });
   if (!r.ok) throw new Error(`Evolution sendText ${r.status}: ${await r.text()}`);
   const d = await r.json();
   return d.key?.id ?? d.messageId ?? "";
+}
+
+// Deletes a message for everyone (revoke). Only works on messages we sent
+// (fromMe=true) and within WhatsApp's revoke window. key comes from the
+// stored wa_message_id + the conversation's remoteJid.
+export async function deleteMessageForEveryone(
+  creds: EvolutionCreds,
+  key: WaMsgKey
+): Promise<boolean> {
+  const r = await fetch(`${creds.host}/chat/deleteMessageForEveryone/${creds.instance}`, {
+    method: "DELETE",
+    headers: headers(creds.apiKey),
+    body: JSON.stringify(key),
+  });
+  return r.ok;
 }
 
 export async function sendMedia(

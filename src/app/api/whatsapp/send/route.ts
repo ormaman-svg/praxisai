@@ -5,15 +5,15 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendText } from "@/lib/whatsapp/client";
-import { sendText as evolutionSendText, toChatId } from "@/lib/whatsapp/evolution-api";
-import { normalizePhone } from "@/lib/whatsapp/normalize";
+import { sendText as evolutionSendText, type WaMsgKey } from "@/lib/whatsapp/evolution-api";
+import { resolveSendTarget, patientPhoneFromRel } from "@/lib/whatsapp/target";
 
 export async function POST(request: Request) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { conversation_id, text } = await request.json();
+  const { conversation_id, text, reply_to } = await request.json();
   if (!conversation_id || !text?.trim()) {
     return Response.json({ error: "חסר תוכן הודעה." }, { status: 400 });
   }
@@ -28,16 +28,26 @@ export async function POST(request: Request) {
 
   // The stored wa_contact may be an @lid JID (not routable). When a patient is
   // linked, send to their real phone; otherwise fall back to wa_contact.
-  const patientRel = conv.patients as unknown as { phone: string | null } | { phone: string | null }[] | null;
-  const patientPhone = (Array.isArray(patientRel) ? patientRel[0] : patientRel)?.phone ?? null;
-  const target = patientPhone
-    ? toChatId(normalizePhone(patientPhone))
-    : conv.wa_contact;
-  if (conv.wa_contact.endsWith("@lid") && !patientPhone) {
-    return Response.json(
-      { error: "לא ניתן לשלוח — אין מספר טלפון. הוסיפו את הפונה כמטופל עם מספר תקין." },
-      { status: 400 }
-    );
+  const patientPhone = patientPhoneFromRel(conv.patients);
+  const { target, error: targetErr } = resolveSendTarget(conv.wa_contact, patientPhone);
+  if (!target) return Response.json({ error: targetErr }, { status: 400 });
+
+  // Resolve the quoted message (for reply) from the same conversation
+  let quoted: { key: WaMsgKey; text: string } | undefined;
+  if (reply_to) {
+    const admin0 = createAdminClient();
+    const { data: rep } = await admin0
+      .from("messages")
+      .select("id, body, wa_message_id, direction, conversation_id")
+      .eq("id", reply_to)
+      .eq("conversation_id", conversation_id)
+      .single();
+    if (rep?.wa_message_id) {
+      quoted = {
+        key: { id: rep.wa_message_id, remoteJid: conv.wa_contact, fromMe: rep.direction === "outbound" },
+        text: rep.body ?? "",
+      };
+    }
   }
 
   const admin = createAdminClient();
@@ -63,7 +73,8 @@ export async function POST(request: Request) {
       waId = await evolutionSendText(
         { host: evolutionHost, instance: evolutionInstance, apiKey: evolutionKey },
         target,
-        text.trim()
+        text.trim(),
+        quoted
       );
     } else {
       waId = await sendText({ phoneNumberId: phoneNumberId!, accessToken: accessToken! }, target, text.trim());
@@ -78,6 +89,7 @@ export async function POST(request: Request) {
     direction: "outbound",
     body: text.trim(),
     wa_message_id: waId || null,
+    reply_to_id: reply_to ?? null,
     status: "sent",
     sent_at: new Date().toISOString(),
   });
