@@ -64,9 +64,10 @@ export async function POST(request: Request) {
 
   console.log("[evolution] remoteJid:", remoteJid, "fromMe:", key?.fromMe);
 
-  // Ignore group chats
-  if (!remoteJid.endsWith("@s.whatsapp.net") || !instanceName) {
-    console.log("[evolution] skipping — group or no instance");
+  // Ignore group chats and broadcasts; accept individual @s.whatsapp.net and @lid (newer WA format)
+  const isIndividual = remoteJid.endsWith("@s.whatsapp.net") || remoteJid.endsWith("@lid");
+  if (!isIndividual || !instanceName) {
+    console.log("[evolution] skipping — group/broadcast or no instance. jid:", remoteJid);
     return Response.json({ ok: true });
   }
 
