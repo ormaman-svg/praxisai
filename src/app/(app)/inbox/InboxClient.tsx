@@ -9,6 +9,7 @@ type Conversation = {
   id: string;
   status: "bot" | "human" | "closed";
   wa_contact: string | null;
+  display_name: string | null;
   last_message_at: string | null;
   patient_id: string | null;
   patients: { first_name: string; last_name: string } | null;
@@ -113,6 +114,24 @@ export default function InboxClient({
     return () => { supabase.removeChannel(channel); };
   }, [activeId, supabase]);
 
+  // Live conversation list — new conversations and status changes appear without refresh
+  useEffect(() => {
+    const channel = supabase
+      .channel(`conversations:${clinicId}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "conversations", filter: `clinic_id=eq.${clinicId}` },
+        (payload) => {
+          const c = payload.new as Conversation;
+          setConversations((prev) => [c, ...prev.filter((x) => x.id !== c.id)]);
+        })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "conversations", filter: `clinic_id=eq.${clinicId}` },
+        (payload) => {
+          const c = payload.new as Conversation;
+          setConversations((prev) => prev.map((x) => x.id === c.id ? { ...x, ...c } : x));
+        })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [clinicId, supabase]);
+
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [messages]);
@@ -139,7 +158,9 @@ export default function InboxClient({
   }
 
   const name = (c: Conversation) =>
-    c.patients ? `${c.patients.first_name} ${c.patients.last_name}` : (c.wa_contact ?? "לא ידוע");
+    c.patients
+      ? `${c.patients.first_name} ${c.patients.last_name}`
+      : (c.display_name ?? c.wa_contact ?? "לא ידוע");
 
   return (
     <div className="mx-auto max-w-6xl">

@@ -37,7 +37,8 @@ export async function getOrCreateConversation(
   supabase: SupabaseClient,
   clinicId: string,
   patientId: string | null,
-  contact: string
+  contact: string,
+  displayName?: string
 ): Promise<string | null> {
   const existing = await supabase
     .from("conversations")
@@ -56,6 +57,7 @@ export async function getOrCreateConversation(
       patient_id: patientId,
       channel: "whatsapp",
       wa_contact: contact,
+      display_name: displayName ?? null,
       status: "bot",
       last_message_at: new Date().toISOString(),
     })

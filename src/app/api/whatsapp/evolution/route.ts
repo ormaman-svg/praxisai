@@ -71,7 +71,10 @@ export async function POST(request: Request) {
     return Response.json({ ok: true });
   }
 
+  // For @lid contacts WhatsApp sends an internal ID, not a phone number.
+  // Use the raw JID digits as the stable dedup key; pushName is used for display.
   const contact = chatIdToPhone(remoteJid);
+  const pushName: string = data?.pushName ?? "";
   const message = data?.message ?? {};
 
   // Extract text
@@ -120,7 +123,10 @@ export async function POST(request: Request) {
   // Unknown senders still get a conversation so the clinic can see who messaged them;
   // we just skip AI processing for them.
 
-  const conversationId = await getOrCreateConversation(supabase, clinic.id, patient?.id ?? null, contact);
+  const displayName = patient
+    ? `${patient.first_name} ${patient.last_name}`
+    : (pushName || null);
+  const conversationId = await getOrCreateConversation(supabase, clinic.id, patient?.id ?? null, contact, displayName ?? undefined);
   if (!conversationId) return Response.json({ ok: true });
 
   // ── Persist inbound message ──────────────────────────────────────────────
@@ -206,25 +212,37 @@ export async function POST(request: Request) {
     return Response.json({ ok: true });
   }
 
-  // Process conversation with the AI agent (known patients only)
-  if (patient) {
-    const gotLock = await acquireLock(supabase, conversationId);
-    if (gotLock) {
-      try {
+  // Process conversation with the AI agent.
+  // For known patients the bot replies fully; for unknown senders the bot sends
+  // a generic greeting and leaves the conversation in "bot" status so the clinic
+  // can take it over manually when ready.
+  const gotLock = await acquireLock(supabase, conversationId);
+  if (gotLock) {
+    try {
+      if (patient) {
         await processConversation(
           supabase,
           { conversationId, contact, clinicId: clinic.id, patient: patient as PatientLite },
           (to, t) => sendText(creds, to, t)
         );
-      } catch (e) {
-        console.error("[evolution] processing error:", e);
-      } finally {
-        await releaseLock(supabase, conversationId);
+      } else {
+        // Unknown sender — send a short greeting and let a human take over
+        const greeting = "שלום! קיבלנו את הודעתכם. נציג יחזור אליכם בהקדם.";
+        const waId = await sendText(creds, contact, greeting);
+        await supabase.from("messages").insert({
+          conversation_id: conversationId,
+          direction: "outbound",
+          body: greeting,
+          wa_message_id: waId || null,
+          status: "sent",
+          sent_at: new Date().toISOString(),
+        });
       }
+    } catch (e) {
+      console.error("[evolution] processing error:", e);
+    } finally {
+      await releaseLock(supabase, conversationId);
     }
-  } else {
-    // Unknown sender — escalate so a human sees the message
-    await supabase.from("conversations").update({ status: "human" }).eq("id", conversationId);
   }
 
   return Response.json({ ok: true });
