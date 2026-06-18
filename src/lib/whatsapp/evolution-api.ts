@@ -107,6 +107,17 @@ export async function restartInstance(creds: EvolutionCreds): Promise<void> {
   }).catch(() => {});
 }
 
+// Clears the instance's stored WhatsApp session. This is the fix for
+// /instance/connect returning { count: 0 }: the instance is stuck trying to
+// resume a stale session instead of emitting a fresh QR. After logout, the
+// next connect() forces Baileys to generate a new QR code.
+export async function logoutInstance(creds: EvolutionCreds): Promise<void> {
+  await fetch(`${creds.host}/instance/logout/${creds.instance}`, {
+    method: "DELETE",
+    headers: { apikey: creds.apiKey },
+  }).catch(() => {});
+}
+
 export async function createInstance(
   host: string,
   globalApiKey: string,

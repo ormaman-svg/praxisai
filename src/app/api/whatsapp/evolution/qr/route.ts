@@ -4,9 +4,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveClinicId } from "@/lib/clinic";
-import { getConnectionState, getQrCode, restartInstance } from "@/lib/whatsapp/evolution-api";
+import { getConnectionState, getQrCode, restartInstance, logoutInstance } from "@/lib/whatsapp/evolution-api";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 30;
 
 export async function GET(request: Request) {
   const supabase = createClient();
@@ -55,10 +56,14 @@ export async function GET(request: Request) {
 
     let qr = await getQrCode(creds);
 
-    // If the instance is stuck without a QR, force a fresh session and retry once.
+    // If the instance is stuck without a QR (Evolution returns { count: 0 }),
+    // it's trying to resume a stale session. Clear it, restart, and retry so a
+    // fresh QR is generated.
     if (!qr.base64) {
-      await restartInstance(creds);
+      await logoutInstance(creds);
       await new Promise((res) => setTimeout(res, 1500));
+      await restartInstance(creds);
+      await new Promise((res) => setTimeout(res, 2500));
       qr = await getQrCode(creds);
       state = await getConnectionState(creds);
     }
