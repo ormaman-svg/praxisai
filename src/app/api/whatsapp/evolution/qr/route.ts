@@ -4,7 +4,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveClinicId } from "@/lib/clinic";
-import { getConnectionState, getQrCode } from "@/lib/whatsapp/evolution-api";
+import { getConnectionState, getQrCode, restartInstance } from "@/lib/whatsapp/evolution-api";
 
 export const dynamic = "force-dynamic";
 
@@ -48,8 +48,27 @@ export async function GET(request: Request) {
 
   const creds = { host, apiKey, instance };
   try {
-    const [state, qr] = await Promise.all([getConnectionState(creds), getQrCode(creds)]);
-    return Response.json({ state, qrBase64: qr?.base64 ?? null });
+    let state = await getConnectionState(creds);
+    if (state === "open") {
+      return Response.json({ state, qrBase64: null });
+    }
+
+    let qr = await getQrCode(creds);
+
+    // If the instance is stuck without a QR, force a fresh session and retry once.
+    if (!qr.base64) {
+      await restartInstance(creds);
+      await new Promise((res) => setTimeout(res, 1500));
+      qr = await getQrCode(creds);
+      state = await getConnectionState(creds);
+    }
+
+    return Response.json({
+      state,
+      qrBase64: qr.base64,
+      // Surfaced only when no QR was produced, to aid debugging from the UI.
+      debug: qr.base64 ? undefined : { status: qr.status, raw: qr.raw },
+    });
   } catch (e: any) {
     console.error("[evolution/qr]", e);
     return Response.json({ error: e?.message ?? "שגיאה בטעינת QR" }, { status: 502 });

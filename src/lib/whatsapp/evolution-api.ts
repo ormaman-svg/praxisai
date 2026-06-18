@@ -67,20 +67,44 @@ export async function getConnectionState(
   }
 }
 
-export async function getQrCode(creds: EvolutionCreds): Promise<{ base64: string } | null> {
+export type QrResult = {
+  base64: string | null;
+  status: number;
+  raw: unknown;
+};
+
+export async function getQrCode(creds: EvolutionCreds): Promise<QrResult> {
   const r = await fetch(`${creds.host}/instance/connect/${creds.instance}`, {
     headers: { apikey: creds.apiKey },
   });
-  if (!r.ok) {
-    const text = await r.text().catch(() => "");
-    console.error("[evolution] getQrCode failed:", r.status, text);
-    return null;
+  let raw: unknown = null;
+  try {
+    raw = await r.json();
+  } catch {
+    raw = await r.text().catch(() => null);
   }
-  const d = await r.json();
+  if (!r.ok) {
+    console.error("[evolution] getQrCode failed:", r.status, raw);
+    return { base64: null, status: r.status, raw };
+  }
+  const d = (raw ?? {}) as Record<string, any>;
   console.log("[evolution] getQrCode response keys:", Object.keys(d));
-  // v2 formats: { base64 } | { qrcode: { base64 } } | { qr: { base64 } } | { code }
-  const b64: string | undefined = d.base64 ?? d.qrcode?.base64 ?? d.qr?.base64 ?? d.code;
-  return b64 ? { base64: b64 } : null;
+  // v2 formats: { base64 } | { qrcode: { base64 } } | { qr: { base64 } }
+  // Only accept a real data-URI image; the bare `code` field is the raw QR
+  // payload string, not an image, so it can't be shown in an <img>.
+  let b64: string | undefined =
+    d.base64 ?? d.qrcode?.base64 ?? d.qr?.base64 ?? undefined;
+  if (b64 && !b64.startsWith("data:")) b64 = `data:image/png;base64,${b64}`;
+  return { base64: b64 ?? null, status: r.status, raw };
+}
+
+// Forces Evolution to drop any half-open session and start a fresh QR cycle.
+// Useful when /instance/connect returns no QR because the instance is stuck.
+export async function restartInstance(creds: EvolutionCreds): Promise<void> {
+  await fetch(`${creds.host}/instance/restart/${creds.instance}`, {
+    method: "POST",
+    headers: { apikey: creds.apiKey },
+  }).catch(() => {});
 }
 
 export async function createInstance(

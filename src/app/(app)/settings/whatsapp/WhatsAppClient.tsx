@@ -28,6 +28,7 @@ export default function WhatsAppClient({ initial }: { initial: Initial }) {
   const [qrBase64, setQrBase64] = useState<string | null>(null);
   const [loadingQr, setLoadingQr] = useState(false);
   const [qrError, setQrError] = useState<string | null>(null);
+  const [qrDebug, setQrDebug] = useState<string | null>(null);
 
   // Advanced settings (collapsed by default)
   const [showAdvanced, setShowAdvanced] = useState(!hasAny);
@@ -48,6 +49,7 @@ export default function WhatsAppClient({ initial }: { initial: Initial }) {
   async function loadQr() {
     setLoadingQr(true);
     setQrError(null);
+    setQrDebug(null);
     try {
       const r = await fetch("/api/whatsapp/evolution/qr");
       const d = await r.json().catch(() => null);
@@ -57,6 +59,9 @@ export default function WhatsAppClient({ initial }: { initial: Initial }) {
       }
       setEvoState(d.state);
       setQrBase64(d.qrBase64 ?? null);
+      if (!d.qrBase64 && d.state !== "open" && d.debug) {
+        setQrDebug(`סטטוס Evolution: ${d.debug.status} · ${JSON.stringify(d.debug.raw).slice(0, 300)}`);
+      }
     } catch {
       setQrError("שגיאת רשת.");
     } finally {
@@ -142,12 +147,15 @@ export default function WhatsAppClient({ initial }: { initial: Initial }) {
 
   const connected = evoState === "open";
 
+  // QR image roughly fills the card width on all viewports.
+  const qrBoxClass = "aspect-square w-full max-w-[420px]";
+
   return (
-    <div className="mx-auto max-w-sm space-y-6 py-4">
+    <div className="mx-auto max-w-xl space-y-6 py-6">
       {/* Status + QR */}
-      <div className="flex flex-col items-center gap-4 rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+      <div className="flex flex-col items-center gap-6 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm sm:p-10">
         {/* Status badge */}
-        <div className={`flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold ${
+        <div className={`flex items-center gap-2 rounded-full px-5 py-2 text-sm font-semibold ${
           connected
             ? "bg-emerald-50 text-emerald-700"
             : hasAny
@@ -155,60 +163,68 @@ export default function WhatsAppClient({ initial }: { initial: Initial }) {
               : "bg-slate-100 text-slate-500"
         }`}>
           {connected
-            ? <><Check size={15} /> מחובר</>
+            ? <><Check size={16} /> מחובר</>
             : hasAny
-              ? <><WifiOff size={15} /> לא מחובר</>
-              : <><Wifi size={15} /> לא מוגדר</>
+              ? <><WifiOff size={16} /> לא מחובר</>
+              : <><Wifi size={16} /> לא מוגדר</>
           }
         </div>
 
         {/* QR display */}
         {hasEvolution && (
-          <div className="flex flex-col items-center gap-3">
+          <div className="flex w-full flex-col items-center gap-4">
             {loadingQr && !qrBase64 && (
-              <div className="grid h-48 w-48 place-items-center rounded-xl border border-dashed border-slate-200 bg-slate-50">
-                <Loader2 size={28} className="animate-spin text-slate-300" />
+              <div className={`${qrBoxClass} grid place-items-center rounded-2xl border border-dashed border-slate-200 bg-slate-50`}>
+                <Loader2 size={40} className="animate-spin text-slate-300" />
               </div>
             )}
 
             {!loadingQr && connected && (
-              <div className="grid h-48 w-48 place-items-center rounded-xl bg-emerald-50">
+              <div className={`${qrBoxClass} grid place-items-center rounded-2xl bg-emerald-50`}>
                 <div className="text-center">
-                  <Check size={40} className="mx-auto text-emerald-500" />
-                  <p className="mt-2 text-[13px] font-semibold text-emerald-700">WhatsApp פעיל</p>
+                  <Check size={64} className="mx-auto text-emerald-500" />
+                  <p className="mt-3 text-base font-semibold text-emerald-700">WhatsApp פעיל</p>
                 </div>
               </div>
             )}
 
             {!loadingQr && !connected && qrBase64 && (
-              <img src={qrBase64} alt="WhatsApp QR" className="h-48 w-48 rounded-xl border border-slate-100 shadow-sm" />
+              <img src={qrBase64} alt="WhatsApp QR" className={`${qrBoxClass} rounded-2xl border border-slate-100 shadow-sm`} />
             )}
 
             {!loadingQr && !connected && !qrBase64 && (
-              <div className="grid h-48 w-48 place-items-center rounded-xl border border-dashed border-slate-200 bg-slate-50">
-                <p className="px-4 text-center text-[12px] text-slate-400">
-                  {qrError ?? "לחצו לטעינת QR"}
+              <div className={`${qrBoxClass} grid place-items-center rounded-2xl border border-dashed border-slate-200 bg-slate-50`}>
+                <p className="px-6 text-center text-sm text-slate-400">
+                  {qrError ?? "לחצו \"טען QR\" כדי להציג קוד לסריקה"}
                 </p>
               </div>
             )}
 
             {!connected && qrBase64 && (
-              <p className="text-[13px] text-slate-500">סרקו עם WhatsApp של הקליניקה</p>
+              <p className="text-center text-sm text-slate-500">
+                פתחו WhatsApp בטלפון של הקליניקה ← מכשירים מקושרים ← סריקת קוד QR
+              </p>
             )}
 
             <button
               onClick={loadQr}
               disabled={loadingQr}
-              className="btn-ghost !border !border-line flex items-center gap-1.5 text-[12.5px]"
+              className="btn-ghost !border !border-line flex items-center gap-1.5 text-sm"
             >
-              {loadingQr ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+              {loadingQr ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
               {connected ? "בדוק סטטוס" : "טען QR"}
             </button>
+
+            {qrDebug && (
+              <p dir="ltr" className="max-w-full break-all rounded-lg bg-slate-50 px-3 py-2 text-[11px] text-slate-400">
+                {qrDebug}
+              </p>
+            )}
           </div>
         )}
 
         {!hasAny && (
-          <p className="text-center text-[13px] text-slate-400">
+          <p className="text-center text-sm text-slate-400">
             הגדירו חיבור WhatsApp בהגדרות למטה כדי שתופיע כאן קוד QR לסריקה.
           </p>
         )}
