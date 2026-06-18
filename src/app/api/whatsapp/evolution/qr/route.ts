@@ -47,7 +47,11 @@ export async function GET(request: Request) {
   }
 
   const creds = { host, apiKey, instance };
-  const [state, qr] = await Promise.all([getConnectionState(creds), getQrCode(creds)]);
-
-  return Response.json({ state, qrBase64: qr?.base64 ?? null });
+  try {
+    const [state, qr] = await Promise.all([getConnectionState(creds), getQrCode(creds)]);
+    return Response.json({ state, qrBase64: qr?.base64 ?? null });
+  } catch (e: any) {
+    console.error("[evolution/qr]", e);
+    return Response.json({ error: e?.message ?? "שגיאה בטעינת QR" }, { status: 502 });
+  }
 }

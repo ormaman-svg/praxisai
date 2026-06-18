@@ -68,17 +68,19 @@ export async function getConnectionState(
 }
 
 export async function getQrCode(creds: EvolutionCreds): Promise<{ base64: string } | null> {
-  try {
-    const r = await fetch(`${creds.host}/instance/connect/${creds.instance}`, {
-      headers: { apikey: creds.apiKey },
-    });
-    if (!r.ok) return null;
-    const d = await r.json();
-    const b64: string | undefined = d.base64 ?? d.qrcode?.base64 ?? d.code;
-    return b64 ? { base64: b64 } : null;
-  } catch {
+  const r = await fetch(`${creds.host}/instance/connect/${creds.instance}`, {
+    headers: { apikey: creds.apiKey },
+  });
+  if (!r.ok) {
+    const text = await r.text().catch(() => "");
+    console.error("[evolution] getQrCode failed:", r.status, text);
     return null;
   }
+  const d = await r.json();
+  console.log("[evolution] getQrCode response keys:", Object.keys(d));
+  // v2 formats: { base64 } | { qrcode: { base64 } } | { qr: { base64 } } | { code }
+  const b64: string | undefined = d.base64 ?? d.qrcode?.base64 ?? d.qr?.base64 ?? d.code;
+  return b64 ? { base64: b64 } : null;
 }
 
 export async function createInstance(

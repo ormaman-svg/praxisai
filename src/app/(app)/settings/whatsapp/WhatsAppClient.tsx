@@ -252,7 +252,14 @@ export default function WhatsAppClient({ initial }: { initial: Initial }) {
             ) : evoState === "open" ? (
               <p className="text-sm font-semibold text-emerald-600">הוואטסאפ מחובר ופעיל.</p>
             ) : (
-              <p className="text-[12.5px] text-slate-400">לחצו "טען QR" לסריקה עם הוואטסאפ של הקליניקה.</p>
+              <>
+                <p className="text-[12.5px] text-slate-400">לחצו "טען QR" לסריקה עם הוואטסאפ של הקליניקה.</p>
+                {evoState && evoState !== "open" && (
+                  <p className="text-[12px] text-amber-600">
+                    סטטוס: {evoState} — אם לא מופיע QR, נסו שוב בעוד כמה שניות.
+                  </p>
+                )}
+              </>
             )}
             <button onClick={loadQr} disabled={loadingQr}
                     className="btn-ghost !border !border-line text-[12.5px]">
