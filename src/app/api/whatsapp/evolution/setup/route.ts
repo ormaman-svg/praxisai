@@ -37,15 +37,18 @@ export async function POST(request: Request) {
   const { origin } = await request.json().catch(() => ({ origin: "" }));
   const webhookUrl = `${origin}/api/whatsapp/evolution`;
 
-  // Configure webhook in Evolution API
+  // Configure webhook in Evolution API v2 format
   const r = await fetch(`${host}/webhook/set/${instance}`, {
     method: "POST",
     headers: { "Content-Type": "application/json", apikey: apiKey },
     body: JSON.stringify({
-      url: webhookUrl,
-      webhook_by_events: false,
-      webhook_base64: false,
-      events: ["MESSAGES_UPSERT"],
+      webhook: {
+        enabled: true,
+        url: webhookUrl,
+        webhookByEvents: false,
+        webhookBase64: false,
+        events: ["MESSAGES_UPSERT"],
+      },
     }),
   });
 
