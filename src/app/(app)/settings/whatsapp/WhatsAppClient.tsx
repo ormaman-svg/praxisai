@@ -10,8 +10,6 @@ type Initial = {
   hasAccessToken: boolean;
   reminder24h: boolean;
   reminder2h: boolean;
-  green_id_instance: string;
-  hasGreenToken: boolean;
   evolution_host: string;
   evolution_instance: string;
   hasEvolutionKey: boolean;
@@ -21,7 +19,7 @@ export default function WhatsAppClient({ initial }: { initial: Initial }) {
   const router = useRouter();
 
   const hasEvolution = !!initial.evolution_instance && initial.hasEvolutionKey;
-  const hasAny = hasEvolution || (!!initial.green_id_instance && initial.hasGreenToken) || (!!initial.wa_phone_number_id && initial.hasAccessToken);
+  const hasAny = hasEvolution || (!!initial.wa_phone_number_id && initial.hasAccessToken);
 
   // QR / connection state
   const [evoState, setEvoState] = useState<"open" | "close" | "connecting" | null>(null);
@@ -46,9 +44,6 @@ export default function WhatsAppClient({ initial }: { initial: Initial }) {
   const [evoInstance, setEvoInstance] = useState(initial.evolution_instance);
   const [evoApiKey, setEvoApiKey] = useState("");
 
-  // Green API fields (kept for backward compat, hidden by default)
-  const [greenIdInstance, setGreenIdInstance] = useState(initial.green_id_instance);
-  const [greenApiToken, setGreenApiToken] = useState("");
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // Ensures the one-time session reset only fires once per page visit.
@@ -213,24 +208,6 @@ export default function WhatsAppClient({ initial }: { initial: Initial }) {
     await loadQr();
   }
 
-  async function saveGreen() {
-    setSaving(true);
-    setSaveMsg(null);
-    const patch: Record<string, unknown> = { green_id_instance: greenIdInstance.trim() };
-    if (greenApiToken.trim()) patch.green_api_token = greenApiToken.trim();
-    const r = await fetch("/api/clinic/settings", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(patch),
-    });
-    setSaving(false);
-    const d = await r.json().catch(() => null);
-    if (!r.ok) { setSaveMsg({ kind: "err", text: d?.error ?? "השמירה נכשלה." }); return; }
-    setGreenApiToken("");
-    setSaveMsg({ kind: "ok", text: "Green API נשמר. הגדירו Webhook בקונסול." });
-    router.refresh();
-  }
-
   const connected = evoState === "open";
 
   // QR image roughly fills the card width on all viewports.
@@ -391,29 +368,6 @@ export default function WhatsAppClient({ initial }: { initial: Initial }) {
               </div>
               <div className="flex justify-end">
                 <button onClick={saveEvolution} disabled={saving} className="btn-primary !bg-none !bg-slate-900 hover:!bg-black text-[13px]">
-                  {saving ? <Loader2 size={14} className="animate-spin" /> : "שמור"}
-                </button>
-              </div>
-            </div>
-
-            {/* Green API section */}
-            <div className="space-y-3 border-t border-slate-100 pt-5">
-              <h3 className="text-[11.5px] font-bold uppercase tracking-wider text-slate-400">Green API (חלופה)</h3>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div>
-                  <label className="label">idInstance</label>
-                  <input dir="ltr" className="input font-mono" placeholder="1101000001"
-                         value={greenIdInstance} onChange={(e) => setGreenIdInstance(e.target.value)} />
-                </div>
-                <div>
-                  <label className="label">ApiTokenInstance</label>
-                  <input dir="ltr" type="password" className="input font-mono"
-                         placeholder={initial.hasGreenToken ? "••••••••" : "טוקן"}
-                         value={greenApiToken} onChange={(e) => setGreenApiToken(e.target.value)} />
-                </div>
-              </div>
-              <div className="flex justify-end">
-                <button onClick={saveGreen} disabled={saving} className="btn-primary !bg-emerald-600 hover:!bg-emerald-700 text-[13px]">
                   {saving ? <Loader2 size={14} className="animate-spin" /> : "שמור"}
                 </button>
               </div>

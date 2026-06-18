@@ -178,7 +178,7 @@ export async function POST(request: Request) {
 
   // Opt-out keywords
   const lower = body.toLowerCase();
-  if (["stop", "עצור", "הסר", "בטל רישום"].some((k) => lower.includes(k))) {
+  if (patient && ["stop", "עצור", "הסר", "בטל רישום"].some((k) => lower.includes(k))) {
     await supabase.from("patient_consents").upsert({
       patient_id: patient.id,
       channel: "whatsapp",
