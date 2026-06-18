@@ -6,7 +6,7 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { findPatientByPhone } from "@/lib/whatsapp/normalize";
-import { sendText, chatIdToPhone, type EvolutionCreds } from "@/lib/whatsapp/evolution-api";
+import { sendText, chatIdToPhone, getMediaBase64, type EvolutionCreds } from "@/lib/whatsapp/evolution-api";
 import { notifyEscalation } from "@/lib/notifications/escalation";
 import {
   getOrCreateConversation,
@@ -71,9 +71,10 @@ export async function POST(request: Request) {
     return Response.json({ ok: true });
   }
 
-  // For @lid contacts WhatsApp sends an internal ID, not a phone number.
-  // Use the raw JID digits as the stable dedup key; pushName is used for display.
-  const contact = chatIdToPhone(remoteJid);
+  // @lid is WhatsApp's linked-identity format (newer devices).
+  // Store the raw JID as the contact key so toChatId passes it unchanged to sendText
+  // and Evolution can route the reply correctly. For @s.whatsapp.net keep E.164 format.
+  const contact = remoteJid.endsWith("@lid") ? remoteJid : chatIdToPhone(remoteJid);
   const pushName: string = data?.pushName ?? "";
   const message = data?.message ?? {};
 
@@ -149,9 +150,19 @@ export async function POST(request: Request) {
           resolvedMime = res.headers.get("content-type") ?? mimeType;
         }
       } else if (base64Media) {
-        // No S3 — Evolution sent base64 in the webhook body
-        const bin = Uint8Array.from(atob(base64Media), (c) => c.charCodeAt(0));
+        // Evolution sent base64 in the webhook body (webhookBase64: true)
+        const clean = base64Media.replace(/^data:[^;]+;base64,/, "");
+        const bin = Uint8Array.from(atob(clean), (c) => c.charCodeAt(0));
         mediaBuffer = bin.buffer;
+      } else {
+        // No S3 and no base64 in webhook — fetch via Evolution API
+        const dl = await getMediaBase64(creds, key as Record<string, unknown>, message);
+        if (dl) {
+          const clean = dl.base64.replace(/^data:[^;]+;base64,/, "");
+          const bin = Uint8Array.from(atob(clean), (c) => c.charCodeAt(0));
+          mediaBuffer = bin.buffer;
+          resolvedMime = dl.mimeType;
+        }
       }
 
       if (mediaBuffer) {

@@ -118,6 +118,28 @@ export async function logoutInstance(creds: EvolutionCreds): Promise<void> {
   }).catch(() => {});
 }
 
+// Downloads media from an Evolution message via the API (used when webhookBase64=false).
+// key + message come directly from the webhook payload's data.key / data.message fields.
+export async function getMediaBase64(
+  creds: EvolutionCreds,
+  key: Record<string, unknown>,
+  message: Record<string, unknown>
+): Promise<{ base64: string; mimeType: string } | null> {
+  try {
+    const r = await fetch(`${creds.host}/chat/getBase64FromMediaMessage/${creds.instance}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: creds.apiKey },
+      body: JSON.stringify({ message: { key, message }, convertToMp4: false }),
+    });
+    if (!r.ok) return null;
+    const d = await r.json();
+    if (!d.base64) return null;
+    return { base64: d.base64, mimeType: d.mimetype ?? "application/octet-stream" };
+  } catch {
+    return null;
+  }
+}
+
 export async function deleteInstance(
   host: string,
   globalApiKey: string,

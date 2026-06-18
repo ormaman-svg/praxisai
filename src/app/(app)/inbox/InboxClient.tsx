@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { MessageCircle, Bot, UserRound, Send, ArrowLeft, Loader2, Play, FileAudio, ArrowUpLeft, UserPlus, X } from "lucide-react";
+import { MessageCircle, Bot, UserRound, Send, ArrowLeft, Loader2, Play, FileAudio, ArrowUpLeft, UserPlus, X, Search } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 type Conversation = {
@@ -84,6 +84,7 @@ export default function InboxClient({
   const [conversations, setConversations] = useState(initialConversations);
   const [activeId, setActiveId] = useState<string | null>(initialConversations[0]?.id ?? null);
   const [messages, setMessages] = useState<Msg[]>([]);
+  const [search, setSearch] = useState("");
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -212,13 +213,35 @@ export default function InboxClient({
       ? `${c.patients.first_name} ${c.patients.last_name}`
       : (c.display_name ?? c.wa_contact ?? "לא ידוע");
 
+  const q = search.trim().toLowerCase();
+  const filteredConversations = q
+    ? conversations.filter((c) => {
+        const n = name(c).toLowerCase();
+        const phone = (c.wa_contact ?? "").toLowerCase();
+        return n.includes(q) || phone.includes(q);
+      })
+    : conversations;
+
   return (
     <div className="mx-auto max-w-6xl">
       <h1 className="mb-5 text-2xl font-bold text-slate-900">תיבת הודעות</h1>
 
       <div className="card flex h-[calc(100vh-12rem)] overflow-hidden">
         {/* Conversation list */}
-        <div className={`w-full shrink-0 overflow-y-auto border-e border-line sm:w-72 ${activeId ? "hidden sm:block" : "block"}`}>
+        <div className={`flex w-full shrink-0 flex-col border-e border-line sm:w-72 ${activeId ? "hidden sm:flex" : "flex"}`}>
+          {/* Search input */}
+          <div className="border-b border-line px-3 py-2">
+            <div className="relative">
+              <Search size={14} className="absolute end-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                className="input w-full pe-8 !py-1.5 text-[13px]"
+                placeholder="חיפוש לפי שם, טלפון…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto">
           {conversations.length === 0 ? (
             <div className="grid h-full place-items-center px-6 text-center text-[13px] text-slate-400">
               <div>
@@ -226,9 +249,13 @@ export default function InboxClient({
                 אין עדיין שיחות.
               </div>
             </div>
+          ) : filteredConversations.length === 0 ? (
+            <div className="px-4 py-8 text-center text-[13px] text-slate-400">
+              לא נמצאו תוצאות עבור &quot;{search}&quot;
+            </div>
           ) : (
             <ul className="divide-y divide-line">
-              {conversations.map((c) => (
+              {filteredConversations.map((c) => (
                 <li key={c.id}>
                   <button
                     onClick={() => setActiveId(c.id)}
@@ -244,6 +271,7 @@ export default function InboxClient({
               ))}
             </ul>
           )}
+          </div>
         </div>
 
         {/* Thread */}
