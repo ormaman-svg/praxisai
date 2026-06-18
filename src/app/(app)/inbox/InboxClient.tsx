@@ -85,6 +85,8 @@ export default function InboxClient({
   const [activeId, setActiveId] = useState<string | null>(initialConversations[0]?.id ?? null);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [search, setSearch] = useState("");
+  // Conversation IDs whose message bodies match the current search term
+  const [contentMatchIds, setContentMatchIds] = useState<Set<string>>(new Set());
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -214,11 +216,34 @@ export default function InboxClient({
       : (c.display_name ?? c.wa_contact ?? "לא ידוע");
 
   const q = search.trim().toLowerCase();
+
+  // Search inside message bodies (server-side). Debounced; results merge with
+  // the name/phone filter so a chat is found by anything that was said in it.
+  useEffect(() => {
+    const term = search.trim();
+    if (term.length < 2) { setContentMatchIds(new Set()); return; }
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      const ids = conversations.map((c) => c.id);
+      if (ids.length === 0) return;
+      const { data } = await supabase
+        .from("messages")
+        .select("conversation_id")
+        .in("conversation_id", ids)
+        .ilike("body", `%${term}%`)
+        .limit(500);
+      if (!cancelled) {
+        setContentMatchIds(new Set((data ?? []).map((m) => m.conversation_id as string)));
+      }
+    }, 250);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [search, conversations, supabase]);
+
   const filteredConversations = q
     ? conversations.filter((c) => {
         const n = name(c).toLowerCase();
         const phone = (c.wa_contact ?? "").toLowerCase();
-        return n.includes(q) || phone.includes(q);
+        return n.includes(q) || phone.includes(q) || contentMatchIds.has(c.id);
       })
     : conversations;
 
