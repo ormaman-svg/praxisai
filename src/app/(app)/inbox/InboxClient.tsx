@@ -29,7 +29,7 @@ const STATUS_BADGE: Record<string, string> = {
   human: "bg-amber-50 text-amber-600",
   closed: "bg-slate-100 text-slate-400",
 };
-const STATUS_HE: Record<string, string> = { bot: "בוט", human: "טיפול ידני", closed: "סגור" };
+const STATUS_HE: Record<string, string> = { bot: "אוטומטי", human: "ממתין לטיפול", closed: "סגור" };
 
 function MediaContent({ storagePath, mediaType }: { storagePath: string; mediaType: string }) {
   const supabase = createClient();

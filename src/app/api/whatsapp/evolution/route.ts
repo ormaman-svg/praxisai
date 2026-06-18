@@ -248,6 +248,9 @@ export async function POST(request: Request) {
             sent_at: new Date().toISOString(),
           });
         }
+        // Mark conversation as needing human attention — unknown sender,
+        // staff need to identify and register them.
+        await supabase.from("conversations").update({ status: "human" }).eq("id", conversationId);
       }
     } catch (e) {
       console.error("[evolution] processing error:", e);
