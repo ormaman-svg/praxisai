@@ -133,7 +133,7 @@ export async function createInstance(
   host: string,
   globalApiKey: string,
   instanceName: string
-): Promise<{ apikey: string }> {
+): Promise<{ apikey: string; qrBase64: string | null }> {
   const r = await fetch(`${host}/instance/create`, {
     method: "POST",
     headers: headers(globalApiKey),
@@ -145,8 +145,13 @@ export async function createInstance(
   });
   if (!r.ok) throw new Error(`Evolution createInstance ${r.status}: ${await r.text()}`);
   const d = await r.json();
+  console.log("[evolution] createInstance response keys:", Object.keys(d));
   // v2.2.3 returns { hash: "UUID-string" } where the UUID is the instance API key.
   // Earlier versions return { hash: { apikey: "..." } }.
   const key = d.hash?.apikey ?? (typeof d.hash === "string" ? d.hash : "") ?? d.apikey ?? "";
-  return { apikey: key };
+  // In v2 the QR is delivered in the create response itself (qrcode: true),
+  // NOT from a later /instance/connect call (which returns { count: N }).
+  let qrBase64: string | null = d.qrcode?.base64 ?? null;
+  if (qrBase64 && !qrBase64.startsWith("data:")) qrBase64 = `data:image/png;base64,${qrBase64}`;
+  return { apikey: key, qrBase64 };
 }

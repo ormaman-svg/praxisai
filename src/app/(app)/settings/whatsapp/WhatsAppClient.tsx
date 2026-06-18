@@ -128,13 +128,20 @@ export default function WhatsAppClient({ initial }: { initial: Initial }) {
       }
       setShowRecreate(false);
       setGlobalApiKey("");
-      setQrBase64(null);
-      setEvoState(null);
-      setQrDebug("Instance נוצר בהצלחה — ממתין ל-QR...");
       resetTriedRef.current = false;
       router.refresh();
-      // Start polling — the existing 5s loop will pick up the QR once Baileys is ready.
-      await loadQr(false);
+      if (d.qrBase64) {
+        // v2 returns the QR directly in the create response.
+        setQrBase64(d.qrBase64);
+        setEvoState("connecting");
+        setQrDebug(null);
+      } else {
+        // Fallback: poll until Baileys emits the QR.
+        setQrBase64(null);
+        setEvoState(null);
+        setQrDebug("Instance נוצר בהצלחה — ממתין ל-QR...");
+        await loadQr(false);
+      }
     } catch {
       setRecreateMsg({ kind: "err", text: "שגיאת רשת." });
     } finally {

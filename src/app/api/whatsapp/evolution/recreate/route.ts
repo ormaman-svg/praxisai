@@ -52,9 +52,9 @@ export async function POST(request: Request) {
     await deleteInstance(host, gKey, instance);
     await new Promise((res) => setTimeout(res, 1500));
 
-    // 2. Recreate with correct params
-    const { apikey: newKey } = await createInstance(host, gKey, instance);
-    console.log("[evolution/recreate] createInstance returned key length:", newKey?.length ?? 0);
+    // 2. Recreate with correct params. In v2 the QR comes back in THIS response.
+    const { apikey: newKey, qrBase64 } = await createInstance(host, gKey, instance);
+    console.log("[evolution/recreate] key length:", newKey?.length ?? 0, "hasQr:", !!qrBase64);
     if (!newKey)
       return Response.json({ error: "יצירת Instance נכשלה — בדוק את ה-Global API Key." }, { status: 502 });
 
@@ -63,10 +63,9 @@ export async function POST(request: Request) {
       .update({ settings: { ...s, evolution_api_key: newKey } })
       .eq("id", clinicId);
 
-    // 4. Return immediately — the client polls for the QR once Baileys starts up.
-    //    Fetching the QR here would often get count:0 because Baileys needs more
-    //    time than a fixed delay, so we leave polling to the existing loadQr() loop.
-    return Response.json({ ok: true });
+    // 4. Return the QR from the create response. If it wasn't included, the
+    //    client falls back to polling /qr.
+    return Response.json({ ok: true, qrBase64: qrBase64 ?? null });
   } catch (e: any) {
     console.error("[evolution/recreate]", e);
     return Response.json({ error: e?.message ?? "שגיאה ביצירת Instance" }, { status: 502 });
