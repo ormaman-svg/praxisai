@@ -5,8 +5,8 @@
 // Optional shared-secret check: set EVOLUTION_WEBHOOK_TOKEN and append ?token=... to the URL.
 
 import { createAdminClient } from "@/lib/supabase/admin";
-import { findPatientByPhone } from "@/lib/whatsapp/normalize";
-import { sendText, chatIdToPhone, getMediaBase64, type EvolutionCreds } from "@/lib/whatsapp/evolution-api";
+import { findPatientByPhone, normalizePhone } from "@/lib/whatsapp/normalize";
+import { sendText, toChatId, chatIdToPhone, getMediaBase64, type EvolutionCreds } from "@/lib/whatsapp/evolution-api";
 import { notifyEscalation } from "@/lib/notifications/escalation";
 import {
   getOrCreateConversation,
@@ -62,7 +62,13 @@ export async function POST(request: Request) {
   const remoteJid: string = key?.remoteJid ?? "";
   const waMessageId: string = key?.id ?? "";
 
-  console.log("[evolution] remoteJid:", remoteJid, "fromMe:", key?.fromMe);
+  // Newer Evolution/Baileys versions expose the real phone JID alongside an @lid
+  // remoteJid (the @lid digits are an internal id, NOT a phone number).
+  // We probe every field name that has carried it across versions.
+  const senderPnJid: string =
+    key?.senderPn ?? key?.remoteJidAlt ?? data?.senderPn ?? data?.remoteJidAlt ?? "";
+
+  console.log("[evolution] remoteJid:", remoteJid, "senderPn:", senderPnJid, "key:", JSON.stringify(key), "fromMe:", key?.fromMe);
 
   // Ignore group chats and broadcasts; accept individual @s.whatsapp.net and @lid (newer WA format)
   const isIndividual = remoteJid.endsWith("@s.whatsapp.net") || remoteJid.endsWith("@lid");
@@ -71,10 +77,14 @@ export async function POST(request: Request) {
     return Response.json({ ok: true });
   }
 
-  // @lid is WhatsApp's linked-identity format (newer devices).
-  // Store the raw JID as the contact key so toChatId passes it unchanged to sendText
-  // and Evolution can route the reply correctly. For @s.whatsapp.net keep E.164 format.
-  const contact = remoteJid.endsWith("@lid") ? remoteJid : chatIdToPhone(remoteJid);
+  // Conversation key (wa_contact). Prefer the real phone if Evolution provided one,
+  // otherwise fall back to the raw @lid JID (stable per contact) or E.164 for classic JIDs.
+  // @lid digits are an internal WhatsApp id, NOT a phone number — never show them as one.
+  const contact = senderPnJid
+    ? chatIdToPhone(senderPnJid)
+    : remoteJid.endsWith("@lid")
+    ? remoteJid
+    : chatIdToPhone(remoteJid);
   const pushName: string = data?.pushName ?? "";
   const message = data?.message ?? {};
 
@@ -119,8 +129,8 @@ export async function POST(request: Request) {
   }
 
   console.log("[evolution] contact:", contact, "clinicId:", clinic.id);
-  const patient = await findPatientByPhone(supabase, clinic.id, contact);
-  console.log("[evolution] patient found:", !!patient);
+  let patient = await findPatientByPhone(supabase, clinic.id, contact);
+  console.log("[evolution] patient found by phone:", !!patient);
   // Unknown senders still get a conversation so the clinic can see who messaged them;
   // we just skip AI processing for them.
 
@@ -129,6 +139,41 @@ export async function POST(request: Request) {
     : (pushName || null);
   const conversationId = await getOrCreateConversation(supabase, clinic.id, patient?.id ?? null, contact, displayName ?? undefined);
   if (!conversationId) return Response.json({ ok: true });
+
+  // For @lid contacts the phone lookup fails, but staff may have linked a patient
+  // to this conversation via the "add as patient" flow. Resolve that patient and,
+  // crucially, their real phone — the @lid JID itself is not routable for sending.
+  let patientPhone: string | null = null;
+  {
+    const { data: conv } = await supabase
+      .from("conversations")
+      .select("patient_id")
+      .eq("id", conversationId)
+      .single();
+    const linkedId = patient?.id ?? conv?.patient_id ?? null;
+    if (linkedId) {
+      const { data: p } = await supabase
+        .from("patients")
+        .select("id, first_name, last_name, phone")
+        .eq("id", linkedId)
+        .single();
+      if (p) {
+        patient = { id: p.id, first_name: p.first_name, last_name: p.last_name };
+        patientPhone = p.phone ?? null;
+      }
+    }
+  }
+
+  // Where replies are actually sent. A real phone (patient's, or the senderPn the
+  // webhook resolved) is always preferred; the raw @lid is a last-resort best effort.
+  const sendTarget = patientPhone
+    ? toChatId(normalizePhone(patientPhone))
+    : senderPnJid
+    ? toChatId(chatIdToPhone(senderPnJid))
+    : remoteJid.endsWith("@lid")
+    ? remoteJid
+    : toChatId(chatIdToPhone(remoteJid));
+  console.log("[evolution] sendTarget:", sendTarget, "patientPhone:", patientPhone);
 
   // ── Persist inbound message ──────────────────────────────────────────────
 
@@ -219,7 +264,7 @@ export async function POST(request: Request) {
       source: "reply_stop",
       consented_at: new Date().toISOString(),
     });
-    await sendText(creds, contact, "הוסרת מרשימת ההתראות. שלחו START בכל עת לחידוש.");
+    await sendText(creds, sendTarget, "הוסרת מרשימת ההתראות. שלחו START בכל עת לחידוש.");
     return Response.json({ ok: true });
   }
 
@@ -233,7 +278,7 @@ export async function POST(request: Request) {
       if (patient) {
         await processConversation(
           supabase,
-          { conversationId, contact, clinicId: clinic.id, patient: patient as PatientLite },
+          { conversationId, contact: sendTarget, clinicId: clinic.id, patient: patient as PatientLite },
           (to, t) => sendText(creds, to, t)
         );
       } else {
@@ -249,7 +294,7 @@ export async function POST(request: Request) {
           const greeting =
             "שלום! 👋 אני העוזר האוטומטי של הקליניקה.\n" +
             "כדי שנוכל לפתוח לך תיק ולסייע — מה שמך המלא?";
-          const waId = await sendText(creds, contact, greeting);
+          const waId = await sendText(creds, sendTarget, greeting);
           await supabase.from("messages").insert({
             conversation_id: conversationId,
             direction: "outbound",

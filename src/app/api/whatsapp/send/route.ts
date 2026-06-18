@@ -5,7 +5,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendText } from "@/lib/whatsapp/client";
-import { sendText as evolutionSendText } from "@/lib/whatsapp/evolution-api";
+import { sendText as evolutionSendText, toChatId } from "@/lib/whatsapp/evolution-api";
+import { normalizePhone } from "@/lib/whatsapp/normalize";
 
 export async function POST(request: Request) {
   const supabase = createClient();
@@ -20,10 +21,24 @@ export async function POST(request: Request) {
   // RLS ensures the user can only read conversations in their clinic
   const { data: conv } = await supabase
     .from("conversations")
-    .select("id, clinic_id, wa_contact")
+    .select("id, clinic_id, wa_contact, patient_id, patients(phone)")
     .eq("id", conversation_id)
     .single();
   if (!conv?.wa_contact) return Response.json({ error: "שיחה לא נמצאה." }, { status: 404 });
+
+  // The stored wa_contact may be an @lid JID (not routable). When a patient is
+  // linked, send to their real phone; otherwise fall back to wa_contact.
+  const patientRel = conv.patients as unknown as { phone: string | null } | { phone: string | null }[] | null;
+  const patientPhone = (Array.isArray(patientRel) ? patientRel[0] : patientRel)?.phone ?? null;
+  const target = patientPhone
+    ? toChatId(normalizePhone(patientPhone))
+    : conv.wa_contact;
+  if (conv.wa_contact.endsWith("@lid") && !patientPhone) {
+    return Response.json(
+      { error: "לא ניתן לשלוח — אין מספר טלפון. הוסיפו את הפונה כמטופל עם מספר תקין." },
+      { status: 400 }
+    );
+  }
 
   const admin = createAdminClient();
   const { data: clinic } = await admin.from("clinics").select("settings").eq("id", conv.clinic_id).single();
@@ -47,11 +62,11 @@ export async function POST(request: Request) {
     if (hasEvolution) {
       waId = await evolutionSendText(
         { host: evolutionHost, instance: evolutionInstance, apiKey: evolutionKey },
-        conv.wa_contact,
+        target,
         text.trim()
       );
     } else {
-      waId = await sendText({ phoneNumberId: phoneNumberId!, accessToken: accessToken! }, conv.wa_contact, text.trim());
+      waId = await sendText({ phoneNumberId: phoneNumberId!, accessToken: accessToken! }, target, text.trim());
     }
   } catch (e) {
     console.error("[whatsapp/send] error:", e);

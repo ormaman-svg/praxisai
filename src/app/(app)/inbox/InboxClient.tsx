@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { MessageCircle, Bot, UserRound, Send, ArrowLeft, Loader2, Play, FileAudio, ArrowUpLeft, UserPlus, X, Search } from "lucide-react";
+import { MessageCircle, Bot, UserRound, Send, ArrowLeft, Loader2, Play, FileAudio, ArrowUpLeft, UserPlus, X, Search, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
+type PatientStatus = "active" | "discharged" | "on_hold";
 type Conversation = {
   id: string;
   status: "bot" | "human" | "closed";
@@ -12,7 +13,7 @@ type Conversation = {
   display_name: string | null;
   last_message_at: string | null;
   patient_id: string | null;
-  patients: { first_name: string; last_name: string } | null;
+  patients: { first_name: string; last_name: string; phone: string | null; status: PatientStatus | null } | null;
 };
 
 type Msg = {
@@ -24,12 +25,24 @@ type Msg = {
   created_at: string;
 };
 
-const STATUS_BADGE: Record<string, string> = {
-  bot: "bg-brand-50 text-brand",
-  human: "bg-amber-50 text-amber-600",
-  closed: "bg-slate-100 text-slate-400",
-};
-const STATUS_HE: Record<string, string> = { bot: "אוטומטי", human: "ממתין לטיפול", closed: "סגור" };
+// Primary badge marks whether the contact is a registered (active) patient,
+// not the bot/human channel state.
+function patientBadge(c: Conversation): { label: string; cls: string } {
+  if (!c.patient_id || !c.patients) return { label: "לא רשום", cls: "bg-amber-50 text-amber-600" };
+  switch (c.patients.status) {
+    case "active": return { label: "מטופל פעיל", cls: "bg-emerald-50 text-emerald-600" };
+    case "discharged": return { label: "שוחרר", cls: "bg-slate-100 text-slate-400" };
+    case "on_hold": return { label: "בהמתנה", cls: "bg-slate-100 text-slate-500" };
+    default: return { label: "מטופל", cls: "bg-emerald-50 text-emerald-600" };
+  }
+}
+
+// A real phone for display. @lid digits are an internal id, never a phone number.
+function displayPhone(c: Conversation): string | null {
+  if (c.patients?.phone) return c.patients.phone;
+  if (c.wa_contact && !c.wa_contact.endsWith("@lid")) return c.wa_contact;
+  return null;
+}
 
 function MediaContent({ storagePath, mediaType }: { storagePath: string; mediaType: string }) {
   const supabase = createClient();
@@ -89,6 +102,7 @@ export default function InboxClient({
   const [contentMatchIds, setContentMatchIds] = useState<Set<string>>(new Set());
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Add-patient panel (shown for conversations without a linked patient)
@@ -191,11 +205,26 @@ export default function InboxClient({
     setConversations((prev) =>
       prev.map((c) =>
         c.id === active.id
-          ? { ...c, patient_id: d.patient_id, display_name: `${addFirst} ${addLast}` }
+          ? {
+              ...c,
+              patient_id: d.patient_id,
+              display_name: `${addFirst} ${addLast}`,
+              patients: { first_name: addFirst, last_name: addLast, phone: addPhone || null, status: "active" },
+            }
           : c
       )
     );
     setShowAddPatient(false);
+  }
+
+  async function deleteConversation(id: string) {
+    if (!confirm("למחוק את השיחה הזו לצמיתות? כל ההודעות יימחקו.")) return;
+    setDeletingId(id);
+    const r = await fetch(`/api/inbox/conversations/${id}`, { method: "DELETE" });
+    setDeletingId(null);
+    if (!r.ok) { alert("מחיקה נכשלה."); return; }
+    setConversations((prev) => prev.filter((c) => c.id !== id));
+    setActiveId((cur) => (cur === id ? null : cur));
   }
 
   async function send() {
@@ -288,9 +317,19 @@ export default function InboxClient({
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="truncate text-[13.5px] font-semibold text-slate-800">{name(c)}</span>
-                      <span className={`badge shrink-0 ${STATUS_BADGE[c.status]}`}>{STATUS_HE[c.status]}</span>
+                      <span className={`badge shrink-0 ${patientBadge(c).cls}`}>{patientBadge(c).label}</span>
                     </div>
-                    <div className="mt-0.5 truncate text-[11.5px] text-slate-400" dir="ltr">{c.wa_contact}</div>
+                    <div className="mt-0.5 flex items-center gap-1.5">
+                      {displayPhone(c) && (
+                        <span className="truncate text-[11.5px] text-slate-400" dir="ltr">{displayPhone(c)}</span>
+                      )}
+                      {c.status === "human" && (
+                        <span className="badge shrink-0 bg-amber-50 text-amber-600">ממתין לטיפול</span>
+                      )}
+                      {c.status === "closed" && (
+                        <span className="badge shrink-0 bg-slate-100 text-slate-400">סגור</span>
+                      )}
+                    </div>
                   </button>
                 </li>
               ))}
@@ -318,7 +357,9 @@ export default function InboxClient({
                 ) : (
                   <div className="truncate text-[14px] font-bold text-slate-900">{name(active)}</div>
                 )}
-                <div className="text-[11.5px] text-slate-400" dir="ltr">{active.wa_contact}</div>
+                {displayPhone(active) && (
+                  <div className="text-[11.5px] text-slate-400" dir="ltr">{displayPhone(active)}</div>
+                )}
               </div>
               {active.status === "bot" ? (
                 <button onClick={() => setStatus("human")} className="btn-ghost !border !border-line !py-1.5 !text-[12.5px]">
@@ -329,6 +370,14 @@ export default function InboxClient({
                   <Bot size={14} /> החזר לבוט
                 </button>
               ) : null}
+              <button
+                onClick={() => deleteConversation(active.id)}
+                disabled={deletingId === active.id}
+                title="מחק שיחה"
+                className="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
+              >
+                {deletingId === active.id ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+              </button>
             </div>
 
             {/* Add-patient banner — shown when this conversation has no linked patient */}
