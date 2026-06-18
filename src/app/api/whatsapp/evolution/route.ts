@@ -270,21 +270,14 @@ export async function POST(request: Request) {
   }
 
   // Process conversation with the AI agent.
-  // For known patients the bot replies fully; for unknown senders the bot sends
-  // a generic greeting and leaves the conversation in "bot" status so the clinic
-  // can take it over manually when ready.
+  // Bot handles ALL conversations (known patients and unknown senders) as long as
+  // status === 'bot'. A therapist/receptionist can take over by clicking "קח על עצמי".
   const gotLock = await acquireLock(supabase, conversationId);
   if (gotLock) {
     try {
-      if (patient) {
-        await processConversation(
-          supabase,
-          { conversationId, contact: sendTarget, clinicId: clinic.id, patient: patient as PatientLite },
-          (to, t) => sendText(creds, to, t)
-        );
-      } else {
-        // Unknown sender — only send the name-collection greeting ONCE
-        // (check no outbound messages exist yet)
+      if (!patient) {
+        // Unknown sender — send greeting ONCE on first contact, then let bot
+        // continue the conversation (collecting name, answering questions, escalating).
         const { count: outboundCount } = await supabase
           .from("messages")
           .select("id", { count: "exact", head: true })
@@ -304,10 +297,22 @@ export async function POST(request: Request) {
             status: "sent",
             sent_at: new Date().toISOString(),
           });
+          // Greeting sent for this turn — processConversation would see last message
+          // as outbound and return immediately, so we skip it here.
+        } else {
+          // Follow-up from unknown sender — bot continues the conversation
+          await processConversation(
+            supabase,
+            { conversationId, contact: sendTarget, clinicId: clinic.id, patient: null },
+            (to, t) => sendText(creds, to, t)
+          );
         }
-        // Mark conversation as needing human attention — unknown sender,
-        // staff need to identify and register them.
-        await supabase.from("conversations").update({ status: "human" }).eq("id", conversationId);
+      } else {
+        await processConversation(
+          supabase,
+          { conversationId, contact: sendTarget, clinicId: clinic.id, patient: patient as PatientLite },
+          (to, t) => sendText(creds, to, t)
+        );
       }
     } catch (e) {
       console.error("[evolution] processing error:", e);

@@ -42,10 +42,17 @@ function patientBadge(c: Conversation): { label: string; cls: string } {
   }
 }
 
+// +972527305577 → 0527305577 (Israeli local format)
+function formatLocalPhone(phone: string): string {
+  if (phone.startsWith("+972")) return "0" + phone.slice(4);
+  if (phone.startsWith("972")) return "0" + phone.slice(3);
+  return phone;
+}
+
 // A real phone for display. @lid digits are an internal id, never a phone number.
 function displayPhone(c: Conversation): string | null {
-  if (c.patients?.phone) return c.patients.phone;
-  if (c.wa_contact && !c.wa_contact.endsWith("@lid")) return c.wa_contact;
+  if (c.patients?.phone) return formatLocalPhone(c.patients.phone);
+  if (c.wa_contact && !c.wa_contact.endsWith("@lid")) return formatLocalPhone(c.wa_contact);
   return null;
 }
 
@@ -113,6 +120,8 @@ export default function InboxClient({
   const [forwardMsg, setForwardMsg] = useState<Msg | null>(null);
   const [newChatOpen, setNewChatOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const activeIdRef = useRef<string | null>(activeId);
+  useEffect(() => { activeIdRef.current = activeId; }, [activeId]);
 
   // Add-patient panel (shown for conversations without a linked patient)
   const [showAddPatient, setShowAddPatient] = useState(false);
@@ -165,6 +174,11 @@ export default function InboxClient({
         (payload) => {
           const c = payload.new as Conversation;
           setConversations((prev) => prev.map((x) => x.id === c.id ? { ...x, ...c } : x));
+          // Belt-and-suspenders: when the active conversation receives a new message
+          // its last_message_at is updated — reload messages so bot replies appear.
+          if (c.id === activeIdRef.current) {
+            loadMessages(c.id).then(setMessages);
+          }
         })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
