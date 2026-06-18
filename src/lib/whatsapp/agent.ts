@@ -7,6 +7,7 @@ import { invoke } from "@/lib/ai/invoke";
 import type { Message } from "@/lib/ai/invoke";
 import { PATIENT_AGENT_TOOLS } from "@/lib/ai/tools/definitions";
 import { runToolCall } from "@/lib/ai/tools/handlers";
+import { encryptMessage, decryptMessage } from "@/lib/crypto/messages";
 
 export type PatientLite = { id: string; first_name: string; last_name: string } | null;
 
@@ -120,7 +121,7 @@ export async function processConversation(
       .reverse()
       .map((m) => ({
         role: m.direction === "inbound" ? "user" : "assistant",
-        content: m.body ?? "",
+        content: decryptMessage(m.body) ?? "",
       }));
 
     // Nothing to answer (already replied, or empty) → done
@@ -132,7 +133,7 @@ export async function processConversation(
     await supabase.from("messages").insert({
       conversation_id: ctx.conversationId,
       direction: "outbound",
-      body: replyText,
+      body: encryptMessage(replyText),
       wa_message_id: waId || null,
       status: "sent",
       sent_at: new Date().toISOString(),

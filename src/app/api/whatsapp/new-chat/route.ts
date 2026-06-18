@@ -6,6 +6,7 @@ import { getActiveClinicId } from "@/lib/clinic";
 import { findPatientByPhone, normalizePhone } from "@/lib/whatsapp/normalize";
 import { getOrCreateConversation } from "@/lib/whatsapp/agent";
 import { sendText as evolutionSendText, toChatId } from "@/lib/whatsapp/evolution-api";
+import { encryptMessage } from "@/lib/crypto/messages";
 
 export const dynamic = "force-dynamic";
 
@@ -61,7 +62,7 @@ export async function POST(request: Request) {
   await admin.from("messages").insert({
     conversation_id: conversationId,
     direction: "outbound",
-    body: text.trim(),
+    body: encryptMessage(text.trim()),
     wa_message_id: waId || null,
     status: "sent",
     sent_at: new Date().toISOString(),

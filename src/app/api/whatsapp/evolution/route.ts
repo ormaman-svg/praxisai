@@ -8,6 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { findPatientByPhone, normalizePhone } from "@/lib/whatsapp/normalize";
 import { sendText, toChatId, chatIdToPhone, getMediaBase64, type EvolutionCreds } from "@/lib/whatsapp/evolution-api";
 import { notifyEscalation } from "@/lib/notifications/escalation";
+import { encryptMessage } from "@/lib/crypto/messages";
 import {
   getOrCreateConversation,
   acquireLock,
@@ -226,27 +227,14 @@ export async function POST(request: Request) {
     body = (mediaObj?.caption ?? "").trim() || null;
   }
 
-  // Dedup via wa_message_id unique constraint.
-  // payload stores a lightweight diagnostic snapshot so we can discover which
-  // field carries the real phone for @lid contacts (varies by Evolution version).
-  const diag = {
-    key,
-    pushName,
-    dataKeys: Object.keys(data ?? {}),
-    msgKeys: Object.keys(message ?? {}),
-    contextInfo:
-      (message?.extendedTextMessage?.contextInfo ??
-        message?.imageMessage?.contextInfo ??
-        null),
-  };
+  // Dedup via wa_message_id unique constraint. Body is encrypted at rest.
   await supabase.from("messages").insert({
     conversation_id: conversationId,
     direction: "inbound",
-    body,
+    body: encryptMessage(body),
     media_url: persistedMediaUrl,
     media_type: persistedMediaType,
     wa_message_id: waMessageId || null,
-    payload: diag,
     status: "delivered",
     sent_at: new Date().toISOString(),
   });
@@ -311,7 +299,7 @@ export async function POST(request: Request) {
           await supabase.from("messages").insert({
             conversation_id: conversationId,
             direction: "outbound",
-            body: greeting,
+            body: encryptMessage(greeting),
             wa_message_id: waId || null,
             status: "sent",
             sent_at: new Date().toISOString(),

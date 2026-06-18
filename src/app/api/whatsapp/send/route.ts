@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { sendText } from "@/lib/whatsapp/client";
 import { sendText as evolutionSendText, type WaMsgKey } from "@/lib/whatsapp/evolution-api";
 import { resolveSendTarget, patientPhoneFromRel } from "@/lib/whatsapp/target";
+import { encryptMessage, decryptMessage } from "@/lib/crypto/messages";
 
 export async function POST(request: Request) {
   const supabase = createClient();
@@ -45,7 +46,7 @@ export async function POST(request: Request) {
     if (rep?.wa_message_id) {
       quoted = {
         key: { id: rep.wa_message_id, remoteJid: conv.wa_contact, fromMe: rep.direction === "outbound" },
-        text: rep.body ?? "",
+        text: decryptMessage(rep.body) ?? "",
       };
     }
   }
@@ -87,7 +88,7 @@ export async function POST(request: Request) {
   await admin.from("messages").insert({
     conversation_id,
     direction: "outbound",
-    body: text.trim(),
+    body: encryptMessage(text.trim()),
     wa_message_id: waId || null,
     reply_to_id: reply_to ?? null,
     status: "sent",

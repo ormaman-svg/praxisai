@@ -1,17 +1,15 @@
 import { normalizePhone } from "@/lib/whatsapp/normalize";
 import { toChatId } from "@/lib/whatsapp/evolution-api";
 
-// Resolves the routable WhatsApp target for a conversation. The stored
-// wa_contact may be an @lid JID (an internal id, not a phone number); when a
-// patient is linked we always send to their real phone instead.
+// Resolves the routable WhatsApp target for a conversation. When a patient is
+// linked we send to their real phone. Otherwise we send to the stored
+// wa_contact as-is — including @lid JIDs, which Evolution 2.3.x can route to
+// directly (older versions could not, which is why a patient phone is preferred).
 export function resolveSendTarget(
   waContact: string,
   patientPhone: string | null | undefined
 ): { target: string | null; error: string | null } {
   if (patientPhone) return { target: toChatId(normalizePhone(patientPhone)), error: null };
-  if (waContact.endsWith("@lid")) {
-    return { target: null, error: "אין מספר טלפון לפונה זה. הוסיפו אותו כמטופל עם מספר תקין." };
-  }
   return { target: waContact, error: null };
 }
 

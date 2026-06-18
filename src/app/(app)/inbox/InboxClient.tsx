@@ -124,26 +124,30 @@ export default function InboxClient({
 
   const active = conversations.find((c) => c.id === activeId) ?? null;
 
-  useEffect(() => {
-    if (!activeId) return;
-    let cancelled = false;
-    (async () => {
-      const { data } = await supabase
-        .from("messages")
-        .select("id, direction, body, media_url, media_type, reply_to_id, wa_message_id, created_at")
-        .eq("conversation_id", activeId)
-        .order("created_at", { ascending: true });
-      if (!cancelled) setMessages((data ?? []) as Msg[]);
-    })();
-    return () => { cancelled = true; };
-  }, [activeId, supabase]);
+  // Message bodies are encrypted at rest, so we load them through a server
+  // endpoint that decrypts for authorized staff (not a direct DB read).
+  async function loadMessages(convId: string): Promise<Msg[]> {
+    const r = await fetch(`/api/inbox/messages?conversation_id=${convId}`);
+    if (!r.ok) return [];
+    const d = await r.json();
+    return (d.messages ?? []) as Msg[];
+  }
 
   useEffect(() => {
     if (!activeId) return;
+    let cancelled = false;
+    loadMessages(activeId).then((msgs) => { if (!cancelled) setMessages(msgs); });
+    return () => { cancelled = true; };
+  }, [activeId]);
+
+  useEffect(() => {
+    if (!activeId) return;
+    // Realtime delivers the ciphertext row; refetch through the decrypt
+    // endpoint so the thread always shows plaintext.
     const channel = supabase
       .channel(`messages:${activeId}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${activeId}` },
-        (payload) => setMessages((prev) => [...prev, payload.new as Msg]))
+        () => { loadMessages(activeId).then(setMessages); })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [activeId, supabase]);
@@ -245,7 +249,14 @@ export default function InboxClient({
       body: JSON.stringify({ conversation_id: active.id, text: draft.trim(), reply_to: replyTo?.id ?? null }),
     });
     setSending(false);
-    if (r.ok) { setDraft(""); setReplyTo(null); }
+    if (r.ok) {
+      setDraft("");
+      setReplyTo(null);
+      if (active.id) loadMessages(active.id).then(setMessages);
+    } else {
+      const d = await r.json().catch(() => null);
+      alert(d?.error ?? "שליחת ההודעה נכשלה.");
+    }
   }
 
   function copyMessage(m: Msg) {
@@ -272,10 +283,12 @@ export default function InboxClient({
     );
   }
 
-  const name = (c: Conversation) =>
-    c.patients
-      ? `${c.patients.first_name} ${c.patients.last_name}`
-      : (c.display_name ?? c.wa_contact ?? "לא ידוע");
+  const name = (c: Conversation) => {
+    if (c.patients) return `${c.patients.first_name} ${c.patients.last_name}`;
+    if (c.display_name) return c.display_name;
+    if (c.wa_contact && !c.wa_contact.endsWith("@lid")) return c.wa_contact;
+    return "פונה חדש";
+  };
 
   const q = search.trim().toLowerCase();
 
@@ -286,20 +299,14 @@ export default function InboxClient({
     if (term.length < 2) { setContentMatchIds(new Set()); return; }
     let cancelled = false;
     const t = setTimeout(async () => {
-      const ids = conversations.map((c) => c.id);
-      if (ids.length === 0) return;
-      const { data } = await supabase
-        .from("messages")
-        .select("conversation_id")
-        .in("conversation_id", ids)
-        .ilike("body", `%${term}%`)
-        .limit(500);
-      if (!cancelled) {
-        setContentMatchIds(new Set((data ?? []).map((m) => m.conversation_id as string)));
-      }
+      // Server decrypts and matches (bodies are encrypted at rest)
+      const r = await fetch(`/api/inbox/search?q=${encodeURIComponent(term)}`);
+      if (!r.ok || cancelled) return;
+      const d = await r.json();
+      if (!cancelled) setContentMatchIds(new Set((d.conversationIds ?? []) as string[]));
     }, 250);
     return () => { cancelled = true; clearTimeout(t); };
-  }, [search, conversations, supabase]);
+  }, [search]);
 
   const filteredConversations = q
     ? conversations.filter((c) => {
@@ -597,7 +604,9 @@ export default function InboxClient({
 
 function convLabel(c: Conversation): string {
   if (c.patients) return `${c.patients.first_name} ${c.patients.last_name}`;
-  return c.display_name ?? c.wa_contact ?? "לא ידוע";
+  if (c.display_name) return c.display_name;
+  if (c.wa_contact && !c.wa_contact.endsWith("@lid")) return c.wa_contact;
+  return "פונה חדש";
 }
 
 function ForwardModal({

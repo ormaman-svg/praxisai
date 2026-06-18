@@ -6,6 +6,7 @@ import { findPatientByPhone, normalizePhone } from "@/lib/whatsapp/normalize";
 import { getOrCreateConversation } from "@/lib/whatsapp/agent";
 import { sendText as evolutionSendText, sendMedia, toChatId } from "@/lib/whatsapp/evolution-api";
 import { resolveSendTarget, patientPhoneFromRel } from "@/lib/whatsapp/target";
+import { encryptMessage, decryptMessage } from "@/lib/crypto/messages";
 
 export const dynamic = "force-dynamic";
 
@@ -76,6 +77,7 @@ export async function POST(request: Request) {
   }
 
   // Send the content. Media is re-sent via a fresh signed URL.
+  const plainBody = decryptMessage(src.body);
   let waId = "";
   try {
     if (src.media_url && src.media_type) {
@@ -85,9 +87,9 @@ export async function POST(request: Request) {
       const mt = (["image", "video", "audio", "document"].includes(src.media_type)
         ? src.media_type : "document") as "image" | "video" | "audio" | "document";
       if (signed?.signedUrl)
-        waId = await sendMedia(creds, target, signed.signedUrl, src.body ?? "", mt);
-    } else if (src.body) {
-      waId = await evolutionSendText(creds, target, src.body);
+        waId = await sendMedia(creds, target, signed.signedUrl, plainBody ?? "", mt);
+    } else if (plainBody) {
+      waId = await evolutionSendText(creds, target, plainBody);
     } else {
       return Response.json({ error: "אין תוכן להעברה." }, { status: 400 });
     }
@@ -99,7 +101,7 @@ export async function POST(request: Request) {
   await admin.from("messages").insert({
     conversation_id: targetConvId,
     direction: "outbound",
-    body: src.body,
+    body: encryptMessage(plainBody),
     media_url: src.media_url,
     media_type: src.media_type,
     wa_message_id: waId || null,
