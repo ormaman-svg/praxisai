@@ -68,25 +68,32 @@ export default function WhatsAppClient({ initial }: { initial: Initial }) {
       setEvoState(d.state);
       setQrBase64(d.qrBase64 ?? null);
 
-      // Stuck without a QR? Clear the stale session once, then let polling
-      // pick up the freshly generated QR.
-      if (!d.qrBase64 && d.state !== "open" && !resetTriedRef.current) {
+      if (d.qrBase64 || d.state === "open") return;
+
+      // No QR. Decide why:
+      //  - 401/403 (bad instance key), 404 (missing), count:0 (created without
+      //    qrcode:true) → the instance is broken; offer one-click recreate.
+      //  - anything else → likely transient; reset the session once, then poll.
+      const raw = d.debug?.raw;
+      const status = d.debug?.status;
+      const isCountZero = raw != null && typeof raw === "object" && (raw as any).count === 0;
+      const needsRecreate = status === 401 || status === 403 || status === 404 || isCountZero;
+
+      if (needsRecreate) {
+        setShowRecreate(true);
+        setQrDebug(null);
+        return;
+      }
+
+      if (!resetTriedRef.current) {
         resetTriedRef.current = true;
         setQrDebug("מאתחל חיבור... ה-QR יופיע בעוד מספר שניות.");
         await loadQr(true);
         return;
       }
 
-      // Needs (re)creation when: count:0 (created without qrcode:true) OR
-      // 404 (instance does not exist on the Evolution server).
-      const raw = d.debug?.raw;
-      const isCountZero = raw != null && typeof raw === "object" && (raw as any).count === 0;
-      const isMissing = d.debug?.status === 404;
-      if (isCountZero || isMissing) {
-        setShowRecreate(true);
-        setQrDebug(null);
-      } else if (!d.qrBase64 && d.state !== "open" && d.debug) {
-        setQrDebug(`סטטוס Evolution: ${d.debug.status} · ${JSON.stringify(d.debug.raw).slice(0, 300)}`);
+      if (d.debug) {
+        setQrDebug(`סטטוס Evolution: ${status} · ${JSON.stringify(raw).slice(0, 300)}`);
       }
     } catch {
       setQrError("שגיאת רשת.");
