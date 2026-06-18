@@ -77,11 +77,12 @@ export default function WhatsAppClient({ initial }: { initial: Initial }) {
         return;
       }
 
-      // count:0 means the instance was created without qrcode:true — needs recreation.
-      const isStuck = d.debug?.raw != null &&
-        typeof d.debug.raw === "object" &&
-        (d.debug.raw as any).count === 0;
-      if (isStuck) {
+      // Needs (re)creation when: count:0 (created without qrcode:true) OR
+      // 404 (instance does not exist on the Evolution server).
+      const raw = d.debug?.raw;
+      const isCountZero = raw != null && typeof raw === "object" && (raw as any).count === 0;
+      const isMissing = d.debug?.status === 404;
+      if (isCountZero || isMissing) {
         setShowRecreate(true);
         setQrDebug(null);
       } else if (!d.qrBase64 && d.state !== "open" && d.debug) {
@@ -236,7 +237,7 @@ export default function WhatsAppClient({ initial }: { initial: Initial }) {
         {showRecreate && (
           <div className="w-full rounded-2xl border border-orange-200 bg-orange-50 p-5 space-y-3">
             <p className="text-sm font-semibold text-orange-800">
-              ה-Instance תקוע — יש לייצר אותו מחדש
+              ה-Instance לא קיים או תקוע — יש לייצר אותו
             </p>
             <p className="text-[12.5px] text-orange-700">
               הזינו את ה-<strong>Global API Key</strong> של שרת Evolution (הערך של <code className="rounded bg-orange-100 px-1">AUTHENTICATION_API_KEY</code> ב-Railway).
