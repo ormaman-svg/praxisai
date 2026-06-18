@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { MessageCircle, Bot, UserRound, Send, ArrowLeft, Loader2, Play, FileAudio, ArrowUpLeft } from "lucide-react";
+import { MessageCircle, Bot, UserRound, Send, ArrowLeft, Loader2, Play, FileAudio, ArrowUpLeft, UserPlus, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 type Conversation = {
@@ -29,7 +29,7 @@ const STATUS_BADGE: Record<string, string> = {
   human: "bg-amber-50 text-amber-600",
   closed: "bg-slate-100 text-slate-400",
 };
-const STATUS_HE: Record<string, string> = { bot: "בוט", human: "נציג", closed: "סגור" };
+const STATUS_HE: Record<string, string> = { bot: "בוט", human: "טיפול ידני", closed: "סגור" };
 
 function MediaContent({ storagePath, mediaType }: { storagePath: string; mediaType: string }) {
   const supabase = createClient();
@@ -88,6 +88,14 @@ export default function InboxClient({
   const [sending, setSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Add-patient panel (shown for conversations without a linked patient)
+  const [showAddPatient, setShowAddPatient] = useState(false);
+  const [addFirst, setAddFirst] = useState("");
+  const [addLast, setAddLast] = useState("");
+  const [addPhone, setAddPhone] = useState("");
+  const [addSaving, setAddSaving] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
+
   const active = conversations.find((c) => c.id === activeId) ?? null;
 
   useEffect(() => {
@@ -143,6 +151,48 @@ export default function InboxClient({
       .update({ status, assigned_to: status === "human" ? userId : null })
       .eq("id", active.id);
     setConversations((prev) => prev.map((c) => (c.id === active.id ? { ...c, status } : c)));
+  }
+
+  // Pre-fill the add-patient form when the active conversation changes
+  useEffect(() => {
+    if (!active || active.patient_id) { setShowAddPatient(false); return; }
+    const nameParts = (active.display_name ?? "").split(" ");
+    setAddFirst(nameParts[0] ?? "");
+    setAddLast(nameParts.slice(1).join(" ") ?? "");
+    // Try to convert @lid contact to local number for display
+    const raw = active.wa_contact ?? "";
+    const digits = raw.replace(/^\+/, "");
+    const localPhone = digits.startsWith("972") ? "0" + digits.slice(3) : raw;
+    setAddPhone(/^\d{9,15}$/.test(digits) ? localPhone : "");
+    setAddError(null);
+  }, [activeId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function addPatient(e: React.FormEvent) {
+    e.preventDefault();
+    if (!active) return;
+    setAddSaving(true);
+    setAddError(null);
+    const r = await fetch("/api/patients/from-conversation", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        conversation_id: active.id,
+        first_name: addFirst,
+        last_name: addLast,
+        phone: addPhone || undefined,
+      }),
+    });
+    const d = await r.json().catch(() => null);
+    setAddSaving(false);
+    if (!r.ok) { setAddError(d?.error ?? "שגיאה"); return; }
+    setConversations((prev) =>
+      prev.map((c) =>
+        c.id === active.id
+          ? { ...c, patient_id: d.patient_id, display_name: `${addFirst} ${addLast}` }
+          : c
+      )
+    );
+    setShowAddPatient(false);
   }
 
   async function send() {
@@ -227,6 +277,51 @@ export default function InboxClient({
                 </button>
               ) : null}
             </div>
+
+            {/* Add-patient banner — shown when this conversation has no linked patient */}
+            {!active.patient_id && (
+              <div className="border-b border-amber-100 bg-amber-50/60 px-5 py-2.5">
+                {!showAddPatient ? (
+                  <button
+                    onClick={() => setShowAddPatient(true)}
+                    className="flex items-center gap-1.5 text-[12.5px] font-semibold text-amber-700 hover:text-amber-900"
+                  >
+                    <UserPlus size={14} /> הוסף כמטופל חדש
+                  </button>
+                ) : (
+                  <form onSubmit={addPatient} className="flex flex-wrap items-center gap-2">
+                    <input
+                      required
+                      className="input !py-1 w-28 text-[12.5px]"
+                      placeholder="שם פרטי"
+                      value={addFirst}
+                      onChange={(e) => setAddFirst(e.target.value)}
+                    />
+                    <input
+                      required
+                      className="input !py-1 w-28 text-[12.5px]"
+                      placeholder="שם משפחה"
+                      value={addLast}
+                      onChange={(e) => setAddLast(e.target.value)}
+                    />
+                    <input
+                      dir="ltr"
+                      className="input !py-1 w-28 text-[12.5px]"
+                      placeholder="טלפון"
+                      value={addPhone}
+                      onChange={(e) => setAddPhone(e.target.value)}
+                    />
+                    <button type="submit" disabled={addSaving} className="btn-primary !py-1 !text-[12px]">
+                      {addSaving ? <Loader2 size={12} className="animate-spin" /> : "הוסף"}
+                    </button>
+                    <button type="button" onClick={() => setShowAddPatient(false)} className="rounded p-1 text-slate-400 hover:text-slate-600">
+                      <X size={14} />
+                    </button>
+                    {addError && <span className="text-[11.5px] text-red-600">{addError}</span>}
+                  </form>
+                )}
+              </div>
+            )}
 
             <div ref={scrollRef} className="flex-1 space-y-2.5 overflow-y-auto bg-slate-50/50 px-5 py-4">
               {messages.map((m) => (

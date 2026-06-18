@@ -226,17 +226,28 @@ export async function POST(request: Request) {
           (to, t) => sendText(creds, to, t)
         );
       } else {
-        // Unknown sender — send a short greeting and let a human take over
-        const greeting = "שלום! קיבלנו את הודעתכם. נציג יחזור אליכם בהקדם.";
-        const waId = await sendText(creds, contact, greeting);
-        await supabase.from("messages").insert({
-          conversation_id: conversationId,
-          direction: "outbound",
-          body: greeting,
-          wa_message_id: waId || null,
-          status: "sent",
-          sent_at: new Date().toISOString(),
-        });
+        // Unknown sender — only send the name-collection greeting ONCE
+        // (check no outbound messages exist yet)
+        const { count: outboundCount } = await supabase
+          .from("messages")
+          .select("id", { count: "exact", head: true })
+          .eq("conversation_id", conversationId)
+          .eq("direction", "outbound");
+
+        if ((outboundCount ?? 0) === 0) {
+          const greeting =
+            "שלום! 👋 אני העוזר האוטומטי של הקליניקה.\n" +
+            "כדי שנוכל לפתוח לך תיק ולסייע — מה שמך המלא?";
+          const waId = await sendText(creds, contact, greeting);
+          await supabase.from("messages").insert({
+            conversation_id: conversationId,
+            direction: "outbound",
+            body: greeting,
+            wa_message_id: waId || null,
+            status: "sent",
+            sent_at: new Date().toISOString(),
+          });
+        }
       }
     } catch (e) {
       console.error("[evolution] processing error:", e);
