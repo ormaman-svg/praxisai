@@ -45,13 +45,15 @@ export default function WhatsAppClient({ initial }: { initial: Initial }) {
   const [greenApiToken, setGreenApiToken] = useState("");
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Ensures the one-time session reset only fires once per page visit.
+  const resetTriedRef = useRef(false);
 
-  async function loadQr() {
+  async function loadQr(reset = false) {
     setLoadingQr(true);
     setQrError(null);
     setQrDebug(null);
     try {
-      const r = await fetch("/api/whatsapp/evolution/qr");
+      const r = await fetch(`/api/whatsapp/evolution/qr${reset ? "?reset=1" : ""}`);
       const d = await r.json().catch(() => null);
       if (!r.ok) {
         setQrError(d?.error ?? "טעינת QR נכשלה.");
@@ -59,6 +61,16 @@ export default function WhatsAppClient({ initial }: { initial: Initial }) {
       }
       setEvoState(d.state);
       setQrBase64(d.qrBase64 ?? null);
+
+      // Stuck without a QR? Clear the stale session once, then let polling
+      // pick up the freshly generated QR.
+      if (!d.qrBase64 && d.state !== "open" && !resetTriedRef.current) {
+        resetTriedRef.current = true;
+        setQrDebug("מאתחל חיבור... ה-QR יופיע בעוד מספר שניות.");
+        await loadQr(true);
+        return;
+      }
+
       if (!d.qrBase64 && d.state !== "open" && d.debug) {
         setQrDebug(`סטטוס Evolution: ${d.debug.status} · ${JSON.stringify(d.debug.raw).slice(0, 300)}`);
       }
@@ -67,6 +79,12 @@ export default function WhatsAppClient({ initial }: { initial: Initial }) {
     } finally {
       setLoadingQr(false);
     }
+  }
+
+  // Explicit user-triggered reset of the WhatsApp session.
+  async function resetSession() {
+    resetTriedRef.current = true;
+    await loadQr(true);
   }
 
   // Auto-load QR on mount if credentials exist; poll every 8s until connected
@@ -82,7 +100,7 @@ export default function WhatsAppClient({ initial }: { initial: Initial }) {
       if (pollingRef.current) clearInterval(pollingRef.current);
       return;
     }
-    pollingRef.current = setInterval(loadQr, 8000);
+    pollingRef.current = setInterval(() => loadQr(false), 5000);
     return () => { if (pollingRef.current) clearInterval(pollingRef.current); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [evoState, hasEvolution]);
@@ -206,14 +224,25 @@ export default function WhatsAppClient({ initial }: { initial: Initial }) {
               </p>
             )}
 
-            <button
-              onClick={loadQr}
-              disabled={loadingQr}
-              className="btn-ghost !border !border-line flex items-center gap-1.5 text-sm"
-            >
-              {loadingQr ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-              {connected ? "בדוק סטטוס" : "טען QR"}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => loadQr(false)}
+                disabled={loadingQr}
+                className="btn-ghost !border !border-line flex items-center gap-1.5 text-sm"
+              >
+                {loadingQr ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                {connected ? "בדוק סטטוס" : "טען QR"}
+              </button>
+              {!connected && (
+                <button
+                  onClick={resetSession}
+                  disabled={loadingQr}
+                  className="btn-ghost !border !border-line flex items-center gap-1.5 text-sm text-slate-500"
+                >
+                  אתחל חיבור מחדש
+                </button>
+              )}
+            </div>
 
             {qrDebug && (
               <p dir="ltr" className="max-w-full break-all rounded-lg bg-slate-50 px-3 py-2 text-[11px] text-slate-400">

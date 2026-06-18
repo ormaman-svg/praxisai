@@ -47,29 +47,32 @@ export async function GET(request: Request) {
     return Response.json({ error: "Evolution API לא מוגדר עדיין." }, { status: 400 });
   }
 
+  // ?reset=1 clears a stuck session (Evolution returns { count: 0 } when it's
+  // trying to resume a stale session instead of emitting a fresh QR). The reset
+  // must happen ONCE; afterwards the client polls the plain endpoint so Baileys
+  // has time to emit the QR. Resetting on every poll would loop forever.
+  const reset = url.searchParams.get("reset") === "1";
+
   const creds = { host, apiKey, instance };
   try {
-    let state = await getConnectionState(creds);
+    const state = await getConnectionState(creds);
     if (state === "open") {
       return Response.json({ state, qrBase64: null });
     }
 
-    let qr = await getQrCode(creds);
-
-    // If the instance is stuck without a QR (Evolution returns { count: 0 }),
-    // it's trying to resume a stale session. Clear it, restart, and retry so a
-    // fresh QR is generated.
-    if (!qr.base64) {
+    if (reset) {
       await logoutInstance(creds);
       await new Promise((res) => setTimeout(res, 1500));
       await restartInstance(creds);
-      await new Promise((res) => setTimeout(res, 2500));
-      qr = await getQrCode(creds);
-      state = await getConnectionState(creds);
+      // Give Baileys a moment to spin up before the first connect attempt.
+      await new Promise((res) => setTimeout(res, 3000));
     }
 
+    const qr = await getQrCode(creds);
+    const stateAfter = await getConnectionState(creds);
+
     return Response.json({
-      state,
+      state: stateAfter,
       qrBase64: qr.base64,
       // Surfaced only when no QR was produced, to aid debugging from the UI.
       debug: qr.base64 ? undefined : { status: qr.status, raw: qr.raw },
