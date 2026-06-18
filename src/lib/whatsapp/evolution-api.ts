@@ -118,6 +118,17 @@ export async function logoutInstance(creds: EvolutionCreds): Promise<void> {
   }).catch(() => {});
 }
 
+export async function deleteInstance(
+  host: string,
+  globalApiKey: string,
+  instanceName: string
+): Promise<void> {
+  await fetch(`${host}/instance/delete/${instanceName}`, {
+    method: "DELETE",
+    headers: { apikey: globalApiKey },
+  });
+}
+
 export async function createInstance(
   host: string,
   globalApiKey: string,
@@ -126,9 +137,16 @@ export async function createInstance(
   const r = await fetch(`${host}/instance/create`, {
     method: "POST",
     headers: headers(globalApiKey),
-    body: JSON.stringify({ instanceName }),
+    body: JSON.stringify({
+      instanceName,
+      qrcode: true,
+      integration: "WHATSAPP-BAILEYS",
+    }),
   });
   if (!r.ok) throw new Error(`Evolution createInstance ${r.status}: ${await r.text()}`);
   const d = await r.json();
-  return { apikey: d.hash?.apikey ?? d.apikey ?? "" };
+  // v2.2.3 returns { hash: "UUID-string" } where the UUID is the instance API key.
+  // Earlier versions return { hash: { apikey: "..." } }.
+  const key = d.hash?.apikey ?? (typeof d.hash === "string" ? d.hash : "") ?? d.apikey ?? "";
+  return { apikey: key };
 }

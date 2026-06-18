@@ -30,6 +30,12 @@ export default function WhatsAppClient({ initial }: { initial: Initial }) {
   const [qrError, setQrError] = useState<string | null>(null);
   const [qrDebug, setQrDebug] = useState<string | null>(null);
 
+  // Recreate-instance card (shown when instance is stuck with count:0)
+  const [showRecreate, setShowRecreate] = useState(false);
+  const [globalApiKey, setGlobalApiKey] = useState("");
+  const [recreating, setRecreating] = useState(false);
+  const [recreateMsg, setRecreateMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+
   // Advanced settings (collapsed by default)
   const [showAdvanced, setShowAdvanced] = useState(!hasAny);
   const [saving, setSaving] = useState(false);
@@ -71,7 +77,14 @@ export default function WhatsAppClient({ initial }: { initial: Initial }) {
         return;
       }
 
-      if (!d.qrBase64 && d.state !== "open" && d.debug) {
+      // count:0 means the instance was created without qrcode:true — needs recreation.
+      const isStuck = d.debug?.raw != null &&
+        typeof d.debug.raw === "object" &&
+        (d.debug.raw as any).count === 0;
+      if (isStuck) {
+        setShowRecreate(true);
+        setQrDebug(null);
+      } else if (!d.qrBase64 && d.state !== "open" && d.debug) {
         setQrDebug(`סטטוס Evolution: ${d.debug.status} · ${JSON.stringify(d.debug.raw).slice(0, 300)}`);
       }
     } catch {
@@ -85,6 +98,37 @@ export default function WhatsAppClient({ initial }: { initial: Initial }) {
   async function resetSession() {
     resetTriedRef.current = true;
     await loadQr(true);
+  }
+
+  async function recreateInstance() {
+    if (!globalApiKey.trim()) {
+      setRecreateMsg({ kind: "err", text: "יש להזין Global API Key." });
+      return;
+    }
+    setRecreating(true);
+    setRecreateMsg(null);
+    try {
+      const r = await fetch("/api/whatsapp/evolution/recreate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ globalApiKey: globalApiKey.trim() }),
+      });
+      const d = await r.json().catch(() => null);
+      if (!r.ok) {
+        setRecreateMsg({ kind: "err", text: d?.error ?? "יצירת Instance נכשלה." });
+        return;
+      }
+      setShowRecreate(false);
+      setGlobalApiKey("");
+      setEvoState(d.state);
+      setQrBase64(d.qrBase64 ?? null);
+      resetTriedRef.current = false;
+      router.refresh();
+    } catch {
+      setRecreateMsg({ kind: "err", text: "שגיאת רשת." });
+    } finally {
+      setRecreating(false);
+    }
   }
 
   // Auto-load QR on mount if credentials exist; poll every 8s until connected
@@ -187,6 +231,35 @@ export default function WhatsAppClient({ initial }: { initial: Initial }) {
               : <><Wifi size={16} /> לא מוגדר</>
           }
         </div>
+
+        {/* Recreate card — shown when instance is stuck (created without qrcode:true) */}
+        {showRecreate && (
+          <div className="w-full rounded-2xl border border-orange-200 bg-orange-50 p-5 space-y-3">
+            <p className="text-sm font-semibold text-orange-800">
+              ה-Instance תקוע — יש לייצר אותו מחדש
+            </p>
+            <p className="text-[12.5px] text-orange-700">
+              הזינו את ה-<strong>Global API Key</strong> של שרת Evolution (הערך של <code className="rounded bg-orange-100 px-1">AUTHENTICATION_API_KEY</code> ב-Railway).
+            </p>
+            <input
+              dir="ltr"
+              type="password"
+              className="input w-full font-mono"
+              placeholder="Global API Key"
+              value={globalApiKey}
+              onChange={(e) => setGlobalApiKey(e.target.value)}
+            />
+            {recreateMsg && (
+              <p className={`text-[12.5px] font-semibold ${recreateMsg.kind === "ok" ? "text-emerald-700" : "text-red-700"}`}>
+                {recreateMsg.text}
+              </p>
+            )}
+            <button onClick={recreateInstance} disabled={recreating}
+                    className="btn-primary !bg-orange-600 hover:!bg-orange-700 w-full justify-center">
+              {recreating ? <><Loader2 size={14} className="animate-spin" /> יוצר מחדש...</> : "צור Instance מחדש"}
+            </button>
+          </div>
+        )}
 
         {/* QR display */}
         {hasEvolution && (
