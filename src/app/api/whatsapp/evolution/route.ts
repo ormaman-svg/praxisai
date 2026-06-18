@@ -170,7 +170,7 @@ export async function POST(request: Request) {
     await supabase.from("conversations").update({ status: "human" }).eq("id", conversationId);
     notifyEscalation({
       clinicId: clinic.id,
-      patientName: `${patient.first_name} ${patient.last_name}`,
+      patientName: patient ? `${patient.first_name} ${patient.last_name}` : contact,
       reason: "media",
     });
     return Response.json({ ok: true });
