@@ -88,15 +88,19 @@ export async function POST(request: Request) {
 
   const supabase = createAdminClient();
 
-  // Route to the clinic that owns this Evolution instance
-  const { data: clinic } = await supabase
+  // Route to the clinic that owns this Evolution instance.
+  // Use JS-side filter because PostgREST JSONB text-extraction (.eq on "settings->>key"))
+  // is unreliable across Supabase client versions.
+  const { data: allClinics } = await supabase
     .from("clinics")
     .select("id, settings")
-    .eq("settings->>evolution_instance", instanceName)
-    .limit(1)
-    .maybeSingle();
+    .not("settings->evolution_instance", "is", null);
 
-  console.log("[evolution] clinic lookup for instance:", instanceName, "found:", !!clinic);
+  const clinic = allClinics?.find(
+    (c) => (c.settings as Record<string, string>)?.evolution_instance === instanceName
+  ) ?? null;
+
+  console.log("[evolution] clinic lookup for instance:", instanceName, "found:", !!clinic, "total checked:", allClinics?.length ?? 0);
   if (!clinic) return Response.json({ ok: true });
 
   const creds: EvolutionCreds = {
