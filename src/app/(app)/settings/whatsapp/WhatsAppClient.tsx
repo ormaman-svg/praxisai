@@ -68,18 +68,24 @@ export default function WhatsAppClient({ initial }: { initial: Initial }) {
       setEvoState(d.state);
       setQrBase64(d.qrBase64 ?? null);
 
-      if (d.qrBase64 || d.state === "open") return;
+      // QR arrived (or connected) — clear any recovery UI and stop.
+      if (d.qrBase64 || d.state === "open") {
+        setShowRecreate(false);
+        setQrDebug(null);
+        return;
+      }
 
       // No QR. Decide why:
-      //  - 401/403 (bad instance key), 404 (missing), count:0 (created without
-      //    qrcode:true) → the instance is broken; offer one-click recreate.
+      //  - 401/403 (bad instance key), 404 (missing instance) → broken; recreate.
+      //  - count:0 is expected for a few seconds after (re)creation while Baileys
+      //    boots, so only offer recreate for it once we've already tried a reset.
       //  - anything else → likely transient; reset the session once, then poll.
       const raw = d.debug?.raw;
       const status = d.debug?.status;
       const isCountZero = raw != null && typeof raw === "object" && (raw as any).count === 0;
-      const needsRecreate = status === 401 || status === 403 || status === 404 || isCountZero;
+      const hardBroken = status === 401 || status === 403 || status === 404;
 
-      if (needsRecreate) {
+      if (hardBroken || (isCountZero && resetTriedRef.current)) {
         setShowRecreate(true);
         setQrDebug(null);
         return;
