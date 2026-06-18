@@ -101,9 +101,10 @@ export async function POST(request: Request) {
   if (!creds.host || !creds.apiKey) return Response.json({ ok: true });
 
   const patient = await findPatientByPhone(supabase, clinic.id, contact);
-  if (!patient) return Response.json({ ok: true }); // do not engage unknown senders
+  // Unknown senders still get a conversation so the clinic can see who messaged them;
+  // we just skip AI processing for them.
 
-  const conversationId = await getOrCreateConversation(supabase, clinic.id, patient.id, contact);
+  const conversationId = await getOrCreateConversation(supabase, clinic.id, patient?.id ?? null, contact);
   if (!conversationId) return Response.json({ ok: true });
 
   // ── Persist inbound message ──────────────────────────────────────────────
@@ -189,20 +190,25 @@ export async function POST(request: Request) {
     return Response.json({ ok: true });
   }
 
-  // Process conversation with the AI agent
-  const gotLock = await acquireLock(supabase, conversationId);
-  if (gotLock) {
-    try {
-      await processConversation(
-        supabase,
-        { conversationId, contact, clinicId: clinic.id, patient: patient as PatientLite },
-        (to, t) => sendText(creds, to, t)
-      );
-    } catch (e) {
-      console.error("[evolution] processing error:", e);
-    } finally {
-      await releaseLock(supabase, conversationId);
+  // Process conversation with the AI agent (known patients only)
+  if (patient) {
+    const gotLock = await acquireLock(supabase, conversationId);
+    if (gotLock) {
+      try {
+        await processConversation(
+          supabase,
+          { conversationId, contact, clinicId: clinic.id, patient: patient as PatientLite },
+          (to, t) => sendText(creds, to, t)
+        );
+      } catch (e) {
+        console.error("[evolution] processing error:", e);
+      } finally {
+        await releaseLock(supabase, conversationId);
+      }
     }
+  } else {
+    // Unknown sender — escalate so a human sees the message
+    await supabase.from("conversations").update({ status: "human" }).eq("id", conversationId);
   }
 
   return Response.json({ ok: true });

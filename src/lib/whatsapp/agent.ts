@@ -36,7 +36,7 @@ export const PATIENT_AGENT_SYSTEM = `אתה עוזר אוטומטי של קלי�
 export async function getOrCreateConversation(
   supabase: SupabaseClient,
   clinicId: string,
-  patientId: string,
+  patientId: string | null,
   contact: string
 ): Promise<string | null> {
   const existing = await supabase
