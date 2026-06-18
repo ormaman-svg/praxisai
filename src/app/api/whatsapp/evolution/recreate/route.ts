@@ -5,7 +5,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveClinicId } from "@/lib/clinic";
-import { deleteInstance, createInstance, getQrCode, getConnectionState } from "@/lib/whatsapp/evolution-api";
+import { deleteInstance, createInstance } from "@/lib/whatsapp/evolution-api";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -48,12 +48,13 @@ export async function POST(request: Request) {
   const gKey = globalApiKey.trim();
 
   try {
-    // 1. Delete old instance (ignore errors — it might not exist yet)
+    // 1. Delete old instance (ignore errors — might not exist)
     await deleteInstance(host, gKey, instance);
     await new Promise((res) => setTimeout(res, 1500));
 
     // 2. Recreate with correct params
     const { apikey: newKey } = await createInstance(host, gKey, instance);
+    console.log("[evolution/recreate] createInstance returned key length:", newKey?.length ?? 0);
     if (!newKey)
       return Response.json({ error: "יצירת Instance נכשלה — בדוק את ה-Global API Key." }, { status: 502 });
 
@@ -62,13 +63,10 @@ export async function POST(request: Request) {
       .update({ settings: { ...s, evolution_api_key: newKey } })
       .eq("id", clinicId);
 
-    // 4. Give Baileys time to start and generate a QR
-    await new Promise((res) => setTimeout(res, 3000));
-
-    const creds = { host, apiKey: newKey, instance };
-    const [state, qr] = await Promise.all([getConnectionState(creds), getQrCode(creds)]);
-
-    return Response.json({ ok: true, qrBase64: qr.base64, state });
+    // 4. Return immediately — the client polls for the QR once Baileys starts up.
+    //    Fetching the QR here would often get count:0 because Baileys needs more
+    //    time than a fixed delay, so we leave polling to the existing loadQr() loop.
+    return Response.json({ ok: true });
   } catch (e: any) {
     console.error("[evolution/recreate]", e);
     return Response.json({ error: e?.message ?? "שגיאה ביצירת Instance" }, { status: 502 });

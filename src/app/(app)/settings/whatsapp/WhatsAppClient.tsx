@@ -128,10 +128,13 @@ export default function WhatsAppClient({ initial }: { initial: Initial }) {
       }
       setShowRecreate(false);
       setGlobalApiKey("");
-      setEvoState(d.state);
-      setQrBase64(d.qrBase64 ?? null);
+      setQrBase64(null);
+      setEvoState(null);
+      setQrDebug("Instance נוצר בהצלחה — ממתין ל-QR...");
       resetTriedRef.current = false;
       router.refresh();
+      // Start polling — the existing 5s loop will pick up the QR once Baileys is ready.
+      await loadQr(false);
     } catch {
       setRecreateMsg({ kind: "err", text: "שגיאת רשת." });
     } finally {
