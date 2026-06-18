@@ -47,6 +47,8 @@ export async function POST(request: Request) {
     return new Response("Bad Request", { status: 400 });
   }
 
+  console.log("[evolution] webhook event:", payload?.event, "instance:", payload?.instance);
+
   // Only handle inbound messages
   if (payload?.event !== "messages.upsert") return Response.json({ ok: true });
 
@@ -60,8 +62,11 @@ export async function POST(request: Request) {
   const remoteJid: string = key?.remoteJid ?? "";
   const waMessageId: string = key?.id ?? "";
 
+  console.log("[evolution] remoteJid:", remoteJid, "fromMe:", key?.fromMe);
+
   // Ignore group chats
   if (!remoteJid.endsWith("@s.whatsapp.net") || !instanceName) {
+    console.log("[evolution] skipping — group or no instance");
     return Response.json({ ok: true });
   }
 
@@ -91,6 +96,7 @@ export async function POST(request: Request) {
     .limit(1)
     .maybeSingle();
 
+  console.log("[evolution] clinic lookup for instance:", instanceName, "found:", !!clinic);
   if (!clinic) return Response.json({ ok: true });
 
   const creds: EvolutionCreds = {
@@ -98,9 +104,14 @@ export async function POST(request: Request) {
     apiKey: clinic.settings?.evolution_api_key ?? "",
     instance: instanceName,
   };
-  if (!creds.host || !creds.apiKey) return Response.json({ ok: true });
+  if (!creds.host || !creds.apiKey) {
+    console.log("[evolution] missing creds — host:", !!creds.host, "apiKey:", !!creds.apiKey);
+    return Response.json({ ok: true });
+  }
 
+  console.log("[evolution] contact:", contact, "clinicId:", clinic.id);
   const patient = await findPatientByPhone(supabase, clinic.id, contact);
+  console.log("[evolution] patient found:", !!patient);
   // Unknown senders still get a conversation so the clinic can see who messaged them;
   // we just skip AI processing for them.
 
