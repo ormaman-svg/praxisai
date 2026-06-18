@@ -168,7 +168,7 @@ export default function WhatsAppClient({ initial }: { initial: Initial }) {
       if (pollingRef.current) clearInterval(pollingRef.current);
       return;
     }
-    pollingRef.current = setInterval(() => loadQr(false), 5000);
+    pollingRef.current = setInterval(() => loadQr(false), 12000);
     return () => { if (pollingRef.current) clearInterval(pollingRef.current); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [evoState, hasEvolution]);
@@ -279,7 +279,7 @@ export default function WhatsAppClient({ initial }: { initial: Initial }) {
               </p>
             )}
             <button onClick={recreateInstance} disabled={recreating}
-                    className="btn-primary !bg-orange-600 hover:!bg-orange-700 w-full justify-center">
+                    className="btn-primary !bg-none !bg-slate-900 hover:!bg-black w-full justify-center">
               {recreating ? <><Loader2 size={14} className="animate-spin" /> יוצר מחדש...</> : "צור Instance מחדש"}
             </button>
           </div>
@@ -390,7 +390,7 @@ export default function WhatsAppClient({ initial }: { initial: Initial }) {
                 </div>
               </div>
               <div className="flex justify-end">
-                <button onClick={saveEvolution} disabled={saving} className="btn-primary !bg-violet-600 hover:!bg-violet-700 text-[13px]">
+                <button onClick={saveEvolution} disabled={saving} className="btn-primary !bg-none !bg-slate-900 hover:!bg-black text-[13px]">
                   {saving ? <Loader2 size={14} className="animate-spin" /> : "שמור"}
                 </button>
               </div>
