@@ -260,29 +260,32 @@ export async function POST(request: Request) {
     .update({ last_message_at: new Date().toISOString() })
     .eq("id", conversationId);
 
-  // Media-only → escalate to human
+  // Media (no caption): notify staff to review the file, but DON'T silence the
+  // bot — it acknowledges receipt and keeps the conversation going. (Previously
+  // this flipped the chat to 'human', leaving patients unanswered when they sent
+  // a photo and then kept texting.) A human can still take over manually.
   if (!body) {
-    await supabase.from("conversations").update({ status: "human" }).eq("id", conversationId);
     notifyEscalation({
       clinicId: clinic.id,
       patientName: patient ? `${patient.first_name} ${patient.last_name}` : contact,
       reason: "media",
     });
-    return Response.json({ ok: true });
   }
 
-  // Opt-out keywords
-  const lower = body.toLowerCase();
-  if (patient && ["stop", "עצור", "הסר", "בטל רישום"].some((k) => lower.includes(k))) {
-    await supabase.from("patient_consents").upsert({
-      patient_id: patient.id,
-      channel: "whatsapp",
-      opted_in: false,
-      source: "reply_stop",
-      consented_at: new Date().toISOString(),
-    });
-    await sendText(creds, sendTarget, "הוסרת מרשימת ההתראות. שלחו START בכל עת לחידוש.");
-    return Response.json({ ok: true });
+  // Opt-out keywords (only when there's text)
+  if (body) {
+    const lower = body.toLowerCase();
+    if (patient && ["stop", "עצור", "הסר", "בטל רישום"].some((k) => lower.includes(k))) {
+      await supabase.from("patient_consents").upsert({
+        patient_id: patient.id,
+        channel: "whatsapp",
+        opted_in: false,
+        source: "reply_stop",
+        consented_at: new Date().toISOString(),
+      });
+      await sendText(creds, sendTarget, "הוסרת מרשימת ההתראות. שלחו START בכל עת לחידוש.");
+      return Response.json({ ok: true });
+    }
   }
 
   // Process conversation with the AI agent.

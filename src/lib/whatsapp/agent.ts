@@ -178,10 +178,13 @@ export async function processConversation(
 
     const history: Message[] = (recent ?? [])
       .reverse()
-      .map((m) => ({
-        role: m.direction === "inbound" ? "user" : "assistant",
-        content: decryptMessage(m.body) ?? "",
-      }));
+      .map((m) => {
+        const decoded = decryptMessage(m.body);
+        // Media messages have no text body — give the model context so it can
+        // acknowledge the file instead of receiving an empty turn.
+        const content = decoded && decoded.trim() ? decoded : "[המטופל שלח קובץ מדיה (תמונה/סרטון/הקלטה)]";
+        return { role: m.direction === "inbound" ? "user" : "assistant", content };
+      });
 
     // Nothing to answer (already replied, or empty) → done
     if (!history.length || history[history.length - 1].role !== "user") return;
