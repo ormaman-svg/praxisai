@@ -171,7 +171,7 @@ export async function POST(request: Request) {
   }
 
   // ── Run AI agent ─────────────────────────────────────────────────────────
-  const ctx = { conversationId, contact, clinicId: clinic.id, patient: patient as PatientLite };
+  const ctx = { conversationId, contact, contactPhone: contact, clinicId: clinic.id, patient: patient as PatientLite };
   const gotLock = await acquireLock(supabase, conversationId);
   if (gotLock) {
     try {

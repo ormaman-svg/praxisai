@@ -177,7 +177,7 @@ export async function POST(request: Request) {
     try {
       await processConversation(
         supabase,
-        { conversationId: ctx.conversationId, contact: ctx.contact, clinicId: ctx.creds.clinicId, patient: ctx.patient },
+        { conversationId: ctx.conversationId, contact: ctx.contact, contactPhone: ctx.contact, clinicId: ctx.creds.clinicId, patient: ctx.patient },
         (to, text) => sendText(ctx.creds, to, text)
       );
     } catch (e) {

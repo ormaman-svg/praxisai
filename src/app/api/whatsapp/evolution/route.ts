@@ -176,6 +176,16 @@ export async function POST(request: Request) {
     : toChatId(chatIdToPhone(remoteJid));
   console.log("[evolution] sendTarget:", sendTarget, "patientPhone:", patientPhone);
 
+  // Real E.164 phone for the remote party, if we have one (used when the bot
+  // creates a lead patient). @lid contacts have no resolvable phone → null.
+  const contactPhone: string | null = patientPhone
+    ? normalizePhone(patientPhone)
+    : senderPnJid
+    ? normalizePhone(chatIdToPhone(senderPnJid))
+    : !remoteJid.endsWith("@lid")
+    ? normalizePhone(chatIdToPhone(remoteJid))
+    : null;
+
   // ── Persist inbound message ──────────────────────────────────────────────
 
   let persistedMediaUrl: string | null = null;
@@ -303,14 +313,14 @@ export async function POST(request: Request) {
           // Follow-up from unknown sender — bot continues the conversation
           await processConversation(
             supabase,
-            { conversationId, contact: sendTarget, clinicId: clinic.id, patient: null },
+            { conversationId, contact: sendTarget, contactPhone, clinicId: clinic.id, patient: null },
             (to, t) => sendText(creds, to, t)
           );
         }
       } else {
         await processConversation(
           supabase,
-          { conversationId, contact: sendTarget, clinicId: clinic.id, patient: patient as PatientLite },
+          { conversationId, contact: sendTarget, contactPhone, clinicId: clinic.id, patient: patient as PatientLite },
           (to, t) => sendText(creds, to, t)
         );
       }

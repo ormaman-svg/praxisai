@@ -2,6 +2,42 @@ import type { ToolDefinition } from "../invoke";
 
 export const PATIENT_AGENT_TOOLS: ToolDefinition[] = [
   {
+    name: "list_available_slots",
+    description:
+      "מחזיר תורים פנויים אמיתיים מהיומן של הקליניקה, לפי שעות הפעילות והתורים הקיימים. " +
+      "השתמש בכלי זה כשמטופל (גם לא רשום) מבקש לקבוע תור, לפני שאתה מציע זמנים. " +
+      "התוצאה כוללת starts_at ו-therapist_id מדויקים שיש להעביר ל-book_appointment.",
+    input_schema: {
+      type: "object",
+      properties: {
+        urgency: {
+          type: "string",
+          enum: ["urgent", "this_week", "flexible"],
+          description: "'urgent' = הקרוב ביותר האפשרי; 'this_week' = השבוע; 'flexible' = גמיש.",
+        },
+      },
+    },
+  },
+  {
+    name: "book_appointment",
+    description:
+      "קובע תור ביומן בפועל. לפני קריאה — ודא שיש לך שם מלא של הפונה ושקיבלת ממנו אישור לזמן מסוים. " +
+      "אם הפונה אינו מטופל רשום, מסור first_name ו-last_name ותיווצר עבורו רשומת מטופל חדשה אוטומטית. " +
+      "מסור starts_at ו-therapist_id בדיוק כפי שהוחזרו מ-list_available_slots.",
+    input_schema: {
+      type: "object",
+      properties: {
+        starts_at: { type: "string", description: "זמן התחלה ISO 8601 (UTC) — בדיוק כפי שהוחזר מ-list_available_slots" },
+        therapist_id: { type: "string", description: "מזהה המטפל מהתור הפנוי (אם הוחזר)" },
+        first_name: { type: "string", description: "שם פרטי של הפונה (חובה אם אינו מטופל רשום)" },
+        last_name: { type: "string", description: "שם משפחה של הפונה (חובה אם אינו מטופל רשום)" },
+        reason: { type: "string", description: "סיבת הפנייה / תלונה עיקרית (אופציונלי)" },
+        duration_minutes: { type: "number", description: "משך התור בדקות (ברירת מחדל: לפי הגדרות הקליניקה)" },
+      },
+      required: ["starts_at"],
+    },
+  },
+  {
     name: "confirm_appointment",
     description: "מסמן פגישה כמאושרת על ידי המטופל (status=scheduled נשאר, מוסיף confirmation_at).",
     input_schema: {

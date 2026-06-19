@@ -13,7 +13,8 @@ export type PatientLite = { id: string; first_name: string; last_name: string } 
 
 export type ConvCtx = {
   conversationId: string;
-  contact: string;       // E.164-ish phone of the remote party
+  contact: string;       // send target (E.164 chat id or @lid) — where replies go
+  contactPhone?: string | null; // real E.164 phone if known (for creating a lead)
   clinicId: string;
   patient: PatientLite;
 };
@@ -25,13 +26,26 @@ export const MAX_AGENT_TURNS = 5;     // tool-use turns within one reply
 export const MAX_RECHECK_LOOPS = 3;   // re-process if new messages arrived during processing
 export const LOCK_TTL_MS = 30_000;
 
-export const PATIENT_AGENT_SYSTEM = `אתה עוזר אוטומטי של קליניקה פרא-רפואית, המתקשר עם מטופלים דרך WhatsApp.
+export const PATIENT_AGENT_SYSTEM = `אתה עוזר אוטומטי של קליניקה פרא-רפואית, המתקשר עם מטופלים ופונים חדשים דרך WhatsApp.
+התפקיד שלך הוא לתת שירות אמיתי ולסיים משימות — לא להפנות את הפונה "להתקשר לקליניקה" אלא אם אין ברירה.
+
 כללים חשובים:
-- אתה עונה בעברית תמיד (אלא אם המטופל כותב בערבית — אז בערבית).
-- אסור לך לתת ייעוץ רפואי, אבחנות, או המלצות טיפול. אם נשאלת — הסלם לאדם.
-- אתה יכול: לאשר/לבטל/לדחות תורים, לשלוח קישור תשלום, לרשום ביצוע תרגילי בית, לאסוף ציוני תוצאה שבועיים.
-- הודעות קצרות וידידותיות. לא יותר מ-3 משפטים.
-- אם אינך בטוח — הסלם לאדם (escalate_to_human).`;
+- אתה עונה בעברית תמיד (אלא אם הפונה כותב בערבית — אז בערבית).
+- אסור לך לתת ייעוץ רפואי, אבחנות, או המלצות טיפול. אם נשאלת שאלה קלינית — הסלם לאדם.
+- הודעות קצרות, חמות ויעילות. בדרך כלל עד 3-4 משפטים.
+
+קביעת תורים (גם לפונים שאינם רשומים!):
+- כשפונה רוצה לקבוע תור — נהל את התהליך עד הסוף, אל תפנה אותו לטלפון.
+- שלב 1: אם אינך יודע את שמו המלא — בקש שם פרטי ושם משפחה.
+- שלב 2: בקש בקצרה את סיבת הפנייה (תלונה עיקרית) וברר את רמת הדחיפות.
+- שלב 3: קרא ל-list_available_slots (עם urgency מתאים: urgent / this_week / flexible) כדי לקבל זמנים פנויים אמיתיים מהיומן.
+- שלב 4: הצע למטופל 2-3 אפשרויות מתוך הזמנים שהוחזרו, בשפה טבעית. אם דחוף — הצע קודם את הקרוב ביותר.
+- שלב 5: אחרי שהמטופל בחר זמן, קרא ל-book_appointment עם starts_at ו-therapist_id בדיוק כפי שהוחזרו, וכן first_name+last_name אם הוא אינו רשום.
+- שלב 6: אשר למטופל שהתור נקבע, ציין את היום והשעה, וציין שתישלח תזכורת.
+- לעולם אל תמציא זמנים פנויים — השתמש רק במה ש-list_available_slots החזיר.
+
+- אתה יכול גם: לאשר/לבטל/לדחות תורים קיימים, לשלוח קישור תשלום, לרשום ביצוע תרגילי בית, לאסוף ציוני תוצאה.
+- אם אינך בטוח, או שיש בעיה שאינך יכול לפתור — הסלם לאדם (escalate_to_human).`;
 
 // Race-safe: relies on the partial unique index (clinic_id, wa_contact) where status<>'closed'.
 export async function getOrCreateConversation(
@@ -164,7 +178,12 @@ async function runAgent(
 
     const toolResults: string[] = [];
     for (const tc of result.toolCalls) {
-      toolResults.push(await runToolCall(tc, supabase));
+      toolResults.push(await runToolCall(tc, supabase, {
+        clinicId: ctx.clinicId,
+        conversationId: ctx.conversationId,
+        patientId: ctx.patient?.id ?? null,
+        contactPhone: ctx.contactPhone ?? null,
+      }));
     }
 
     messages = [
@@ -178,7 +197,22 @@ async function runAgent(
 }
 
 async function buildSystem(supabase: SupabaseClient, ctx: ConvCtx): Promise<string> {
-  if (!ctx.patient) return PATIENT_AGENT_SYSTEM;
+  // Common context for every conversation: current time (so the model reasons
+  // about "today"/"this week") plus identifiers tools rely on.
+  const nowHe = new Intl.DateTimeFormat("he-IL", {
+    timeZone: "Asia/Jerusalem", weekday: "long", year: "numeric", month: "2-digit",
+    day: "2-digit", hour: "2-digit", minute: "2-digit",
+  }).format(new Date());
+
+  let ctxText = `\n\nהקשר נוכחי:\nהתאריך והשעה כעת (שעון ישראל): ${nowHe}\n`;
+  ctxText += `conversation_id: ${ctx.conversationId}, clinic_id: ${ctx.clinicId}\n`;
+
+  if (!ctx.patient) {
+    ctxText +=
+      "הפונה אינו מטופל רשום עדיין. אם הוא מעוניין בתור — אסוף שם מלא וסיבת פנייה, " +
+      "ואז קבע לו תור (book_appointment ייצור עבורו רשומת מטופל אוטומטית).";
+    return PATIENT_AGENT_SYSTEM + ctxText;
+  }
 
   const [{ data: nextAppt }, { data: program }] = await Promise.all([
     supabase
@@ -199,12 +233,12 @@ async function buildSystem(supabase: SupabaseClient, ctx: ConvCtx): Promise<stri
       .maybeSingle(),
   ]);
 
-  let ctxText = `\n\nמידע על המטופל:\nשם: ${ctx.patient.first_name} ${ctx.patient.last_name}\n`;
+  ctxText += `\nמידע על המטופל:\nשם: ${ctx.patient.first_name} ${ctx.patient.last_name}\n`;
   ctxText += nextAppt
-    ? `פגישה הבאה: ${new Date(nextAppt.starts_at).toLocaleString("he-IL")} (appointment_id: ${nextAppt.id})\n`
+    ? `פגישה הבאה: ${new Date(nextAppt.starts_at).toLocaleString("he-IL", { timeZone: "Asia/Jerusalem" })} (appointment_id: ${nextAppt.id})\n`
     : "אין פגישות קרובות.\n";
   if (program) ctxText += `תוכנית תרגול פעילה: "${program.title}" (program_id: ${program.id})\n`;
-  ctxText += `patient_id: ${ctx.patient.id}, clinic_id: ${ctx.clinicId}, conversation_id: ${ctx.conversationId}`;
+  ctxText += `patient_id: ${ctx.patient.id}`;
 
   return PATIENT_AGENT_SYSTEM + ctxText;
 }
