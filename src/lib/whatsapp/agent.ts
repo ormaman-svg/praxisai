@@ -24,7 +24,9 @@ export type SendFn = (to: string, text: string) => Promise<string>;
 
 export const MAX_AGENT_TURNS = 5;     // tool-use turns within one reply
 export const MAX_RECHECK_LOOPS = 3;   // re-process if new messages arrived during processing
-export const LOCK_TTL_MS = 30_000;
+// Must exceed the webhook's maxDuration (60s) so a slow AI run can't have its
+// lock expire mid-flight and let a webhook retry double-process the message.
+export const LOCK_TTL_MS = 90_000;
 
 export const PATIENT_AGENT_SYSTEM = `אתה עוזר אוטומטי של קליניקה פרא-רפואית, המתקשר עם מטופלים ופונים חדשים דרך WhatsApp.
 התפקיד שלך הוא לתת שירות אמיתי ולסיים משימות — לא להפנות את הפונה "להתקשר לקליניקה" אלא אם אין ברירה.

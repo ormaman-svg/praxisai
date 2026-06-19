@@ -13,6 +13,9 @@ import {
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
+// AI agent runs synchronously (model calls + tools) — give it room before Vercel
+// kills the function, otherwise replies are dropped/half-sent.
+export const maxDuration = 60;
 
 const MEDIA_TYPES = ["image", "video", "audio", "document"] as const;
 type MediaType = (typeof MEDIA_TYPES)[number];

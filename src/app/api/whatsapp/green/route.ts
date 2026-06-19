@@ -11,6 +11,9 @@ import {
 } from "@/lib/whatsapp/agent";
 
 export const dynamic = "force-dynamic";
+// AI agent runs synchronously (model calls + tools) — give it room before Vercel
+// kills the function, otherwise replies are dropped/half-sent.
+export const maxDuration = 60;
 
 const MEDIA_TYPE_MAP: Record<string, "image" | "video" | "audio" | "document"> = {
   imageMessage: "image",

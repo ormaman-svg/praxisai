@@ -18,6 +18,11 @@ import {
 } from "@/lib/whatsapp/agent";
 
 export const dynamic = "force-dynamic";
+// The booking flow runs the AI agent synchronously (two model calls + a tool),
+// which can take 20-60s. Without this, Vercel kills the function at the default
+// ~10s timeout mid-send — leaving the conversation lock held and desyncing the
+// Baileys session, which shows as "Waiting for this message" on the patient's phone.
+export const maxDuration = 60;
 
 const MIME_EXT: Record<string, string> = {
   "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif",
