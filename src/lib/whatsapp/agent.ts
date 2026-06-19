@@ -112,6 +112,49 @@ export async function releaseLock(supabase: SupabaseClient, convId: string) {
   await supabase.from("conversations").update({ locked_until: null }).eq("id", convId);
 }
 
+// After a therapist takes a chat ("קח על עצמי"), it stays human until they hand
+// it back. To make sure a patient is never left unanswered if staff forget, the
+// bot automatically resumes once staff have been silent for this long.
+export const HUMAN_HANDBACK_MS = 2 * 60 * 60 * 1000; // 2 hours
+
+// If the conversation is human-owned but staff have been silent past the
+// threshold, flip it back to the bot. Returns true if the bot now owns it.
+export async function maybeHandBackToBot(
+  supabase: SupabaseClient,
+  conversationId: string,
+  thresholdMs = HUMAN_HANDBACK_MS
+): Promise<boolean> {
+  const { data: conv } = await supabase
+    .from("conversations")
+    .select("status")
+    .eq("id", conversationId)
+    .single();
+  if (conv?.status === "bot") return true;
+  if (conv?.status !== "human") return false; // closed → leave as-is
+
+  // "Staff activity" = the last outbound message (a human reply, once they took
+  // over). If they never replied, the last outbound is the bot's old message,
+  // which will already be older than the threshold → resume.
+  const { data: lastOut } = await supabase
+    .from("messages")
+    .select("created_at")
+    .eq("conversation_id", conversationId)
+    .eq("direction", "outbound")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const lastStaffMs = lastOut?.created_at ? new Date(lastOut.created_at).getTime() : 0;
+  if (Date.now() - lastStaffMs >= thresholdMs) {
+    await supabase
+      .from("conversations")
+      .update({ status: "bot", assigned_to: null })
+      .eq("id", conversationId);
+    return true;
+  }
+  return false;
+}
+
 export async function processConversation(
   supabase: SupabaseClient,
   ctx: ConvCtx,

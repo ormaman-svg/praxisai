@@ -14,6 +14,7 @@ import {
   acquireLock,
   releaseLock,
   processConversation,
+  maybeHandBackToBot,
   type PatientLite,
 } from "@/lib/whatsapp/agent";
 
@@ -287,6 +288,14 @@ export async function POST(request: Request) {
   // Process conversation with the AI agent.
   // Bot handles ALL conversations (known patients and unknown senders) as long as
   // status === 'bot'. A therapist/receptionist can take over by clicking "קח על עצמי".
+  // Safety net: if a human took over but has been silent past the threshold, the
+  // bot resumes so the patient is never left unanswered.
+  const botOwns = await maybeHandBackToBot(supabase, conversationId);
+  if (!botOwns) {
+    // Still human-owned and recently active — leave the message for staff.
+    return Response.json({ ok: true });
+  }
+
   const gotLock = await acquireLock(supabase, conversationId);
   if (gotLock) {
     try {
