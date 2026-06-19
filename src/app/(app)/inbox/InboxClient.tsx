@@ -1,9 +1,36 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
-import { MessageCircle, Bot, UserRound, Send, ArrowLeft, Loader2, Play, FileAudio, ArrowUpLeft, UserPlus, X, Search, Trash2, CornerUpLeft, Share2, Copy, ChevronDown, MessageSquarePlus } from "lucide-react";
+import { MessageCircle, Bot, UserRound, Send, ArrowLeft, Loader2, Play, FileAudio, ArrowUpLeft, UserPlus, X, Search, Trash2, CornerUpLeft, Share2, Copy, ChevronDown, MessageSquarePlus, Download, Maximize2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+
+// Close-on-Escape for any overlay. Pass the same onClose the overlay uses.
+function useEsc(onClose: () => void) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+}
+
+// Force a real download (with a filename) instead of opening the file in a tab.
+async function downloadFile(url: string, filename: string) {
+  try {
+    const blob = await (await fetch(url)).blob();
+    const objUrl = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = objUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(objUrl);
+  } catch {
+    window.open(url, "_blank");
+  }
+}
 
 type PatientStatus = "active" | "discharged" | "on_hold";
 type Conversation = {
@@ -59,6 +86,8 @@ function displayPhone(c: Conversation): string | null {
 function MediaContent({ storagePath, mediaType }: { storagePath: string; mediaType: string }) {
   const supabase = createClient();
   const [url, setUrl] = useState<string | null>(null);
+  const [zoom, setZoom] = useState(false);
+  useEsc(() => setZoom(false));
 
   useEffect(() => {
     supabase.storage.from("whatsapp-media").createSignedUrl(storagePath, 3600).then(({ data }) => {
@@ -66,10 +95,38 @@ function MediaContent({ storagePath, mediaType }: { storagePath: string; mediaTy
     });
   }, [storagePath]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const filename = storagePath.split("/").pop() ?? "media";
+
   if (!url) return <Loader2 size={16} className="animate-spin text-slate-400" />;
 
   if (mediaType === "image") {
-    return <img src={url} alt="תמונה" className="max-w-[220px] rounded-lg" loading="lazy" />;
+    return (
+      <>
+        <div className="group relative inline-block">
+          <img
+            src={url}
+            alt="תמונה"
+            className="max-w-[220px] cursor-zoom-in rounded-lg"
+            loading="lazy"
+            onClick={() => setZoom(true)}
+          />
+          <div className="absolute end-1 top-1 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+            <button onClick={() => setZoom(true)} title="הגדלה" className="rounded bg-black/50 p-1 text-white hover:bg-black/70"><Maximize2 size={13} /></button>
+            <button onClick={() => downloadFile(url, filename)} title="הורדה" className="rounded bg-black/50 p-1 text-white hover:bg-black/70"><Download size={13} /></button>
+          </div>
+        </div>
+        {zoom && createPortal(
+          <div className="fixed inset-0 z-[60] grid place-items-center bg-black/80 p-4" onClick={() => setZoom(false)}>
+            <img src={url} alt="תמונה" className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain" onClick={(e) => e.stopPropagation()} />
+            <div className="absolute end-4 top-4 flex gap-2">
+              <button onClick={() => downloadFile(url, filename)} title="הורדה" className="rounded-full bg-white/15 p-2 text-white hover:bg-white/25"><Download size={18} /></button>
+              <button onClick={() => setZoom(false)} title="סגירה (Esc)" className="rounded-full bg-white/15 p-2 text-white hover:bg-white/25"><X size={18} /></button>
+            </div>
+          </div>,
+          document.body
+        )}
+      </>
+    );
   }
   if (mediaType === "video") {
     return (
@@ -77,8 +134,9 @@ function MediaContent({ storagePath, mediaType }: { storagePath: string; mediaTy
         <video src={url} controls className="w-full rounded-lg" preload="metadata">
           <source src={url} />
         </video>
-        <div className="mt-1 flex items-center gap-1 text-[11px] text-slate-400">
-          <Play size={10} /> סרטון שנשלח על ידי המטופל
+        <div className="mt-1 flex items-center justify-between text-[11px] text-slate-400">
+          <span className="flex items-center gap-1"><Play size={10} /> סרטון</span>
+          <button onClick={() => downloadFile(url, filename)} className="flex items-center gap-1 hover:text-slate-600"><Download size={11} /> הורדה</button>
         </div>
       </div>
     );
@@ -88,13 +146,14 @@ function MediaContent({ storagePath, mediaType }: { storagePath: string; mediaTy
       <div className="flex items-center gap-2">
         <FileAudio size={16} className="shrink-0 text-slate-400" />
         <audio src={url} controls className="h-8 w-40" preload="metadata" />
+        <button onClick={() => downloadFile(url, filename)} title="הורדה" className="text-slate-400 hover:text-slate-600"><Download size={14} /></button>
       </div>
     );
   }
   return (
-    <a href={url} target="_blank" rel="noopener noreferrer" className="underline">
-      📎 הורדת קובץ
-    </a>
+    <button onClick={() => downloadFile(url, filename)} className="flex items-center gap-1 underline">
+      <Download size={13} /> הורדת קובץ
+    </button>
   );
 }
 
@@ -119,9 +178,14 @@ export default function InboxClient({
   const [menuMsgId, setMenuMsgId] = useState<string | null>(null);
   const [forwardMsg, setForwardMsg] = useState<Msg | null>(null);
   const [newChatOpen, setNewChatOpen] = useState(false);
+  // Small in-app notification when a new patient message arrives
+  const [toast, setToast] = useState<{ convId: string; label: string } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const activeIdRef = useRef<string | null>(activeId);
   useEffect(() => { activeIdRef.current = activeId; }, [activeId]);
+  const conversationsRef = useRef(conversations);
+  useEffect(() => { conversationsRef.current = conversations; }, [conversations]);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Add-patient panel (shown for conversations without a linked patient)
   const [showAddPatient, setShowAddPatient] = useState(false);
@@ -179,6 +243,25 @@ export default function InboxClient({
           if (c.id === activeIdRef.current) {
             loadMessages(c.id).then(setMessages);
           }
+        })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [clinicId, supabase]);
+
+  // Notify when a new inbound (patient) message arrives in any chat you're not
+  // currently viewing. RLS scopes the stream to this clinic's messages.
+  useEffect(() => {
+    const channel = supabase
+      .channel(`inbound:${clinicId}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" },
+        (payload) => {
+          const m = payload.new as { conversation_id: string; direction: string };
+          if (m.direction !== "inbound") return;
+          if (m.conversation_id === activeIdRef.current) return; // already viewing it
+          const conv = conversationsRef.current.find((c) => c.id === m.conversation_id);
+          setToast({ convId: m.conversation_id, label: conv ? convLabel(conv) : "פונה חדש" });
+          if (toastTimer.current) clearTimeout(toastTimer.current);
+          toastTimer.current = setTimeout(() => setToast(null), 6000);
         })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -612,6 +695,19 @@ export default function InboxClient({
           }}
         />
       )}
+
+      {toast && (
+        <button
+          onClick={() => { setActiveId(toast.convId); setToast(null); }}
+          className="fixed bottom-5 start-5 z-[70] flex items-center gap-2.5 rounded-xl border border-line bg-white px-4 py-3 shadow-pop transition hover:shadow-card-hover"
+        >
+          <span className="grid h-8 w-8 place-items-center rounded-full bg-brand-50 text-brand-600"><MessageCircle size={16} /></span>
+          <span className="text-start">
+            <span className="block text-[13px] font-semibold text-slate-900">הודעה חדשה מ{toast.label}</span>
+            <span className="block text-[11.5px] text-slate-400">לחצו לפתיחת השיחה</span>
+          </span>
+        </button>
+      )}
     </div>
   );
 }
@@ -635,6 +731,7 @@ function ForwardModal({
   const [phone, setPhone] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  useEsc(onClose);
 
   const list = q.trim()
     ? conversations.filter((c) => convLabel(c).toLowerCase().includes(q.trim().toLowerCase()) || (c.wa_contact ?? "").includes(q.trim()))
@@ -705,6 +802,7 @@ function NewChatModal({
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  useEsc(onClose);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
