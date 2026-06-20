@@ -76,6 +76,30 @@ function formatLocalPhone(phone: string): string {
   return phone;
 }
 
+// Pleasant two-tone chime for new-message notification (no external files needed).
+function playChime() {
+  try {
+    const ctx = new AudioContext();
+    const play = (freq: number, start: number, dur: number) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + start);
+      gain.gain.setValueAtTime(0.12, ctx.currentTime + start);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur);
+      osc.start(ctx.currentTime + start);
+      osc.stop(ctx.currentTime + start + dur + 0.05);
+    };
+    play(880, 0, 0.25);   // high note
+    play(1100, 0.18, 0.3); // slightly higher note overlaps
+    ctx.close().catch(() => {});
+  } catch {
+    // AudioContext blocked by browser autoplay policy — silent fallback
+  }
+}
+
 // A real phone for display. @lid digits are an internal id, never a phone number.
 function displayPhone(c: Conversation): string | null {
   if (c.patients?.phone) return formatLocalPhone(c.patients.phone);
@@ -237,31 +261,24 @@ export default function InboxClient({
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "conversations", filter: `clinic_id=eq.${clinicId}` },
         (payload) => {
           const c = payload.new as Conversation;
+          const old = payload.old as { last_message_at?: string | null };
           setConversations((prev) => prev.map((x) => x.id === c.id ? { ...x, ...c } : x));
           // Belt-and-suspenders: when the active conversation receives a new message
           // its last_message_at is updated — reload messages so bot replies appear.
           if (c.id === activeIdRef.current) {
             loadMessages(c.id).then(setMessages);
+            return;
           }
-        })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [clinicId, supabase]);
-
-  // Notify when a new inbound (patient) message arrives in any chat you're not
-  // currently viewing. RLS scopes the stream to this clinic's messages.
-  useEffect(() => {
-    const channel = supabase
-      .channel(`inbound:${clinicId}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" },
-        (payload) => {
-          const m = payload.new as { conversation_id: string; direction: string };
-          if (m.direction !== "inbound") return;
-          if (m.conversation_id === activeIdRef.current) return; // already viewing it
-          const conv = conversationsRef.current.find((c) => c.id === m.conversation_id);
-          setToast({ convId: m.conversation_id, label: conv ? convLabel(conv) : "פונה חדש" });
-          if (toastTimer.current) clearTimeout(toastTimer.current);
-          toastTimer.current = setTimeout(() => setToast(null), 6000);
+          // Show a toast + chime when last_message_at advances on a background chat.
+          // Only inbound messages (from patients) update last_message_at in the webhook.
+          if (c.last_message_at && c.last_message_at !== old?.last_message_at) {
+            const conv = conversationsRef.current.find((x) => x.id === c.id);
+            const label = conv ? convLabel(conv) : (c.display_name ?? "פונה חדש");
+            playChime();
+            setToast({ convId: c.id, label });
+            if (toastTimer.current) clearTimeout(toastTimer.current);
+            toastTimer.current = setTimeout(() => setToast(null), 6000);
+          }
         })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
