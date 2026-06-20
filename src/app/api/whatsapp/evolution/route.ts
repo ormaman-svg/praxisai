@@ -7,7 +7,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { findPatientByPhone, normalizePhone } from "@/lib/whatsapp/normalize";
 import { sendText, toChatId, chatIdToPhone, getMediaBase64, type EvolutionCreds } from "@/lib/whatsapp/evolution-api";
-import { notifyEscalation } from "@/lib/notifications/escalation";
+import { notifyEscalation, notifyNewMessage } from "@/lib/notifications/escalation";
 import { encryptMessage } from "@/lib/crypto/messages";
 import {
   getOrCreateConversation,
@@ -260,16 +260,14 @@ export async function POST(request: Request) {
     .update({ last_message_at: new Date().toISOString() })
     .eq("id", conversationId);
 
-  // Media (no caption): notify staff to review the file, but DON'T silence the
-  // bot — it acknowledges receipt and keeps the conversation going. (Previously
-  // this flipped the chat to 'human', leaving patients unanswered when they sent
-  // a photo and then kept texting.) A human can still take over manually.
+  const patientName = patient ? `${patient.first_name} ${patient.last_name}` : (pushName || contact);
+
+  // Always: notify clinic members about the new inbound (throttled to once/30min per conversation).
+  notifyNewMessage({ clinicId: clinic.id, conversationId, patientName });
+
+  // Media (no caption): also escalate specifically so staff know to review the file.
   if (!body) {
-    notifyEscalation({
-      clinicId: clinic.id,
-      patientName: patient ? `${patient.first_name} ${patient.last_name}` : contact,
-      reason: "media",
-    });
+    notifyEscalation({ clinicId: clinic.id, patientName, reason: "media" });
   }
 
   // Opt-out keywords (only when there's text)

@@ -6,6 +6,92 @@ const REASON_TEXT: Record<string, string> = {
   bot: "הבוט העביר את השיחה לנציג",
 };
 
+// Cooldown: send at most one email per conversation per 30 minutes.
+const lastNotifiedAt = new Map<string, number>();
+const NOTIFY_COOLDOWN_MS = 30 * 60 * 1000;
+
+// Notify all clinic members when a new inbound patient message arrives and
+// no human has replied to that conversation recently.
+export async function notifyNewMessage({
+  clinicId,
+  conversationId,
+  patientName,
+}: {
+  clinicId: string;
+  conversationId: string;
+  patientName: string;
+}) {
+  // Cooldown check (in-memory, best-effort; resets on deploy)
+  const last = lastNotifiedAt.get(conversationId) ?? 0;
+  if (Date.now() - last < NOTIFY_COOLDOWN_MS) return;
+  lastNotifiedAt.set(conversationId, Date.now());
+
+  try {
+    const admin = createAdminClient();
+
+    // Only notify when no human has replied in the last 30 minutes — avoids
+    // spamming staff who are already actively handling the conversation.
+    const cutoff = new Date(Date.now() - NOTIFY_COOLDOWN_MS).toISOString();
+    const { data: recentHuman } = await admin
+      .from("messages")
+      .select("id")
+      .eq("conversation_id", conversationId)
+      .eq("direction", "outbound")
+      .gte("created_at", cutoff)
+      .limit(1)
+      .maybeSingle();
+    if (recentHuman) return; // staff already engaged
+
+    const { data: members } = await admin
+      .from("clinic_members")
+      .select("user_id")
+      .eq("clinic_id", clinicId)
+      .eq("status", "active");
+    if (!members?.length) return;
+
+    const userIds = members.map((m) => m.user_id as string);
+    const { data: { users } } = await admin.auth.admin.listUsers({ perPage: 1000 });
+    const emails = users
+      .filter((u) => userIds.includes(u.id) && u.email)
+      .map((u) => u.email!);
+    if (!emails.length) return;
+
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
+    const inboxUrl = `${appUrl}/inbox`;
+    const subject = `הודעה חדשה מ-${patientName} — praxisAI`;
+    const body = htmlNewMessage(patientName, inboxUrl);
+
+    await Promise.allSettled(emails.map((email) => sendEmail(email, subject, body)));
+  } catch (e) {
+    console.error("[notify] new-message email failed:", e);
+  }
+}
+
+function htmlNewMessage(patientName: string, inboxUrl: string) {
+  return `<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="utf-8"/></head>
+<body style="margin:0;padding:0;background:#f8fafc;font-family:sans-serif;direction:rtl">
+<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:40px 16px">
+<table width="480" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;overflow:hidden">
+  <tr><td style="background:linear-gradient(135deg,#6366f1,#8b5cf6);padding:28px 32px">
+    <span style="font-size:22px;font-weight:700;color:#fff">praxisAI</span>
+  </td></tr>
+  <tr><td style="padding:32px">
+    <p style="margin:0 0 8px;font-size:17px;font-weight:700;color:#1e293b">הודעה חדשה מ-${patientName}</p>
+    <p style="margin:0 0 24px;font-size:14px;color:#64748b">
+      הגיעה הודעה חדשה מהמטופל בWhatsApp.
+    </p>
+    <a href="${inboxUrl}" style="display:inline-block;padding:12px 28px;background:#6366f1;color:#fff;border-radius:8px;font-size:14px;font-weight:600;text-decoration:none">
+      פתח תיבת הודעות &larr;
+    </a>
+    <p style="margin:24px 0 0;font-size:12px;color:#94a3b8">
+      מייל זה נשלח אוטומטית על ידי praxisAI.
+    </p>
+  </td></tr>
+</table>
+</td></tr></table>
+</body></html>`;
+}
+
 function html(patientName: string, reason: string, inboxUrl: string) {
   return `<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="utf-8"/></head>
 <body style="margin:0;padding:0;background:#f8fafc;font-family:sans-serif;direction:rtl">
