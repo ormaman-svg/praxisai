@@ -5,6 +5,7 @@ import { getActiveClinicId } from "@/lib/clinic";
 import { isSuperAdminEmail } from "@/lib/super-admins";
 import Sidebar from "@/components/Sidebar";
 import OnboardingCenter, { type OnboardingStep } from "@/components/onboarding/OnboardingCenter";
+import GlobalInboxNotifier from "@/components/GlobalInboxNotifier";
 import { resolveTemplateFromSettings } from "@/lib/clinic-templates";
 import type { Membership } from "@/lib/types";
 
@@ -149,6 +150,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         isAdmin={isSuperAdmin}
         hasTemplate={hasTemplate}
       />
+      <GlobalInboxNotifier clinicId={active.clinic_id} />
     </div>
   );
 }

@@ -13,6 +13,7 @@ import PromChart from "./PromChart";
 import HepPanel from "./HepPanel";
 import InvoicesPanel from "./InvoicesPanel";
 import CopilotPanel from "./CopilotPanel";
+import EditPatientButton from "./EditPatientButton";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,16 @@ export default async function PatientPage({ params }: { params: { id: string } }
 
   const { data: patient } = await supabase.from("patients").select("*").eq("id", params.id).single();
   if (!patient) notFound();
+
+  const { data: therapistRows } = await supabase
+    .from("clinic_members")
+    .select("user_id, profiles(full_name)")
+    .eq("clinic_id", patient.clinic_id)
+    .eq("status", "active");
+  const therapists = (therapistRows ?? []).map((m) => ({
+    id: m.user_id,
+    name: (m.profiles as unknown as { full_name: string } | null)?.full_name ?? "—",
+  }));
 
   const [{ data: treatments }, { data: docs }, { data: measurements }, { data: rawPrograms }, { data: invoices }, template, { data: copilotCache }] = await Promise.all([
     supabase.from("treatments")
@@ -148,6 +159,7 @@ export default async function PatientPage({ params }: { params: { id: string } }
         <div className="flex flex-col items-end gap-2">
           <div className="text-sm text-slate-500" dir="ltr">{patient.phone ?? ""}</div>
           <div className="flex items-center gap-2">
+            <EditPatientButton patient={patient} therapists={therapists} />
             <a
               href={`/api/reports/referrer?patient_id=${patient.id}&type=referrer&print=1`}
               target="_blank"
