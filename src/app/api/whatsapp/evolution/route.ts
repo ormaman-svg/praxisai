@@ -167,6 +167,16 @@ export async function POST(request: Request) {
       if (p) {
         patient = { id: p.id, first_name: p.first_name, last_name: p.last_name };
         patientPhone = p.phone ?? null;
+        // Capture the WhatsApp number under the patient when we have a real phone
+        // and none is on file — needed later for SMS verification & contact.
+        // (@lid contacts have no resolvable phone unless senderPn was provided.)
+        const realPhone = contact.endsWith("@lid")
+          ? (senderPnJid ? normalizePhone(chatIdToPhone(senderPnJid)) : null)
+          : normalizePhone(contact);
+        if (!patientPhone && realPhone) {
+          await supabase.from("patients").update({ phone: realPhone }).eq("id", p.id);
+          patientPhone = realPhone;
+        }
       }
     }
   }

@@ -2,15 +2,47 @@
 // Each handler receives the tool input and a Supabase admin client, writes to DB,
 // and returns a human-readable Hebrew result string for the agent to relay.
 
+import crypto from "crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ToolCall } from "../invoke";
 import { notifyEscalation } from "@/lib/notifications/escalation";
+import { sendSms, smsEnabled } from "@/lib/sms/send";
 import {
   getBookingConfig,
   computeAvailableSlots,
   formatSlotHebrew,
   type Therapist,
 } from "@/lib/whatsapp/availability";
+
+// ── Identity verification (for patient self-service of personal data) ──────────
+// A successful verification (national ID OR SMS code) is valid for this long.
+const VERIFY_WINDOW_MS = 24 * 60 * 60 * 1000; // 24h
+const OTP_TTL_MS = 10 * 60 * 1000;            // one-time code lifetime
+const OTP_MAX_ATTEMPTS = 5;
+
+const onlyDigits = (s: string) => (s || "").replace(/\D/g, "");
+const hashOtp = (code: string) => crypto.createHash("sha256").update(code).digest("hex");
+
+// True when this conversation has a non-expired verification on record.
+async function isVerified(supabase: SupabaseClient, conversationId: string): Promise<boolean> {
+  const { data } = await supabase
+    .from("conversations")
+    .select("verified_at")
+    .eq("id", conversationId)
+    .single();
+  if (!data?.verified_at) return false;
+  return Date.now() - new Date(data.verified_at).getTime() < VERIFY_WINDOW_MS;
+}
+
+// Instruction returned to the model when verification is required but missing.
+function needsVerification(): string {
+  const sms = smsEnabled() ? " או לשליחת קוד אימות ב-SMS לנייד הרשום" : "";
+  return (
+    "המטופל אינו מאומת. אל תמסור מידע אישי. " +
+    `הצע למטופל לאמת את זהותו באחת מהדרכים (לא שתיהן): מסירת מספר תעודת זהות${sms}. ` +
+    "לאחר שיבחר — קרא לכלי האימות המתאים."
+  );
+}
 
 // Context the agent passes alongside each tool call so handlers can act on the
 // current conversation/clinic without the model having to echo IDs back.
@@ -90,6 +122,7 @@ export const TOOL_HANDLERS: Record<string, ToolHandler> = {
       const last = (input.last_name as string)?.trim();
       if (!first || !last)
         return "כדי לקבוע תור לפונה שאינו רשום צריך שם פרטי ושם משפחה — בקש אותם מהמטופל.";
+      const nationalId = onlyDigits(input.national_id as string);
       const { data: lead, error: leadErr } = await supabase
         .from("patients")
         .insert({
@@ -97,6 +130,7 @@ export const TOOL_HANDLERS: Record<string, ToolHandler> = {
           first_name: first,
           last_name: last,
           phone: ctx.contactPhone,
+          national_id: nationalId || null,
           referral_source: "WhatsApp",
         })
         .select("id, first_name")
@@ -192,7 +226,9 @@ export const TOOL_HANDLERS: Record<string, ToolHandler> = {
     return "בקשת הדחייה נרשמה — צוות הקליניקה ייצור קשר לתיאום.";
   },
 
-  async check_balance(input, supabase) {
+  async check_balance(input, supabase, ctx) {
+    // Financial info is personal — require verification first.
+    if (!(await isVerified(supabase, ctx.conversationId))) return needsVerification();
     const { data, error } = await supabase
       .from("patient_invoices")
       .select("id, amount_ils, description")
@@ -202,6 +238,153 @@ export const TOOL_HANDLERS: Record<string, ToolHandler> = {
     if (!data?.length) return "אין יתרה פתוחה לתשלום.";
     const total = data.reduce((s, i) => s + Number(i.amount_ils), 0);
     return `יתרת חוב: ${total} ₪ (${data.length} חשבוניות פתוחות).`;
+  },
+
+  // ── Identity verification + personal-data access ─────────────────────────────
+
+  async verify_identity_id(input, supabase, ctx) {
+    if (!ctx.patientId) return "המטופל אינו רשום במערכת — אין מידע אישי לאמת. הצע לקבוע תור.";
+    const given = onlyDigits(input.national_id as string);
+    if (given.length < 5) return "מספר תעודת הזהות שנמסר אינו תקין. בקש מהמטופל למסור שוב.";
+
+    const { data: patient } = await supabase
+      .from("patients")
+      .select("national_id")
+      .eq("id", ctx.patientId)
+      .single();
+    const onFile = onlyDigits(patient?.national_id ?? "");
+    if (!onFile)
+      return "אין תעודת זהות שמורה עבור מטופל זה. הצע אימות ב-SMS, או קרא ל-escalate_to_human כדי שנציג יוודא פרטים.";
+
+    if (given !== onFile)
+      return "תעודת הזהות אינה תואמת לרשום במערכת. בקש מהמטופל לוודא ולנסות שוב, או הצע אימות ב-SMS.";
+
+    await supabase
+      .from("conversations")
+      .update({ verified_at: new Date().toISOString(), verification_method: "national_id", otp_hash: null, otp_expires_at: null, otp_attempts: 0 })
+      .eq("id", ctx.conversationId);
+    return "הזהות אומתה בהצלחה (תעודת זהות). כעת מותר למסור למטופל את המידע האישי שביקש.";
+  },
+
+  async send_verification_sms(_input, supabase, ctx) {
+    if (!ctx.patientId) return "המטופל אינו רשום במערכת. הצע לקבוע תור.";
+    if (!smsEnabled())
+      return "אימות ב-SMS אינו זמין כרגע. הצע למטופל לאמת באמצעות מספר תעודת זהות.";
+
+    const { data: patient } = await supabase
+      .from("patients")
+      .select("phone")
+      .eq("id", ctx.patientId)
+      .single();
+    if (!patient?.phone)
+      return "אין מספר נייד שמור עבור מטופל זה לשליחת קוד. הצע אימות בתעודת זהות, או קרא ל-escalate_to_human.";
+
+    const code = String(Math.floor(1000 + Math.random() * 9000)); // 4-digit
+    await supabase
+      .from("conversations")
+      .update({
+        otp_hash: hashOtp(code),
+        otp_expires_at: new Date(Date.now() + OTP_TTL_MS).toISOString(),
+        otp_attempts: 0,
+      })
+      .eq("id", ctx.conversationId);
+
+    const { sent } = await sendSms(patient.phone, `קוד האימות שלך לקליניקה: ${code} (תקף ל-10 דקות).`);
+    if (!sent)
+      return "שליחת ה-SMS נכשלה. הצע למטופל לאמת באמצעות מספר תעודת זהות.";
+    return "נשלח קוד אימות בן 4 ספרות ל-SMS לנייד הרשום. בקש מהמטופל את הקוד וקרא ל-verify_sms_code.";
+  },
+
+  async verify_sms_code(input, supabase, ctx) {
+    const code = onlyDigits(input.code as string);
+    const { data: conv } = await supabase
+      .from("conversations")
+      .select("otp_hash, otp_expires_at, otp_attempts")
+      .eq("id", ctx.conversationId)
+      .single();
+    if (!conv?.otp_hash || !conv.otp_expires_at)
+      return "לא נשלח קוד אימות. קרא תחילה ל-send_verification_sms.";
+    if (Date.now() > new Date(conv.otp_expires_at).getTime())
+      return "הקוד פג תוקף. שלח קוד חדש עם send_verification_sms.";
+    if ((conv.otp_attempts ?? 0) >= OTP_MAX_ATTEMPTS)
+      return "יותר מדי ניסיונות שגויים. שלח קוד חדש עם send_verification_sms.";
+
+    if (hashOtp(code) !== conv.otp_hash) {
+      await supabase
+        .from("conversations")
+        .update({ otp_attempts: (conv.otp_attempts ?? 0) + 1 })
+        .eq("id", ctx.conversationId);
+      return "הקוד שגוי. בקש מהמטופל לנסות שוב.";
+    }
+
+    await supabase
+      .from("conversations")
+      .update({ verified_at: new Date().toISOString(), verification_method: "sms_otp", otp_hash: null, otp_expires_at: null, otp_attempts: 0 })
+      .eq("id", ctx.conversationId);
+    return "הזהות אומתה בהצלחה (קוד SMS). כעת מותר למסור למטופל את המידע האישי שביקש.";
+  },
+
+  async get_patient_history(_input, supabase, ctx) {
+    if (!ctx.patientId) return "המטופל אינו רשום במערכת — אין היסטוריה. הצע לקבוע תור.";
+    if (!(await isVerified(supabase, ctx.conversationId))) return needsVerification();
+
+    const nowIso = new Date().toISOString();
+    const [{ data: upcoming }, { data: past }, { data: treatments }, { data: program }] = await Promise.all([
+      supabase
+        .from("appointments")
+        .select("starts_at, status")
+        .eq("patient_id", ctx.patientId)
+        .gte("starts_at", nowIso)
+        .order("starts_at")
+        .limit(3),
+      supabase
+        .from("appointments")
+        .select("starts_at, status")
+        .eq("patient_id", ctx.patientId)
+        .lt("starts_at", nowIso)
+        .order("starts_at", { ascending: false })
+        .limit(5),
+      supabase
+        .from("treatments")
+        .select("treated_at, type")
+        .eq("patient_id", ctx.patientId)
+        .order("treated_at", { ascending: false })
+        .limit(5),
+      supabase
+        .from("exercise_programs")
+        .select("title")
+        .eq("patient_id", ctx.patientId)
+        .eq("active", true)
+        .limit(1)
+        .maybeSingle(),
+    ]);
+
+    const fmt = (iso: string) => formatSlotHebrew(new Date(iso));
+    const lines: string[] = [];
+
+    if (upcoming?.length) {
+      lines.push("פגישות קרובות:");
+      upcoming.forEach((a) => lines.push(`• ${fmt(a.starts_at)}`));
+    } else {
+      lines.push("אין פגישות קרובות מתוזמנות.");
+    }
+
+    if (past?.length) {
+      lines.push("פגישות אחרונות:");
+      past.forEach((a) => lines.push(`• ${fmt(a.starts_at)}${a.status === "cancelled" ? " (בוטל)" : ""}`));
+    }
+
+    if (treatments?.length) {
+      lines.push("טיפולים אחרונים:");
+      treatments.forEach((t) => lines.push(`• ${fmt(t.treated_at)}`));
+    }
+
+    if (program?.title) lines.push(`תוכנית תרגול פעילה: "${program.title}".`);
+
+    lines.push(
+      "מסור למטופל סיכום בשפה טבעית. לשאלות קליניות מפורטות (תוכן רשומה רפואית) — הצע לתאם עם המטפל או קרא ל-escalate_to_human."
+    );
+    return lines.join("\n");
   },
 
   async send_payment_link(input, supabase) {
