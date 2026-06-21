@@ -1,3 +1,11 @@
+// A leaf field within a SOAP section (e.g. "תלונה עיקרית" under Subjective).
+export type TemplateSubSection = {
+  key: string;          // globally-unique key (also used as the note field key)
+  label: string;        // Hebrew display name
+  placeholder?: string; // shown in empty textarea
+  guidance?: string;    // sent to Claude to shape this sub-field
+};
+
 export type TemplateSection = {
   key: string;
   label: string;       // Hebrew display name
@@ -6,6 +14,9 @@ export type TemplateSection = {
   ring: string;        // Tailwind focus ring
   placeholder: string; // shown in empty textarea
   guidance: string;    // sent to Claude to shape the section content
+  // When present, this section is broken into labelled sub-fields. The note then
+  // stores one entry per sub-field (keyed by sub.key) instead of one per section.
+  subsections?: TemplateSubSection[];
 };
 
 export type ClinicalTemplate = {
@@ -41,6 +52,21 @@ export const TEMPLATES: ClinicalTemplate[] = [
         ring: "focus-within:ring-sky-200",
         placeholder: "תלונות המטופל, מיקום ואופי הכאב, הגבלות תפקודיות, AVD, שינויים מהטיפול הקודם",
         guidance: "תיאור המטופל: תלונה עיקרית, אופי הכאב (VAS/NRS), מיקום, הקרנות, מחמירים/משפרים, הגבלות ב-ADL, תחושת שינוי מהטיפול הקודם",
+        subsections: [
+          { key: "subj_age", label: "גיל", placeholder: "גיל המטופל", guidance: "גיל המטופל אם נאמר" },
+          { key: "subj_chief_complaint", label: "תלונה עיקרית", placeholder: "התלונה המרכזית של המטופל", guidance: "התלונה העיקרית כפי שתוארה" },
+          { key: "subj_history", label: "היסטוריית הבעיה", placeholder: "מתי החל, מנגנון הפציעה, מהלך עד כה", guidance: "היסטוריית הבעיה הנוכחית: מועד הופעה, מנגנון, מהלך והתפתחות" },
+          { key: "subj_aggravating", label: "מחמיר", placeholder: "מה מחמיר את התלונה", guidance: "גורמים/תנועות/פעילויות המחמירים את התלונה" },
+          { key: "subj_relieving", label: "מקל", placeholder: "מה מקל על התלונה", guidance: "גורמים/תנועות/פעילויות המקלים על התלונה" },
+          { key: "subj_24h", label: "24 שעות", placeholder: "התנהגות התלונה לאורך היממה", guidance: "התנהגות התסמינים לאורך 24 שעות (בוקר/ערב/לילה)" },
+          { key: "subj_additional", label: "תלונות נוספות", placeholder: "תלונות נלוות", guidance: "תלונות נוספות שהוזכרו" },
+          { key: "subj_occupation", label: "עיסוק + מצב משפחתי", placeholder: "תעסוקה, מצב משפחתי", guidance: "עיסוק ומצב משפחתי אם הוזכרו" },
+          { key: "subj_prior_injuries", label: "פציעות קודמות", placeholder: "פציעות/ניתוחים בעבר", guidance: "פציעות, ניתוחים או בעיות אורטופדיות קודמות" },
+          { key: "subj_general_health", label: "בריאות כללית", placeholder: "מצב בריאותי כללי, מחלות רקע", guidance: "בריאות כללית ומחלות רקע רלוונטיות" },
+          { key: "subj_medications", label: "תרופות", placeholder: "תרופות קבועות / לכאב", guidance: "תרופות שהמטופל נוטל" },
+          { key: "subj_imaging", label: "הדמיות", placeholder: "צילום, MRI, CT, US ותוצאות", guidance: "בדיקות הדמיה שבוצעו ותוצאותיהן אם הוזכרו" },
+          { key: "subj_activity", label: "פעילות גופנית", placeholder: "רמת פעילות, ספורט", guidance: "רמת ואופי הפעילות הגופנית של המטופל" },
+        ],
       },
       {
         key: "objective",
@@ -50,6 +76,9 @@ export const TEMPLATES: ClinicalTemplate[] = [
         ring: "focus-within:ring-emerald-200",
         placeholder: "ROM, MMT, palpation, בדיקות ספציפיות, יציבה, הליכה",
         guidance: "ממצאים פיזיקליים: ROM (בדרגות), MMT (Oxford 0-5), palpation, בדיקות אורטופדיות ספציפיות עם תוצאותיהן (חיובי/שלילי), יציבה, הליכה, תפקוד",
+        subsections: [
+          { key: "obj_clinical_exam", label: "בדיקה קלינית", placeholder: "ROM, MMT, palpation, בדיקות ספציפיות, יציבה, הליכה", guidance: "ממצאי הבדיקה הקלינית: ROM (בדרגות), MMT (Oxford 0-5), palpation, בדיקות אורטופדיות ספציפיות עם תוצאותיהן, יציבה, הליכה, תפקוד" },
+        ],
       },
       {
         key: "assessment",
@@ -67,7 +96,12 @@ export const TEMPLATES: ClinicalTemplate[] = [
         color: "bg-violet-500",
         ring: "focus-within:ring-violet-200",
         placeholder: "טכניקות, תרגילים, HEP, יעדים, תדירות, הטיפול הבא",
-        guidance: "תוכנית: טכניקות טיפול (מניפולציה, מובליזציה, אולטראסאונד וכדומה), תרגילים שבוצעו, תרגילי בית (HEP), יעדים קצרי/ארוכי טווח, תדירות וסה\"כ טיפולים מתוכנן",
+        guidance: "תוכנית: טכניקות טיפול, תרגילים, תרגילי בית, יעדים, תדירות",
+        subsections: [
+          { key: "plan_treatment", label: "טיפול", placeholder: "טכניקות הטיפול שבוצעו בפגישה", guidance: "טכניקות הטיפול שבוצעו (מניפולציה, מובליזציה, אולטראסאונד, דיקור וכדומה)" },
+          { key: "plan_hep", label: "תרגילים לבית", placeholder: "תרגילי בית (HEP) שניתנו", guidance: "תרגילי בית (HEP) שניתנו: סוג, סטים/חזרות, תדירות" },
+          { key: "plan_summary", label: "סיכום/הערות", placeholder: "סיכום, יעדים, תדירות, הטיפול הבא", guidance: "סיכום והערות: יעדים קצרי/ארוכי טווח, תדירות, מספר טיפולים מתוכנן, הטיפול הבא" },
+        ],
       },
     ],
   },
@@ -825,12 +859,67 @@ export function resolveTemplateFromSettings(settings: unknown): ClinicalTemplate
   return TEMPLATE_MAP[id] ?? TEMPLATE_MAP[DEFAULT_TEMPLATE_ID];
 }
 
+// The note field that holds the AI's own clinical suggestions. Kept strictly
+// SEPARATE from the transcript-derived SOAP fields so documentation stays
+// faithful to what was actually said.
+export const AI_RECS_KEY = "ai_recommendations";
+
+// A flattened, renderable field — either a stand-alone section or one sub-field
+// of a section. Carries the parent's chip styling so the UI can group leaves.
+export type TemplateLeaf = {
+  key: string;
+  label: string;
+  guidance: string;
+  placeholder: string;
+  parentKey: string;
+  parentLabel: string;
+  letter: string;
+  color: string;
+  ring: string;
+};
+
+/** Flatten a template to its leaf fields (expanding subsections). */
+export function templateLeaves(template: ClinicalTemplate): TemplateLeaf[] {
+  const leaves: TemplateLeaf[] = [];
+  for (const s of template.sections) {
+    if (s.subsections?.length) {
+      for (const sub of s.subsections) {
+        leaves.push({
+          key: sub.key,
+          label: sub.label,
+          guidance: sub.guidance ?? sub.label,
+          placeholder: sub.placeholder ?? "",
+          parentKey: s.key,
+          parentLabel: s.label,
+          letter: s.letter,
+          color: s.color,
+          ring: s.ring,
+        });
+      }
+    } else {
+      leaves.push({
+        key: s.key,
+        label: s.label,
+        guidance: s.guidance,
+        placeholder: s.placeholder,
+        parentKey: s.key,
+        parentLabel: s.label,
+        letter: s.letter,
+        color: s.color,
+        ring: s.ring,
+      });
+    }
+  }
+  return leaves;
+}
+
 /** Build the Claude system prompt for a given template */
 export function buildSoapPrompt(template: ClinicalTemplate): string {
-  const fieldDefs = template.sections
-    .map((s) => `  "${s.key}": "${s.guidance}"`)
+  const leaves = templateLeaves(template);
+  const fieldDefs = leaves
+    .map((l) => `  "${l.key}": "${l.guidance}"`)
     .join(",\n");
-  const keys = template.sections.map((s) => `"${s.key}"`).join(", ");
+  const keys = leaves.map((l) => `"${l.key}"`).join(", ");
 
   return `אתה עוזר קליני לאנשי מקצוע בתחום הבריאות בישראל. קיבלת תמלול של שיחת טיפול קליני.
 הקליניקה עובדת בפורמט: ${template.name} (${template.profession}).
@@ -838,16 +927,23 @@ ${template.systemContext}
 
 תפקידך לחלץ את המידע ולהחזיר רשומה קלינית מובנית בעברית.
 
-החזר JSON בלבד בפורמט הבא (מפתחות: ${keys}):
+⚠️ כלל קריטי — דיוק מוחלט:
+- מלא את שדות התיעוד אך ורק על סמך מה שנאמר בפועל בתמלול.
+- אסור בהחלט להמציא, להניח, להסיק או להשלים מידע שלא נאמר במפורש.
+- אם פרט מסוים לא הוזכר — החזר עבורו מחרוזת ריקה "".
+- אל תכתוב "לא דווח" או "לא נבדק" — פשוט השאר ריק.
+
+החזר JSON בלבד בפורמט הבא. מפתחות התיעוד (${keys}) מבוססים אך ורק על התמלול.
+המפתח "${AI_RECS_KEY}" הוא היחיד שבו מותר לך להוסיף תובנות משלך — והוא נשמר בנפרד מהתיעוד.
 {
-${fieldDefs}
+${fieldDefs},
+  "${AI_RECS_KEY}": "המלצות AI נפרדות (אינן חלק מהתיעוד): אבחנה מבדלת אפשרית, דגשים לבדיקה, רעיונות לטיפול/תרגול והמשך מעקב. זהו השדה היחיד שבו מותר להוסיף מעבר לתמלול. השאר ריק אם אין המלצה משמעותית."
 }
 
 כללים:
-- כתוב בעברית, בשפה קלינית מקצועית ותמציתית
-- אם מידע לא הוזכר — השאר את השדה ריק (מחרוזת ריקה)
-- אל תמציא מידע שלא מופיע בתמלול
-- הוסף מינוח מקצועי מתאים לסוג הקליניקה שם שזה הגיוני מהקשר`;
+- כתוב בעברית, בשפה קלינית מקצועית ותמציתית.
+- שדות התיעוד — אך ורק מהתמלול, ללא תוספות.
+- ${AI_RECS_KEY} — כאן בלבד מותר להוסיף שיקול קליני והמלצות משלך, בנפרד וברור מהתיעוד.`;
 }
 
 /* ── Profession-aware AI chat ──────────────────────────────────────────

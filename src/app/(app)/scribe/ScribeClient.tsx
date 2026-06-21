@@ -4,9 +4,10 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import {
   Mic, Square, Loader2, Sparkles, Save, RotateCcw, ChevronDown,
   AudioLines, ClipboardCheck, CheckCircle2, Ear, ToggleLeft, ToggleRight,
+  Pause, Play, Lightbulb,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import type { ClinicalTemplate } from "@/lib/clinic-templates";
+import { AI_RECS_KEY, type ClinicalTemplate } from "@/lib/clinic-templates";
 
 /* ── types ────────────────────────────────────────────────────────── */
 
@@ -63,6 +64,10 @@ export default function ScribeClient({ template, initialPatientId = "" }: { temp
   const [patientId, setPatientId] = useState(initialPatientId);
   const [cmdStatus, setCmdStatus] = useState<string>("ממתין לפקודה…");
   const [listening, setListening] = useState(false);
+  const [paused, setPaused] = useState(false);
+  // Microphone picker (lets the therapist select a Bluetooth/external mic)
+  const [mics, setMics] = useState<MediaDeviceInfo[]>([]);
+  const [micId, setMicId] = useState<string>("");
 
   /* refs */
   const mediaRef   = useRef<MediaRecorder | null>(null);
@@ -78,10 +83,20 @@ export default function ScribeClient({ template, initialPatientId = "" }: { temp
 
   phaseRef.current = phase;
 
+  /* enumerate microphones (labels appear once mic permission is granted) */
+  const refreshMics = useCallback(async () => {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      setMics(devices.filter((d) => d.kind === "audioinput"));
+    } catch { /* enumerateDevices unsupported — ignore, default mic is used */ }
+  }, []);
+
   /* load patients + cleanup all resources on unmount */
   useEffect(() => {
     supabase.from("patients").select("id, first_name, last_name").eq("status", "active").order("last_name")
       .then(({ data }) => { if (data) setPatients(data); });
+    refreshMics();
+    navigator.mediaDevices?.addEventListener?.("devicechange", refreshMics);
     return () => {
       mountedRef.current = false;
       stopSR();
@@ -91,6 +106,7 @@ export default function ScribeClient({ template, initialPatientId = "" }: { temp
       // Release microphone — stop all tracks on the active MediaRecorder stream
       mediaRef.current?.stream?.getTracks().forEach((t) => t.stop());
       try { if (mediaRef.current?.state === "recording") mediaRef.current.stop(); } catch {}
+      navigator.mediaDevices?.removeEventListener?.("devicechange", refreshMics);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -242,9 +258,13 @@ export default function ScribeClient({ template, initialPatientId = "" }: { temp
     setVas("");
     setSaved(false);
     setElapsed(0);
+    setPaused(false);
     if (fromCommand) setCmdStatus('מקליט… אמרו "קליני סיים" לסיום');
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Use the chosen mic (e.g. a Bluetooth headset) when one is selected.
+      const audio: MediaTrackConstraints | boolean = micId ? { deviceId: { exact: micId } } : true;
+      const stream = await navigator.mediaDevices.getUserMedia({ audio });
+      refreshMics(); // labels become available after permission is granted
       const mr = new MediaRecorder(stream);
       chunksRef.current = [];
       mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
@@ -267,8 +287,25 @@ export default function ScribeClient({ template, initialPatientId = "" }: { temp
     if (phaseRef.current !== "recording") return; // ignore repeat stop commands
     phaseRef.current = "transcribing"; // block further STOP matches immediately
     if (timerRef.current) clearInterval(timerRef.current);
+    setPaused(false);
     mediaRef.current?.stop();
     mediaRef.current?.stream.getTracks().forEach((t) => t.stop());
+  }
+
+  /* Pause/resume — lets the therapist record in segments (e.g. between joints)
+     without producing multiple files; chunks accumulate into one recording. */
+  function pauseRecording() {
+    if (mediaRef.current?.state !== "recording") return;
+    mediaRef.current.pause();
+    if (timerRef.current) clearInterval(timerRef.current);
+    setPaused(true);
+  }
+
+  function resumeRecording() {
+    if (mediaRef.current?.state !== "paused") return;
+    mediaRef.current.resume();
+    timerRef.current = setInterval(() => setElapsed((s) => s + 1), 1000);
+    setPaused(false);
   }
 
   /* ── Note generation ────────────────────────────────────────── */
@@ -301,7 +338,12 @@ export default function ScribeClient({ template, initialPatientId = "" }: { temp
     const r = await fetch("/api/scribe/save", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ patientId, sections: note, vas: vas === "" ? null : Number(vas) }),
+      body: JSON.stringify({
+        patientId,
+        sections: note,
+        aiRecommendations: note[AI_RECS_KEY] ?? "",
+        vas: vas === "" ? null : Number(vas),
+      }),
     });
     setSaving(false);
     if (!r.ok) { setError("שמירה נכשלה — נסו שוב."); return; }
@@ -311,13 +353,15 @@ export default function ScribeClient({ template, initialPatientId = "" }: { temp
   function reset() {
     setPhase(mode === "command" ? "standby" : "idle");
     setTranscript(""); setNote({}); setVas("");
-    setSaved(false); setElapsed(0); setError(null);
+    setSaved(false); setElapsed(0); setError(null); setPaused(false);
     setCmdStatus("ממתין לפקודה…");
   }
 
   /* ── derived ────────────────────────────────────────────────── */
 
-  const hasNote = Object.values(note).some(Boolean);
+  // SOAP content excludes the AI-recommendations field (rendered separately).
+  const aiRecs = note[AI_RECS_KEY] ?? "";
+  const hasNote = Object.entries(note).some(([k, v]) => k !== AI_RECS_KEY && Boolean(v));
   const activeStep = stepIndex(phase, hasNote, saved);
 
   /* ── render ─────────────────────────────────────────────────── */
@@ -374,15 +418,36 @@ export default function ScribeClient({ template, initialPatientId = "" }: { temp
         })}
       </div>
 
-      {/* Patient selector */}
-      <div className="card flex items-center gap-3 p-4">
-        <label className="shrink-0 text-sm font-semibold text-slate-700">מטופל</label>
-        <div className="relative flex-1">
-          <select className="input appearance-none !pr-8" value={patientId} onChange={(e) => setPatientId(e.target.value)}>
-            <option value="">— בחרו מטופל —</option>
-            {patients.map((p) => <option key={p.id} value={p.id}>{p.last_name} {p.first_name}</option>)}
-          </select>
-          <ChevronDown size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+      {/* Patient + microphone selectors */}
+      <div className="card flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
+        <div className="flex flex-1 items-center gap-3">
+          <label className="shrink-0 text-sm font-semibold text-slate-700">מטופל</label>
+          <div className="relative flex-1">
+            <select className="input appearance-none !pr-8" value={patientId} onChange={(e) => setPatientId(e.target.value)}>
+              <option value="">— בחרו מטופל —</option>
+              {patients.map((p) => <option key={p.id} value={p.id}>{p.last_name} {p.first_name}</option>)}
+            </select>
+            <ChevronDown size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          </div>
+        </div>
+        <div className="flex flex-1 items-center gap-3">
+          <label className="flex shrink-0 items-center gap-1.5 text-sm font-semibold text-slate-700"><Mic size={14} className="text-slate-400" /> מיקרופון</label>
+          <div className="relative flex-1">
+            <select
+              className="input appearance-none !pr-8"
+              value={micId}
+              onChange={(e) => setMicId(e.target.value)}
+              disabled={phase === "recording"}
+            >
+              <option value="">מיקרופון ברירת מחדל</option>
+              {mics.map((m, i) => (
+                <option key={m.deviceId || i} value={m.deviceId}>
+                  {m.label || `מיקרופון ${i + 1}`}
+                </option>
+              ))}
+            </select>
+            <ChevronDown size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          </div>
         </div>
       </div>
 
@@ -452,24 +517,47 @@ export default function ScribeClient({ template, initialPatientId = "" }: { temp
           {/* ── Recording ── */}
           {phase === "recording" && (
             <>
-              <div className="mb-2 flex items-center justify-center gap-2 text-sm font-semibold text-red-400">
-                <span className="relative flex h-2.5 w-2.5">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
-                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" />
-                </span>
-                מקליט
-              </div>
-              <div className="mb-5 font-mono text-5xl font-bold tracking-wider">{fmt(elapsed)}</div>
-              <canvas ref={canvasRef} width={560} height={72} className="mx-auto mb-5 h-[72px] w-full max-w-[560px]" />
-              {mode === "command" && (
+              {paused ? (
+                <div className="mb-2 flex items-center justify-center gap-2 text-sm font-semibold text-amber-300">
+                  <Pause size={14} /> מושהה
+                </div>
+              ) : (
+                <div className="mb-2 flex items-center justify-center gap-2 text-sm font-semibold text-red-400">
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" />
+                  </span>
+                  מקליט
+                </div>
+              )}
+              <div className={`mb-5 font-mono text-5xl font-bold tracking-wider ${paused ? "text-slate-400" : ""}`}>{fmt(elapsed)}</div>
+              <canvas ref={canvasRef} width={560} height={72} className={`mx-auto mb-5 h-[72px] w-full max-w-[560px] transition-opacity ${paused ? "opacity-30" : ""}`} />
+              {mode === "command" && !paused && (
                 <p className="mb-4 text-sm text-slate-400">אמרו <span className="font-bold text-red-300">"קליני סיים"</span> לסיום</p>
               )}
-              <button
-                onClick={stopRecording}
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-400/40 bg-red-500/15 px-8 py-3 text-base font-semibold text-red-300 transition-colors hover:bg-red-500/25"
-              >
-                <Square size={18} /> עצור — וצור רשומה
-              </button>
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                {paused ? (
+                  <button
+                    onClick={resumeRecording}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-400/40 bg-emerald-500/15 px-6 py-3 text-base font-semibold text-emerald-300 transition-colors hover:bg-emerald-500/25"
+                  >
+                    <Play size={18} /> המשך הקלטה
+                  </button>
+                ) : (
+                  <button
+                    onClick={pauseRecording}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-amber-400/40 bg-amber-500/15 px-6 py-3 text-base font-semibold text-amber-300 transition-colors hover:bg-amber-500/25"
+                  >
+                    <Pause size={18} /> השהה
+                  </button>
+                )}
+                <button
+                  onClick={stopRecording}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-400/40 bg-red-500/15 px-8 py-3 text-base font-semibold text-red-300 transition-colors hover:bg-red-500/25"
+                >
+                  <Square size={18} /> סיים — וצור רשומה
+                </button>
+              </div>
             </>
           )}
 
@@ -552,27 +640,62 @@ export default function ScribeClient({ template, initialPatientId = "" }: { temp
             </span>
           </div>
 
-          {template.sections.map(({ key, letter, label, color, ring, placeholder }) => (
-            <div key={key} className={`rounded-xl border border-line p-4 transition-shadow focus-within:ring-2 ${ring}`}>
-              <div className="mb-2 flex items-center gap-2.5">
-                <span className={`grid h-7 w-7 place-items-center rounded-lg ${color} text-[12px] font-bold text-white`}>
-                  {letter}
-                </span>
-                <div className="text-[13px] font-bold text-slate-900">{label}</div>
+          {template.sections.map((section) => {
+            const { key, letter, label, color, ring, placeholder, subsections } = section;
+            // Single field → one textarea; subsections → a labelled field per sub.
+            const fields = subsections?.length
+              ? subsections.map((s) => ({ key: s.key, label: s.label, placeholder: s.placeholder ?? "" }))
+              : [{ key, label, placeholder }];
+            return (
+              <div key={key} className={`rounded-xl border border-line p-4 transition-shadow focus-within:ring-2 ${ring}`}>
+                <div className="mb-3 flex items-center gap-2.5">
+                  <span className={`grid h-7 w-7 place-items-center rounded-lg ${color} text-[12px] font-bold text-white`}>
+                    {letter}
+                  </span>
+                  <div className="text-[13px] font-bold text-slate-900">{label}</div>
+                </div>
+                <div className="space-y-2.5">
+                  {fields.map((f) => (
+                    <div key={f.key}>
+                      {subsections?.length ? (
+                        <label className="mb-1 block text-[12px] font-semibold text-slate-500">{f.label}</label>
+                      ) : null}
+                      <textarea
+                        className="w-full resize-y rounded-lg border-0 bg-slate-50 p-3 text-sm leading-relaxed text-slate-700 outline-none min-h-[60px]"
+                        value={note[f.key] ?? ""}
+                        onChange={(e) => setNote({ ...note, [f.key]: e.target.value })}
+                        placeholder={f.placeholder}
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
-              <textarea
-                className="w-full resize-y rounded-lg border-0 bg-slate-50 p-3 text-sm leading-relaxed text-slate-700 outline-none min-h-[76px]"
-                value={note[key] ?? ""}
-                onChange={(e) => setNote({ ...note, [key]: e.target.value })}
-                placeholder={placeholder}
-              />
-            </div>
-          ))}
+            );
+          })}
 
           <div>
             <label className="label">VAS — דרגת כאב (0–10)</label>
             <input type="number" min={0} max={10} className="input !w-24"
               value={vas} onChange={(e) => setVas(e.target.value)} placeholder="0–10" />
+          </div>
+
+          {/* AI recommendations — clearly SEPARATE from the verbatim record */}
+          <div className="rounded-xl border border-dashed border-violet-300 bg-violet-50/60 p-4">
+            <div className="mb-2 flex items-center gap-2">
+              <span className="grid h-7 w-7 place-items-center rounded-lg bg-violet-500 text-white">
+                <Lightbulb size={14} />
+              </span>
+              <div>
+                <div className="text-[13px] font-bold text-violet-900">המלצות AI</div>
+                <div className="text-[11px] text-violet-500">תוספת של ה‑AI — אינה חלק מהתיעוד הקליני שמבוסס על ההקלטה בלבד</div>
+              </div>
+            </div>
+            <textarea
+              className="w-full resize-y rounded-lg border-0 bg-white/70 p-3 text-sm leading-relaxed text-slate-700 outline-none min-h-[60px]"
+              value={aiRecs}
+              onChange={(e) => setNote({ ...note, [AI_RECS_KEY]: e.target.value })}
+              placeholder="אבחנה מבדלת אפשרית, דגשים, רעיונות לטיפול והמשך מעקב…"
+            />
           </div>
 
           {saved ? (

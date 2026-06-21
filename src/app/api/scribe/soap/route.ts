@@ -2,6 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import { resolveClinicId, getClinicTemplate } from "@/lib/clinic-template-server";
 import { buildSoapPrompt } from "@/lib/clinic-templates";
 
+export const maxDuration = 60; // structured extraction over many fields can take a while
+
 export async function POST(request: Request) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -27,7 +29,7 @@ export async function POST(request: Request) {
     },
     body: JSON.stringify({
       model: "claude-sonnet-4-6",
-      max_tokens: 2048,
+      max_tokens: 3072,
       system: systemPrompt,
       messages: [{ role: "user", content: `תמלול הטיפול:\n\n${transcript}` }],
     }),

@@ -1,8 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import { resolveClinicId, getClinicTemplate } from "@/lib/clinic-template-server";
+import { templateLeaves, AI_RECS_KEY } from "@/lib/clinic-templates";
 import { TREATMENT_TYPE_HE } from "@/lib/types";
 
-const SOAP_LEGACY = new Set(["subjective", "objective", "assessment", "plan"]);
+const SOAP_LEGACY = ["subjective", "objective", "assessment", "plan"] as const;
 
 export async function POST(request: Request) {
   const supabase = createClient();
@@ -10,11 +11,12 @@ export async function POST(request: Request) {
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await request.json();
-  const { patientId, type, vas, sections } = body as {
+  const { patientId, type, vas, sections, aiRecommendations } = body as {
     patientId: string;
     type?: string;
     vas?: number | null;
     sections?: Record<string, string>;
+    aiRecommendations?: string | null;
   };
 
   if (!patientId) return Response.json({ error: "Patient required" }, { status: 400 });
@@ -29,27 +31,46 @@ export async function POST(request: Request) {
   if (!clinicId) return Response.json({ error: "No active clinic" }, { status: 400 });
 
   const template = await getClinicTemplate(supabase, clinicId);
+  const leaves = templateLeaves(template);
 
-  // Build snapshot from template (server-authoritative ordering/labels)
-  const noteSections = template.sections
-    .map((s) => ({
-      key: s.key,
-      label: s.label,
-      letter: s.letter,
-      content: (sections?.[s.key] ?? "").trim(),
+  // Build snapshot from template leaves (server-authoritative ordering/labels).
+  // Sub-fields are stored as their own rows so the saved note mirrors the form.
+  const noteSections = leaves
+    .map((l) => ({
+      key: l.key,
+      label: l.label,
+      letter: l.letter,
+      content: (sections?.[l.key] ?? "").trim(),
     }))
     .filter((s) => s.content);
 
-  const note = noteSections.length
-    ? { template_id: template.id, template_name: template.name, sections: noteSections }
+  const aiRecs = (aiRecommendations ?? "").trim();
+
+  const note = (noteSections.length || aiRecs)
+    ? {
+        template_id: template.id,
+        template_name: template.name,
+        sections: noteSections,
+        ...(aiRecs ? { ai_recommendations: aiRecs } : {}),
+      }
     : null;
 
-  // Fill legacy SOAP columns when keys match (backward compat for queries that read them directly)
+  // Fill legacy SOAP columns (backward compat). For sectioned-into-subfields
+  // parents, concatenate each sub-field as "label: content" lines.
   const legacy: Record<string, string | null> = {
     subjective: null, objective: null, assessment: null, plan: null,
   };
-  for (const s of noteSections) {
-    if (SOAP_LEGACY.has(s.key)) legacy[s.key] = s.content;
+  for (const parent of SOAP_LEGACY) {
+    const parts = leaves
+      .filter((l) => l.parentKey === parent)
+      .map((l) => {
+        const content = (sections?.[l.key] ?? "").trim();
+        if (!content) return null;
+        // Single-field section (key === parent) → raw content; sub-fields get a label.
+        return l.key === parent ? content : `${l.label}: ${content}`;
+      })
+      .filter(Boolean) as string[];
+    if (parts.length) legacy[parent] = parts.join("\n");
   }
 
   const { error } = await supabase.from("treatments").insert({
