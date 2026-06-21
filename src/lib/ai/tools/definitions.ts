@@ -31,11 +31,54 @@ export const PATIENT_AGENT_TOOLS: ToolDefinition[] = [
         therapist_id: { type: "string", description: "מזהה המטפל מהתור הפנוי (אם הוחזר)" },
         first_name: { type: "string", description: "שם פרטי של הפונה (חובה אם אינו מטופל רשום)" },
         last_name: { type: "string", description: "שם משפחה של הפונה (חובה אם אינו מטופל רשום)" },
+        national_id: { type: "string", description: "תעודת זהות של הפונה — נאספת בתהליך הרישום לפני קביעת התור הראשון (חובה לפונה חדש)" },
         reason: { type: "string", description: "סיבת הפנייה / תלונה עיקרית (אופציונלי)" },
         duration_minutes: { type: "number", description: "משך התור בדקות (ברירת מחדל: לפי הגדרות הקליניקה)" },
       },
       required: ["starts_at"],
     },
+  },
+  {
+    name: "verify_identity_id",
+    description:
+      "מאמת את זהות המטופל לפי תעודת זהות, לפני מסירת מידע רפואי אישי או היסטוריית טיפולים. " +
+      "השתמש כאשר המטופל בחר לאמת באמצעות ת\"ז ומסר את מספרה. " +
+      "זוהי אחת משתי שיטות אימות — או ת\"ז או קוד SMS, לא שתיהן.",
+    input_schema: {
+      type: "object",
+      properties: {
+        national_id: { type: "string", description: "מספר תעודת הזהות שהמטופל מסר" },
+      },
+      required: ["national_id"],
+    },
+  },
+  {
+    name: "send_verification_sms",
+    description:
+      "שולח קוד אימות חד-פעמי ב-SMS לנייד הרשום של המטופל. " +
+      "השתמש כאשר המטופל בחר לאמת באמצעות SMS. לאחר מכן בקש ממנו את הקוד וקרא ל-verify_sms_code. " +
+      "זוהי אחת משתי שיטות אימות — או ת\"ז או קוד SMS, לא שתיהן.",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
+    name: "verify_sms_code",
+    description:
+      "מאמת את הקוד החד-פעמי שהמטופל קיבל ב-SMS. השתמש לאחר send_verification_sms וקבלת הקוד מהמטופל.",
+    input_schema: {
+      type: "object",
+      properties: {
+        code: { type: "string", description: "הקוד בן 4 הספרות שהמטופל מסר" },
+      },
+      required: ["code"],
+    },
+  },
+  {
+    name: "get_patient_history",
+    description:
+      "מחזיר מידע אישי של המטופל: פגישות עבר ועתיד, טיפולים קודמים ותוכנית תרגול פעילה. " +
+      "דורש שהמטופל יהיה מאומת תחילה (verify_identity_id או verify_sms_code). " +
+      "אם המטופל אינו מאומת — הכלי יחזיר בקשה לאימות; אל תמסור מידע אישי ללא אימות.",
+    input_schema: { type: "object", properties: {} },
   },
   {
     name: "confirm_appointment",
