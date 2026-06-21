@@ -78,3 +78,9 @@ body {
   outline: 2px solid #8b5cf6;
   outline-offset: 2px;
 }
+
+/* ── Global inbox notifier slide-up animation ──────────────────────── */
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}

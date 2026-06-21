@@ -382,7 +382,7 @@ export const TOOL_HANDLERS: Record<string, ToolHandler> = {
     if (program?.title) lines.push(`תוכנית תרגול פעילה: "${program.title}".`);
 
     lines.push(
-      "מסור למטופל סיכום בשפה טבעית. לשאלות קליניות מפורטות (תוכן רשומה רפואית) — הצע לתאם עם המטפל או קרא ל-escalate_to_human."
+      "מסור למטופל סיכום ידידותי בשפה טבעית. אם ישאל שאלה קלינית מפורטת (תוכן רשומה) — אמור שניתן לברר עם המטפל בפגישה הבאה."
     );
     return lines.join("\n");
   },
