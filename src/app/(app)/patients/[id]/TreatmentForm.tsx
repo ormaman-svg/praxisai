@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Plus, Pencil, Mic } from "lucide-react";
 import { TREATMENT_TYPE_HE } from "@/lib/types";
-import type { ClinicalTemplate } from "@/lib/clinic-templates";
+import { templateLeaves, type ClinicalTemplate } from "@/lib/clinic-templates";
 
 export default function TreatmentForm({ patientId, template }: { patientId: string; template: ClinicalTemplate }) {
   const router = useRouter();
@@ -14,8 +14,9 @@ export default function TreatmentForm({ patientId, template }: { patientId: stri
   const [error, setError] = useState<string | null>(null);
   const [type, setType] = useState("follow_up");
   const [vas, setVas] = useState("");
+  const leaves = templateLeaves(template);
   const [sections, setSections] = useState<Record<string, string>>(() =>
-    Object.fromEntries(template.sections.map((s) => [s.key, ""]))
+    Object.fromEntries(leaves.map((l) => [l.key, ""]))
   );
 
   async function save(e: React.FormEvent) {
@@ -32,7 +33,7 @@ export default function TreatmentForm({ patientId, template }: { patientId: stri
       const j = await r.json().catch(() => null);
       return setError(j?.error ?? "שמירת הטיפול נכשלה.");
     }
-    setSections(Object.fromEntries(template.sections.map((s) => [s.key, ""])));
+    setSections(Object.fromEntries(leaves.map((l) => [l.key, ""])));
     setType("follow_up");
     setVas("");
     setOpen(false);
@@ -83,17 +84,31 @@ export default function TreatmentForm({ patientId, template }: { patientId: stri
           )}
         </div>
 
-        {template.sections.map((s) => (
-          <div key={s.key}>
-            <label className="label">
-              <span className={`inline-grid h-5 w-5 place-items-center rounded text-[10px] font-bold text-white ${s.color} me-1.5`}>{s.letter}</span>
-              {s.label}
-            </label>
-            <textarea rows={2} className="input resize-y" value={sections[s.key] ?? ""}
-                      placeholder={s.placeholder}
-                      onChange={(e) => setSections({ ...sections, [s.key]: e.target.value })} />
-          </div>
-        ))}
+        {template.sections.map((s) => {
+          const fields = s.subsections?.length
+            ? s.subsections.map((sub) => ({ key: sub.key, label: sub.label, placeholder: sub.placeholder ?? "" }))
+            : [{ key: s.key, label: s.label, placeholder: s.placeholder }];
+          return (
+            <div key={s.key}>
+              <label className="label">
+                <span className={`inline-grid h-5 w-5 place-items-center rounded text-[10px] font-bold text-white ${s.color} me-1.5`}>{s.letter}</span>
+                {s.label}
+              </label>
+              <div className="space-y-2">
+                {fields.map((f) => (
+                  <div key={f.key}>
+                    {s.subsections?.length ? (
+                      <span className="mb-1 block text-[11.5px] font-semibold text-slate-500">{f.label}</span>
+                    ) : null}
+                    <textarea rows={2} className="input resize-y" value={sections[f.key] ?? ""}
+                              placeholder={f.placeholder}
+                              onChange={(e) => setSections({ ...sections, [f.key]: e.target.value })} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
 
         {error && <div className="rounded-lg border border-red-200 bg-red-50 px-3.5 py-2.5 text-[13px] text-red-700">{error}</div>}
         <div className="flex justify-end gap-2">

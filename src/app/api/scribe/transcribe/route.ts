@@ -31,20 +31,34 @@ export async function POST(request: Request) {
 
   const buffer = await audio.arrayBuffer();
   // Browsers differ: Chrome records audio/webm, Safari audio/mp4 — forward the real type.
-  const contentType = audio.type || "audio/webm";
+  // Strip any ";codecs=..." suffix; Deepgram only needs the base container type.
+  const contentType = (audio.type || "audio/webm").split(";")[0];
 
-  // nova-2 first (fast); Hebrew may require Deepgram's whisper models — fall back.
+  // Empty/too-short capture (e.g. mic muted, permission glitch) — fail clearly
+  // instead of sending Deepgram a few bytes that come back as a vague error.
+  if (buffer.byteLength < 2000) {
+    return Response.json(
+      { error: "לא נקלט אודיו (ההקלטה ריקה או קצרה מדי). בדקו שהמיקרופון פעיל ונסו שוב." },
+      { status: 422 }
+    );
+  }
+
+  // nova-2 first (fast, supports Hebrew); fall back to whisper-large on failure.
+  // Track each model's failure detail so the logs pinpoint why it broke.
   let res = await deepgram("nova-2", buffer, contentType);
   if (!res.ok) {
-    const err = await res.text();
-    console.error("Deepgram nova-2 error, falling back to whisper-large:", err);
+    const err = await res.text().catch(() => "");
+    console.error(`Deepgram nova-2 failed (${res.status}), falling back to whisper-large:`, err);
     res = await deepgram("whisper-large", buffer, contentType);
   }
 
   if (!res.ok) {
-    const err = await res.text();
-    console.error("Deepgram whisper-large error:", err);
-    return Response.json({ error: "התמלול נכשל בשירות הקול — נסו שוב." }, { status: 500 });
+    const err = await res.text().catch(() => "");
+    console.error(`Deepgram whisper-large failed (${res.status}):`, err);
+    const hint = res.status === 400
+      ? "פורמט ההקלטה לא נתמך — נסו דפדפן אחר (מומלץ Chrome)."
+      : "שירות התמלול אינו זמין כרגע — נסו שוב בעוד רגע.";
+    return Response.json({ error: `התמלול נכשל. ${hint}` }, { status: 502 });
   }
 
   const data = await res.json();

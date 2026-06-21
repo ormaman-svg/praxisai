@@ -18,7 +18,13 @@ export interface Patient {
 }
 
 export type TreatmentNoteSection = { key: string; label: string; letter: string; content: string };
-export type TreatmentNote = { template_id: string; template_name: string; sections: TreatmentNoteSection[] };
+export type TreatmentNote = {
+  template_id: string;
+  template_name: string;
+  sections: TreatmentNoteSection[];
+  // Optional, clearly-separate AI clinical suggestions (not part of the verbatim record).
+  ai_recommendations?: string;
+};
 
 export interface Treatment {
   id: string; clinic_id: string; patient_id: string; therapist_id: string | null;
