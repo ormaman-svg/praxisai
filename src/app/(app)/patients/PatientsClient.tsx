@@ -162,13 +162,17 @@ export default function PatientsClient({
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
+    // Identity number is required — it's used to verify patients over WhatsApp.
+    if (!form.national_id.trim()) {
+      return setError("יש להזין תעודת זהות — היא משמשת לאימות זהות המטופל בווטסאפ.");
+    }
     setSaving(true);
     setError(null);
     const { error } = await supabase.from("patients").insert({
       clinic_id: clinicId,
       first_name: form.first_name.trim(),
       last_name: form.last_name.trim(),
-      national_id: form.national_id || null,
+      national_id: form.national_id.trim(),
       phone: form.phone || null,
       email: form.email || null,
       kupah: form.kupah,
@@ -293,8 +297,8 @@ export default function PatientsClient({
                 <input required className="input" value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} /></div>
               <div><label className="label">שם משפחה *</label>
                 <input required className="input" value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} /></div>
-              <div><label className="label">ת&Prime;ז</label>
-                <input dir="ltr" className="input" value={form.national_id} onChange={(e) => setForm({ ...form, national_id: e.target.value })} /></div>
+              <div><label className="label">ת&Prime;ז *</label>
+                <input required dir="ltr" className="input" value={form.national_id} onChange={(e) => setForm({ ...form, national_id: e.target.value })} /></div>
               <div><label className="label">תאריך לידה</label>
                 <input dir="ltr" type="date" className="input" value={form.dob} onChange={(e) => setForm({ ...form, dob: e.target.value })} /></div>
               <div><label className="label">טלפון</label>
