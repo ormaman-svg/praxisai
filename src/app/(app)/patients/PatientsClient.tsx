@@ -1,13 +1,37 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Plus, Search, X, Upload, AlertCircle, CheckCircle2, Trash2 } from "lucide-react";
+import { Plus, Search, X, Upload, AlertCircle, CheckCircle2, Trash2, Columns3 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { Patient } from "@/lib/types";
 
 const KUPOT = ["כללית", "מכבי", "מאוחדת", "לאומית", "פרטי"];
+
+type ColKey = "national_id" | "dob" | "kupah" | "diagnosis" | "phone" | "email" | "status" | "primary_therapist";
+
+const COL_META: { key: ColKey; label: string }[] = [
+  { key: "national_id",       label: "ת״ז" },
+  { key: "dob",               label: "תאריך לידה" },
+  { key: "kupah",             label: "קופה" },
+  { key: "diagnosis",         label: "אבחנה" },
+  { key: "phone",             label: "טלפון" },
+  { key: "email",             label: "מייל" },
+  { key: "status",            label: "סטטוס" },
+  { key: "primary_therapist", label: "מטפל/ת" },
+];
+
+const DEFAULT_COLS: ColKey[] = ["kupah", "diagnosis", "phone", "status"];
+
+function loadCols(clinicId: string): ColKey[] {
+  if (typeof window === "undefined") return DEFAULT_COLS;
+  try {
+    const raw = localStorage.getItem(`patients_cols_${clinicId}`);
+    if (raw) return JSON.parse(raw) as ColKey[];
+  } catch {}
+  return DEFAULT_COLS;
+}
 
 export default function PatientsClient({
   clinicId, initialPatients, therapists, canDelete,
@@ -24,6 +48,36 @@ export default function PatientsClient({
   const [importOpen, setImportOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  /* ── column visibility ── */
+  const [visibleCols, setVisibleCols] = useState<ColKey[]>(() => loadCols(clinicId));
+  const [colPickerOpen, setColPickerOpen] = useState(false);
+  const colPickerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    localStorage.setItem(`patients_cols_${clinicId}`, JSON.stringify(visibleCols));
+  }, [visibleCols, clinicId]);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (colPickerRef.current && !colPickerRef.current.contains(e.target as Node)) {
+        setColPickerOpen(false);
+      }
+    }
+    if (colPickerOpen) document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [colPickerOpen]);
+
+  const toggleCol = useCallback((key: ColKey) => {
+    setVisibleCols((prev) =>
+      prev.includes(key) ? prev.filter((c) => c !== key) : [...prev, key]
+    );
+  }, []);
+
+  const therapistMap = useMemo(() =>
+    Object.fromEntries(therapists.map((t) => [t.id, t.name])),
+    [therapists]
+  );
 
   /* ── bulk selection & delete ── */
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -205,9 +259,40 @@ export default function PatientsClient({
         </div>
       </div>
 
-      <div className="relative max-w-sm">
-        <Search size={16} className="pointer-events-none absolute end-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-        <input className="input pe-10" placeholder="חיפוש לפי שם, ת&Prime;ז או טלפון…" value={q} onChange={(e) => setQ(e.target.value)} />
+      <div className="flex items-center gap-3">
+        <div className="relative max-w-sm flex-1">
+          <Search size={16} className="pointer-events-none absolute end-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input className="input pe-10" placeholder="חיפוש לפי שם, ת&Prime;ז או טלפון…" value={q} onChange={(e) => setQ(e.target.value)} />
+        </div>
+        {/* Column picker */}
+        <div className="relative" ref={colPickerRef}>
+          <button
+            onClick={() => setColPickerOpen((v) => !v)}
+            className="btn-ghost !border !border-line flex items-center gap-1.5 whitespace-nowrap"
+            title="בחירת עמודות"
+          >
+            <Columns3 size={15} />
+            עמודות
+          </button>
+          {colPickerOpen && (
+            <div className="absolute end-0 top-full z-30 mt-1.5 w-48 rounded-xl border border-line bg-white p-3 shadow-lg">
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">עמודות מוצגות</p>
+              <div className="space-y-1">
+                {COL_META.map(({ key, label }) => (
+                  <label key={key} className="flex cursor-pointer items-center gap-2.5 rounded-md px-1.5 py-1 text-[13px] text-slate-700 hover:bg-slate-50">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 rounded border-slate-300 text-brand focus:ring-brand/30"
+                      checked={visibleCols.includes(key)}
+                      onChange={() => toggleCol(key)}
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Bulk action bar */}
@@ -244,10 +329,14 @@ export default function PatientsClient({
                   </th>
                 )}
                 <th className="px-5 py-3 text-start">שם</th>
-                <th className="px-5 py-3 text-start">קופה</th>
-                <th className="px-5 py-3 text-start">אבחנה</th>
-                <th className="px-5 py-3 text-start">טלפון</th>
-                <th className="px-5 py-3 text-start">סטטוס</th>
+                {visibleCols.includes("national_id") && <th className="px-5 py-3 text-start">ת״ז</th>}
+                {visibleCols.includes("dob") && <th className="px-5 py-3 text-start">תאריך לידה</th>}
+                {visibleCols.includes("kupah") && <th className="px-5 py-3 text-start">קופה</th>}
+                {visibleCols.includes("diagnosis") && <th className="px-5 py-3 text-start">אבחנה</th>}
+                {visibleCols.includes("phone") && <th className="px-5 py-3 text-start">טלפון</th>}
+                {visibleCols.includes("email") && <th className="px-5 py-3 text-start">מייל</th>}
+                {visibleCols.includes("status") && <th className="px-5 py-3 text-start">סטטוס</th>}
+                {visibleCols.includes("primary_therapist") && <th className="px-5 py-3 text-start">מטפל/ת</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-line text-[13.5px]">
@@ -269,14 +358,38 @@ export default function PatientsClient({
                     </Link>
                     {p.bituach_leumi_case && <span className="badge ms-2 bg-blue-50 text-blue-600">ביטוח לאומי</span>}
                   </td>
-                  <td className="px-5 py-3.5 text-slate-600">{p.kupah ?? "—"}</td>
-                  <td className="max-w-[220px] truncate px-5 py-3.5 text-slate-600">{p.diagnosis ?? "—"}</td>
-                  <td className="px-5 py-3.5 text-slate-600" dir="ltr">{p.phone ?? "—"}</td>
-                  <td className="px-5 py-3.5">
-                    <span className={`badge ${p.status === "active" ? "bg-emerald-50 text-emerald-600" : p.status === "on_hold" ? "bg-amber-50 text-amber-600" : "bg-slate-100 text-slate-500"}`}>
-                      {p.status === "active" ? "פעיל" : p.status === "on_hold" ? "בהמתנה" : "שוחרר"}
-                    </span>
-                  </td>
+                  {visibleCols.includes("national_id") && (
+                    <td className="px-5 py-3.5 font-mono text-slate-600">{p.national_id ?? "—"}</td>
+                  )}
+                  {visibleCols.includes("dob") && (
+                    <td className="px-5 py-3.5 text-slate-600" dir="ltr">
+                      {p.dob ? new Date(p.dob).toLocaleDateString("he-IL") : "—"}
+                    </td>
+                  )}
+                  {visibleCols.includes("kupah") && (
+                    <td className="px-5 py-3.5 text-slate-600">{p.kupah ?? "—"}</td>
+                  )}
+                  {visibleCols.includes("diagnosis") && (
+                    <td className="max-w-[220px] truncate px-5 py-3.5 text-slate-600">{p.diagnosis ?? "—"}</td>
+                  )}
+                  {visibleCols.includes("phone") && (
+                    <td className="px-5 py-3.5 text-slate-600" dir="ltr">{p.phone ?? "—"}</td>
+                  )}
+                  {visibleCols.includes("email") && (
+                    <td className="px-5 py-3.5 text-slate-600" dir="ltr">{p.email ?? "—"}</td>
+                  )}
+                  {visibleCols.includes("status") && (
+                    <td className="px-5 py-3.5">
+                      <span className={`badge ${p.status === "active" ? "bg-emerald-50 text-emerald-600" : p.status === "on_hold" ? "bg-amber-50 text-amber-600" : "bg-slate-100 text-slate-500"}`}>
+                        {p.status === "active" ? "פעיל" : p.status === "on_hold" ? "בהמתנה" : "שוחרר"}
+                      </span>
+                    </td>
+                  )}
+                  {visibleCols.includes("primary_therapist") && (
+                    <td className="px-5 py-3.5 text-slate-600">
+                      {p.primary_therapist_id ? (therapistMap[p.primary_therapist_id] ?? "—") : "—"}
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
