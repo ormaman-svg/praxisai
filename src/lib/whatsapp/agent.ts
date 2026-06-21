@@ -30,18 +30,17 @@ export const MAX_RECHECK_LOOPS = 3;   // re-process if new messages arrived duri
 export const LOCK_TTL_MS = 90_000;
 
 function buildVerificationSection(smsAvail: boolean): string {
-  const verifyOptions = smsAvail
-    ? 'הצע לאמת באחת משתי דרכים (לא שתיהן): (א) מסירת מספר תעודת זהות, או (ב) קוד אימות שיישלח ב-SMS לנייד הרשום.'
-    : 'בקש ממנו את מספר תעודת הזהות לאימות.';
-  const smsFlow = smsAvail
-    ? ' אם בחר SMS — קרא ל-send_verification_sms ואז ל-verify_sms_code עם הקוד שיקבל.'
-    : '';
-  return `אימות זהות לפני מסירת מידע אישי — חשוב מאוד:
+  if (!smsAvail) {
+    // No SMS provider configured → verification cannot be completed.
+    return `אימות זהות לפני מסירת מידע אישי — חשוב מאוד:
 - לפני מסירת מידע רפואי אישי, היסטוריית טיפולים/פגישות, או יתרת חוב — חובה לאמת את זהות המטופל.
-- ${verifyOptions}
-- אם בחר ת"ז — קרא ל-verify_identity_id עם המספר שמסר.${smsFlow}
+- שירות האימות אינו זמין כרגע. אמור למטופל בנימוס שלא ניתן למסור מידע אישי כרגע, והסלם לנציג אנושי (escalate_to_human).`;
+  }
+  return `אימות זהות לפני מסירת מידע אישי — חשוב מאוד:
+- לפני מסירת מידע רפואי אישי, היסטוריית טיפולים/פגישות, או יתרת חוב — חובה לאמת את זהות המטופל באמצעות קוד אימות ב-SMS.
+- קרא ל-send_verification_sms כדי לשלוח קוד לנייד הרשום של המטופל, ואז בקש ממנו את הקוד וקרא ל-verify_sms_code עם הקוד שמסר.
 - ברגע שהאימות הצליח (הכלי החזיר הצלחה) — קרא מיד ל-get_patient_history או check_balance ומסור את המידע. אל תסלם לנציג.
-- אם האימות נכשל — הצע לנסות שוב. רק אם כל האפשרויות מוצו — הסלם לנציג.`;
+- אם האימות נכשל — הצע לשלוח קוד חדש ולנסות שוב. רק אם לא הצלחנו אחרי מספר ניסיונות — הסלם לנציג.`;
 }
 
 export function buildPatientAgentSystem(smsAvail: boolean): string {

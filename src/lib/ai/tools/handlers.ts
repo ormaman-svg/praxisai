@@ -36,11 +36,15 @@ async function isVerified(supabase: SupabaseClient, conversationId: string): Pro
 
 // Instruction returned to the model when verification is required but missing.
 function needsVerification(): string {
-  const sms = smsEnabled() ? " או לשליחת קוד אימות ב-SMS לנייד הרשום" : "";
+  if (!smsEnabled()) {
+    return (
+      "המטופל אינו מאומת ושירות האימות (SMS) אינו זמין כרגע. " +
+      "אל תמסור מידע אישי. אמור למטופל בנימוס שלא ניתן למסור מידע אישי כרגע, והסלם לנציג אנושי."
+    );
+  }
   return (
     "המטופל אינו מאומת. אל תמסור מידע אישי. " +
-    `הצע למטופל לאמת את זהותו באחת מהדרכים (לא שתיהן): מסירת מספר תעודת זהות${sms}. ` +
-    "לאחר שיבחר — קרא לכלי האימות המתאים."
+    "קרא ל-send_verification_sms כדי לשלוח קוד אימות לנייד הרשום, ואז בקש מהמטופל את הקוד וקרא ל-verify_sms_code."
   );
 }
 
@@ -240,36 +244,12 @@ export const TOOL_HANDLERS: Record<string, ToolHandler> = {
     return `יתרת חוב: ${total} ₪ (${data.length} חשבוניות פתוחות).`;
   },
 
-  // ── Identity verification + personal-data access ─────────────────────────────
-
-  async verify_identity_id(input, supabase, ctx) {
-    if (!ctx.patientId) return "המטופל אינו רשום במערכת — אין מידע אישי לאמת. הצע לקבוע תור.";
-    const given = onlyDigits(input.national_id as string);
-    if (given.length < 5) return "מספר תעודת הזהות שנמסר אינו תקין. בקש מהמטופל למסור שוב.";
-
-    const { data: patient } = await supabase
-      .from("patients")
-      .select("national_id")
-      .eq("id", ctx.patientId)
-      .single();
-    const onFile = onlyDigits(patient?.national_id ?? "");
-    if (!onFile)
-      return "אין תעודת זהות שמורה עבור מטופל זה. הצע אימות ב-SMS, או קרא ל-escalate_to_human כדי שנציג יוודא פרטים.";
-
-    if (given !== onFile)
-      return "תעודת הזהות אינה תואמת לרשום במערכת. בקש מהמטופל לוודא ולנסות שוב, או הצע אימות ב-SMS.";
-
-    await supabase
-      .from("conversations")
-      .update({ verified_at: new Date().toISOString(), verification_method: "national_id", otp_hash: null, otp_expires_at: null, otp_attempts: 0 })
-      .eq("id", ctx.conversationId);
-    return "הזהות אומתה בהצלחה (תעודת זהות). כעת מותר למסור למטופל את המידע האישי שביקש.";
-  },
+  // ── Identity verification (SMS one-time code) + personal-data access ──────────
 
   async send_verification_sms(_input, supabase, ctx) {
     if (!ctx.patientId) return "המטופל אינו רשום במערכת. הצע לקבוע תור.";
     if (!smsEnabled())
-      return "אימות ב-SMS אינו זמין כרגע. הצע למטופל לאמת באמצעות מספר תעודת זהות.";
+      return "שירות האימות (SMS) אינו זמין כרגע. אל תמסור מידע אישי — הסלם לנציג אנושי.";
 
     const { data: patient } = await supabase
       .from("patients")
@@ -277,7 +257,7 @@ export const TOOL_HANDLERS: Record<string, ToolHandler> = {
       .eq("id", ctx.patientId)
       .single();
     if (!patient?.phone)
-      return "אין מספר נייד שמור עבור מטופל זה לשליחת קוד. הצע אימות בתעודת זהות, או קרא ל-escalate_to_human.";
+      return "אין מספר נייד שמור עבור מטופל זה לשליחת קוד. קרא ל-escalate_to_human כדי שנציג יוודא פרטים.";
 
     const code = String(Math.floor(1000 + Math.random() * 9000)); // 4-digit
     await supabase
@@ -291,7 +271,7 @@ export const TOOL_HANDLERS: Record<string, ToolHandler> = {
 
     const { sent } = await sendSms(patient.phone, `קוד האימות שלך לקליניקה: ${code} (תקף ל-10 דקות).`);
     if (!sent)
-      return "שליחת ה-SMS נכשלה. הצע למטופל לאמת באמצעות מספר תעודת זהות.";
+      return "שליחת ה-SMS נכשלה. נסה שוב, ואם לא מצליח — הסלם לנציג אנושי.";
     return "נשלח קוד אימות בן 4 ספרות ל-SMS לנייד הרשום. בקש מהמטופל את הקוד וקרא ל-verify_sms_code.";
   },
 
