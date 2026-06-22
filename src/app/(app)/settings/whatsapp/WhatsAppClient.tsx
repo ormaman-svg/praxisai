@@ -49,6 +49,22 @@ export default function WhatsAppClient({ initial }: { initial: Initial }) {
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // Ensures the one-time session reset only fires once per page visit.
   const resetTriedRef = useRef(false);
+  // Re-registers the webhook once per connection (so reconnecting via QR — not
+  // just saving credentials — always points Evolution back at our webhook).
+  const webhookEnsuredRef = useRef(false);
+
+  // Idempotent: tells Evolution to deliver inbound messages to our webhook.
+  async function ensureWebhook() {
+    try {
+      await fetch("/api/whatsapp/evolution/setup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ origin: window.location.origin }),
+      });
+    } catch {
+      /* best-effort; the explicit "שמור" button is the fallback */
+    }
+  }
 
   async function loadQr(reset = false) {
     setLoadingQr(true);
@@ -186,8 +202,15 @@ export default function WhatsAppClient({ initial }: { initial: Initial }) {
     if (!hasEvolution) return;
     if (evoState === "open") {
       if (pollingRef.current) clearInterval(pollingRef.current);
+      // Just connected → make sure Evolution points at our webhook (once).
+      if (!webhookEnsuredRef.current) {
+        webhookEnsuredRef.current = true;
+        ensureWebhook();
+      }
       return;
     }
+    // Disconnected → allow the webhook to be re-registered on the next connect.
+    webhookEnsuredRef.current = false;
     pollingRef.current = setInterval(() => loadQr(false), 12000);
     return () => { if (pollingRef.current) clearInterval(pollingRef.current); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
