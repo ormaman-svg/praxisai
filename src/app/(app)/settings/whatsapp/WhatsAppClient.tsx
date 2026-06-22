@@ -27,6 +27,7 @@ export default function WhatsAppClient({ initial }: { initial: Initial }) {
   const [loadingQr, setLoadingQr] = useState(false);
   const [qrError, setQrError] = useState<string | null>(null);
   const [qrDebug, setQrDebug] = useState<string | null>(null);
+  const [disconnecting, setDisconnecting] = useState(false);
 
   // Recreate-instance card (shown when instance is stuck with count:0)
   const [showRecreate, setShowRecreate] = useState(false);
@@ -107,6 +108,30 @@ export default function WhatsAppClient({ initial }: { initial: Initial }) {
   async function resetSession() {
     resetTriedRef.current = true;
     await loadQr(true);
+  }
+
+  // Disconnects the active WhatsApp number (logout). Keeps the instance so a new
+  // number can be scanned right after.
+  async function disconnect() {
+    if (!confirm("לנתק את מספר ה-WhatsApp המחובר? תצטרכו לסרוק QR מחדש כדי לחבר מספר.")) return;
+    setDisconnecting(true);
+    try {
+      const r = await fetch("/api/whatsapp/evolution/disconnect", { method: "POST" });
+      const d = await r.json().catch(() => null);
+      if (!r.ok) {
+        setQrError(d?.error ?? "הניתוק נכשל.");
+        return;
+      }
+      // Reset local connection state and fetch a fresh QR for re-connecting.
+      setEvoState("close");
+      setQrBase64(null);
+      resetTriedRef.current = false;
+      await loadQr(true);
+    } catch {
+      setQrError("שגיאת רשת.");
+    } finally {
+      setDisconnecting(false);
+    }
   }
 
   async function recreateInstance() {
@@ -314,6 +339,16 @@ export default function WhatsAppClient({ initial }: { initial: Initial }) {
                   className="btn-ghost !border !border-line flex items-center gap-1.5 text-sm text-slate-500"
                 >
                   אתחל חיבור מחדש
+                </button>
+              )}
+              {connected && (
+                <button
+                  onClick={disconnect}
+                  disabled={disconnecting}
+                  className="btn-ghost !border !border-red-200 flex items-center gap-1.5 text-sm text-red-600 hover:bg-red-50"
+                >
+                  {disconnecting ? <Loader2 size={14} className="animate-spin" /> : <WifiOff size={14} />}
+                  נתק מספר
                 </button>
               )}
             </div>
