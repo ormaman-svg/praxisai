@@ -31,10 +31,13 @@ export const LOCK_TTL_MS = 90_000;
 
 function buildVerificationSection(smsAvail: boolean): string {
   if (!smsAvail) {
-    // No SMS provider configured → verification cannot be completed.
+    // No SMS provider configured → verification cannot be completed. Crucially we
+    // do NOT escalate just because of this — that would silence the bot for hours.
+    // The bot stays helpful for everything that doesn't need verified PHI.
     return `אימות זהות לפני מסירת מידע אישי — חשוב מאוד:
 - לפני מסירת מידע רפואי אישי, היסטוריית טיפולים/פגישות, או יתרת חוב — חובה לאמת את זהות המטופל.
-- שירות האימות אינו זמין כרגע. אמור למטופל בנימוס שלא ניתן למסור מידע אישי כרגע, והסלם לנציג אנושי (escalate_to_human).`;
+- שירות האימות אינו זמין כרגע, ולכן אי אפשר למסור מידע אישי דרך הצ'אט. אמור זאת בנימוס והצע פנייה טלפונית או ביקור בקליניקה.
+- אל תסלם לנציג רק בגלל בקשת מידע אישי. המשך לסייע בכל השאר — קביעת/ביטול/דחיית תור, שעות פעילות, ומידע כללי.`;
   }
   return `אימות זהות לפני מסירת מידע אישי — חשוב מאוד:
 - לפני מסירת מידע רפואי אישי, היסטוריית טיפולים/פגישות, או יתרת חוב — חובה לאמת את זהות המטופל באמצעות קוד אימות ב-SMS.
@@ -140,21 +143,30 @@ export async function releaseLock(supabase: SupabaseClient, convId: string) {
 // it back. To make sure a patient is never left unanswered if staff forget, the
 // bot automatically resumes once staff have been silent for this long.
 export const HUMAN_HANDBACK_MS = 2 * 60 * 60 * 1000; // 2 hours
+// When the bot escalated but NO staff member actually took over (assigned_to is
+// null), we must not leave the patient in a multi-hour silence. Resume quickly
+// so the bot keeps helping; a real human takeover ("קח על עצמי") sets assigned_to
+// and gets the full 2-hour window.
+export const UNASSIGNED_HANDBACK_MS = 5 * 60 * 1000; // 5 minutes
 
 // If the conversation is human-owned but staff have been silent past the
 // threshold, flip it back to the bot. Returns true if the bot now owns it.
 export async function maybeHandBackToBot(
   supabase: SupabaseClient,
   conversationId: string,
-  thresholdMs = HUMAN_HANDBACK_MS
+  thresholdMs?: number
 ): Promise<boolean> {
   const { data: conv } = await supabase
     .from("conversations")
-    .select("status")
+    .select("status, assigned_to")
     .eq("id", conversationId)
     .single();
   if (conv?.status === "bot") return true;
   if (conv?.status !== "human") return false; // closed → leave as-is
+
+  // No explicit threshold passed → pick based on whether a human truly owns it.
+  const effectiveThreshold =
+    thresholdMs ?? (conv.assigned_to ? HUMAN_HANDBACK_MS : UNASSIGNED_HANDBACK_MS);
 
   // "Staff activity" = the last outbound message (a human reply, once they took
   // over). If they never replied, the last outbound is the bot's old message,
@@ -169,7 +181,7 @@ export async function maybeHandBackToBot(
     .maybeSingle();
 
   const lastStaffMs = lastOut?.created_at ? new Date(lastOut.created_at).getTime() : 0;
-  if (Date.now() - lastStaffMs >= thresholdMs) {
+  if (Date.now() - lastStaffMs >= effectiveThreshold) {
     await supabase
       .from("conversations")
       .update({ status: "bot", assigned_to: null })
