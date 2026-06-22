@@ -4,7 +4,19 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveClinicId } from "@/lib/clinic";
-import { getConnectionState, getQrCode, restartInstance, logoutInstance } from "@/lib/whatsapp/evolution-api";
+import { getConnectionState, getQrCode, restartInstance, logoutInstance, setWebhook } from "@/lib/whatsapp/evolution-api";
+
+// Derives the public app origin so Evolution can reach our webhook, even when
+// the request hits an internal Vercel URL.
+function appOrigin(request: Request): string {
+  const h = request.headers;
+  const host = h.get("x-forwarded-host") ?? h.get("host");
+  const proto = h.get("x-forwarded-proto") ?? "https";
+  if (host) return `${proto}://${host}`;
+  const env = process.env.NEXT_PUBLIC_APP_URL;
+  if (env) return env.replace(/\/$/, "");
+  return new URL(request.url).origin;
+}
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -57,6 +69,10 @@ export async function GET(request: Request) {
   try {
     const state = await getConnectionState(creds);
     if (state === "open") {
+      // Connected → make sure Evolution is pointed at our webhook. This is the
+      // reliable place to (re)register it: a disconnect+QR reconnect doesn't go
+      // through the save flow, so without this inbound messages never arrive.
+      await setWebhook(creds, `${appOrigin(request)}/api/whatsapp/evolution`);
       return Response.json({ state, qrBase64: null });
     }
 

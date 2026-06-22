@@ -128,6 +128,37 @@ export async function getQrCode(creds: EvolutionCreds): Promise<QrResult> {
   return { base64: b64 ?? null, status: r.status, raw };
 }
 
+// Registers (idempotently) the inbound-message webhook on the instance so
+// Evolution delivers MESSAGES_UPSERT events to our app. Safe to call repeatedly.
+export async function setWebhook(
+  creds: EvolutionCreds,
+  webhookUrl: string
+): Promise<boolean> {
+  try {
+    const r = await fetch(`${creds.host}/webhook/set/${creds.instance}`, {
+      method: "POST",
+      headers: headers(creds.apiKey),
+      body: JSON.stringify({
+        webhook: {
+          enabled: true,
+          url: webhookUrl,
+          webhookByEvents: false,
+          webhookBase64: false,
+          events: ["MESSAGES_UPSERT"],
+        },
+      }),
+    });
+    if (!r.ok) {
+      console.error("[evolution] setWebhook failed:", r.status, await r.text().catch(() => ""));
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.error("[evolution] setWebhook exception:", e);
+    return false;
+  }
+}
+
 // Forces Evolution to drop any half-open session and start a fresh QR cycle.
 // Useful when /instance/connect returns no QR because the instance is stuck.
 export async function restartInstance(creds: EvolutionCreds): Promise<void> {
