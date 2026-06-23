@@ -54,7 +54,12 @@ export async function POST(request: Request) {
     return new Response("Bad Request", { status: 400 });
   }
 
-  console.log("[evolution] webhook event:", payload?.event, "instance:", payload?.instance);
+  console.log(`[evolution] event="${payload?.event}" instance="${payload?.instance}"`);
+  // Log the full payload for any message event to diagnose routing issues
+  if (payload?.event === "messages.upsert") {
+    const k = payload?.data?.key ?? {};
+    console.log(`[evolution] msg fromMe=${k.fromMe} jid="${k.remoteJid}" id="${k.id}"`);
+  }
 
   // Self-healing: when Evolution tells us the connection is live, re-register the
   // webhook immediately so we keep receiving events even after reconnects.
