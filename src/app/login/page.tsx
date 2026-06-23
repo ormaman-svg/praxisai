@@ -56,34 +56,60 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen grid lg:grid-cols-2">
+    <div className="min-h-screen grid lg:grid-cols-[1.05fr_1fr]">
       {/* Brand panel */}
-      <div className="hidden lg:flex flex-col justify-between bg-navy p-12 text-white">
-        <div className="flex items-center gap-3">
-          <Logo size={40} className="text-brand" />
-          <span className="text-xl font-bold font-display tracking-tight">praxisAI</span>
+      <div className="relative hidden overflow-hidden bg-navy p-12 text-white lg:flex lg:flex-col lg:justify-between">
+        {/* atmospheric depth */}
+        <div className="pointer-events-none absolute -start-24 -top-24 h-96 w-96 rounded-full bg-violet-600/25 blur-[120px]" />
+        <div className="pointer-events-none absolute -end-32 bottom-0 h-[28rem] w-[28rem] rounded-full bg-indigo-600/20 blur-[130px]" />
+        <div
+          className="pointer-events-none absolute inset-0 opacity-[0.06]"
+          style={{
+            backgroundImage:
+              "linear-gradient(rgba(255,255,255,.6) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.6) 1px, transparent 1px)",
+            backgroundSize: "44px 44px",
+            maskImage: "radial-gradient(ellipse 80% 60% at 50% 40%, black, transparent)",
+            WebkitMaskImage: "radial-gradient(ellipse 80% 60% at 50% 40%, black, transparent)",
+          }}
+        />
+
+        <div className="relative flex items-center gap-3">
+          <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 shadow-glow ring-1 ring-white/10">
+            <Logo size={20} className="text-white" />
+          </div>
+          <span className="font-display text-xl font-bold tracking-tight">praxisAI</span>
         </div>
-        <div>
-          <h1 className="text-3xl font-bold leading-snug mb-4">
-            פחות ניירת.<br />יותר זמן לטפל.
+
+        <div className="relative">
+          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[12px] font-medium text-violet-200">
+            <span className="h-1.5 w-1.5 rounded-full bg-violet-400" />
+            פלטפורמת AI קלינית
+          </div>
+          <h1 className="mb-4 font-display text-[2.6rem] font-bold leading-[1.08] tracking-tight">
+            פחות ניירת.<br />
+            <span className="bg-gradient-to-l from-violet-300 to-indigo-300 bg-clip-text text-transparent">יותר זמן לטפל.</span>
           </h1>
-          <p className="text-slate-300 leading-relaxed max-w-md">
+          <p className="max-w-md leading-relaxed text-slate-300/90">
             הקליטו את הטיפול — praxisAI תכתוב את הרשומה, תכין את הדוחות
             ותשאיר אתכם פנויים למה שבאמת חשוב.
           </p>
         </div>
-        <p className="text-xs text-slate-400">© {new Date().getFullYear()} praxisAI</p>
+
+        <p className="relative text-xs text-slate-500">© {new Date().getFullYear()} praxisAI · כל הזכויות שמורות</p>
       </div>
 
       {/* Form */}
-      <div className="flex items-center justify-center p-6">
-        <div className="w-full max-w-sm">
+      <div className="flex items-center justify-center bg-bg p-6">
+        <div className="w-full max-w-sm animate-slide-up">
           <div className="lg:hidden mb-8 flex items-center gap-3">
-            <Logo size={32} className="text-brand" />
-            <span className="text-lg font-bold">praxisAI</span>
+            <div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 shadow-glow">
+              <Logo size={18} className="text-white" />
+            </div>
+            <span className="font-display text-lg font-bold">praxisAI</span>
           </div>
 
-          <h2 className="text-2xl font-bold text-slate-900 mb-6">כניסה למערכת</h2>
+          <h2 className="mb-1.5 text-2xl font-bold tracking-tight text-ink-900">כניסה למערכת</h2>
+          <p className="mb-6 text-sm text-ink-500">ברוכים השבים — התחברו כדי להמשיך.</p>
 
           {expired && (
             <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-[13px] text-amber-800">
