@@ -129,7 +129,7 @@ export default function UsersClient({
     <div className="mx-auto max-w-5xl space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">משתמשים והרשאות</h1>
+          <h1 className="page-title">משתמשים והרשאות</h1>
           <p className="mt-1 text-sm text-slate-500">הכניסה למערכת בהזמנה בלבד — רק מי שהוזמן יכול להתחבר.</p>
         </div>
         <button onClick={() => { setOpen(true); setNotice(null); setFallbackLink(null); }} className="btn-primary">
@@ -240,7 +240,7 @@ export default function UsersClient({
 
       {/* Invite dialog */}
       {open && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/40 p-4" onClick={() => setOpen(false)}>
+        <div className="overlay" onClick={() => setOpen(false)}>
           <div className="card w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
             <div className="mb-5 flex items-center justify-between">
               <h2 className="text-lg font-bold text-slate-900">הזמנת משתמש חדש</h2>

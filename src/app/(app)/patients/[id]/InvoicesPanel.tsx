@@ -160,7 +160,7 @@ export default function InvoicesPanel({
       )}
 
       {open && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/40 p-4" onClick={() => setOpen(false)}>
+        <div className="overlay" onClick={() => setOpen(false)}>
           <div className="card w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-bold text-slate-900">חשבונית חדשה</h2>

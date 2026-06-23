@@ -118,7 +118,7 @@ export default function DocumentsClient({
     <div className="mx-auto max-w-6xl space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">מסמכים</h1>
+          <h1 className="page-title">מסמכים</h1>
           <p className="mt-1 text-sm text-slate-500">מכתבים ודו&Prime;חות רפואיים — נוצרים ב‑AI מתוך תיק המטופל, עם חתימה דיגיטלית</p>
         </div>
         <button onClick={() => setOpen(true)} className="btn-primary"><Plus size={16} /> מסמך חדש</button>
@@ -167,7 +167,7 @@ export default function DocumentsClient({
 
       {/* ── Create modal ── */}
       {open && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/40 p-4" onClick={() => setOpen(false)}>
+        <div className="overlay" onClick={() => setOpen(false)}>
           <div className="card w-full max-w-2xl p-6" onClick={(e) => e.stopPropagation()}>
             <div className="mb-5 flex items-center justify-between">
               <h2 className="text-lg font-bold text-slate-900">מסמך חדש</h2>
@@ -225,7 +225,7 @@ export default function DocumentsClient({
 
       {/* ── View / sign modal ── */}
       {viewDoc && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/40 p-4" onClick={closeView}>
+        <div className="overlay" onClick={closeView}>
           <div className="card flex max-h-[88vh] w-full max-w-2xl flex-col p-6" onClick={(e) => e.stopPropagation()}>
             <div className="mb-4 flex items-start justify-between gap-3">
               <div>

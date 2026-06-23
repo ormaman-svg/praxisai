@@ -433,7 +433,7 @@ export default function InboxClient({
   return (
     <div className="mx-auto max-w-6xl">
       <div className="mb-5 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-900">תיבת הודעות</h1>
+        <h1 className="page-title">תיבת הודעות</h1>
         <button onClick={() => setNewChatOpen(true)} className="btn-primary !py-2 !text-[13px]">
           <MessageSquarePlus size={16} /> הודעה חדשה
         </button>

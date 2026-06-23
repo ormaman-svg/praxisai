@@ -100,7 +100,7 @@ export default function TemplateClient({
   return (
     <div className="mx-auto max-w-3xl space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">סוג הקליניקה</h1>
+        <h1 className="page-title">סוג הקליניקה</h1>
         <p className="mt-1 text-sm text-slate-500">
           בחרו את התחום הקליני של <strong>{clinicName}</strong>. ההגדרה קובעת את תבנית התיעוד, את המלצות צ&apos;אט ה‑AI ואת האנליטיקות בכל המערכת.
         </p>

@@ -191,7 +191,7 @@ export default async function PatientPage({ params }: { params: { id: string } }
             <div className={`mb-2.5 grid h-8 w-8 place-items-center rounded-lg ${k.tint}`}>
               <k.icon size={16} />
             </div>
-            <div className="text-2xl font-bold text-slate-900">{k.value}</div>
+            <div className="page-title">{k.value}</div>
             <div className="mt-0.5 text-[12px] text-slate-500">{k.label}</div>
           </div>
         ))}

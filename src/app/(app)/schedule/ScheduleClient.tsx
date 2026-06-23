@@ -156,7 +156,7 @@ export default function ScheduleClient({
     <div className="mx-auto max-w-6xl space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">יומן תורים</h1>
+          <h1 className="page-title">יומן תורים</h1>
           <p className="mt-1 text-sm text-slate-500">תזמון, מעקב והשלמת תורים — לחצו על משבצת ריקה לקביעת תור.</p>
         </div>
         <div className="flex items-end gap-3">
@@ -253,7 +253,7 @@ export default function ScheduleClient({
 
       {/* ── Create modal ── */}
       {modal?.mode === "create" && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/40 p-4" onClick={() => setModal(null)}>
+        <div className="overlay" onClick={() => setModal(null)}>
           <div className="card w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
             <div className="mb-5 flex items-center justify-between">
               <h2 className="text-lg font-bold text-slate-900">תור חדש</h2>
@@ -303,7 +303,7 @@ export default function ScheduleClient({
 
       {/* ── View / manage modal ── */}
       {modal?.mode === "view" && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/40 p-4" onClick={() => setModal(null)}>
+        <div className="overlay" onClick={() => setModal(null)}>
           <div className="card w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
             <div className="mb-4 flex items-center justify-between">
               {modal.appt.patient_id ? (

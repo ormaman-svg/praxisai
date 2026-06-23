@@ -246,8 +246,8 @@ export default function PatientsClient({
     <div className="mx-auto max-w-6xl space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">מטופלים</h1>
-          <p className="mt-1 text-sm text-slate-500">{initialPatients.length} מטופלים בקליניקה</p>
+          <h1 className="page-title">מטופלים</h1>
+          <p className="page-subtitle">{initialPatients.length} מטופלים בקליניקה</p>
         </div>
         <div className="flex gap-2">
           <button onClick={() => setImportOpen(true)} className="btn-ghost !border !border-line">
@@ -399,8 +399,8 @@ export default function PatientsClient({
 
       {/* Add patient modal */}
       {open && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/40 p-4" onClick={() => setOpen(false)}>
-          <div className="card w-full max-w-lg p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="overlay" onClick={() => setOpen(false)}>
+          <div className="modal w-full max-w-lg p-6" onClick={(e) => e.stopPropagation()}>
             <div className="mb-5 flex items-center justify-between">
               <h2 className="text-lg font-bold text-slate-900">מטופל חדש</h2>
               <button onClick={() => setOpen(false)} className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100"><X size={18} /></button>
@@ -446,8 +446,8 @@ export default function PatientsClient({
 
       {/* Delete confirmation modal */}
       {confirmDelete && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/40 p-4" onClick={() => !deleting && setConfirmDelete(false)}>
-          <div className="card w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="overlay" onClick={() => !deleting && setConfirmDelete(false)}>
+          <div className="modal w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
             <div className="mb-4 flex items-center gap-3">
               <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-red-100">
                 <Trash2 size={18} className="text-red-600" />
@@ -466,11 +466,7 @@ export default function PatientsClient({
             )}
             <div className="flex justify-end gap-2">
               <button onClick={() => setConfirmDelete(false)} disabled={deleting} className="btn-ghost">ביטול</button>
-              <button
-                onClick={handleDelete}
-                disabled={deleting}
-                className="flex items-center gap-1.5 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60"
-              >
+              <button onClick={handleDelete} disabled={deleting} className="btn-danger">
                 {deleting ? "מוחק…" : `מחיקת ${selected.size} מטופלים`}
               </button>
             </div>
@@ -480,8 +476,8 @@ export default function PatientsClient({
 
       {/* ── CSV Import modal ── */}
       {importOpen && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/40 p-4" onClick={closeImport}>
-          <div className="card flex max-h-[88vh] w-full max-w-3xl flex-col p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="overlay" onClick={closeImport}>
+          <div className="modal flex max-h-[88vh] w-full max-w-3xl flex-col p-6" onClick={(e) => e.stopPropagation()}>
             <div className="mb-5 flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-bold text-slate-900">ייבוא מטופלים מ‑CRM</h2>

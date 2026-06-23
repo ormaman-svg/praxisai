@@ -196,7 +196,7 @@ export default function AnalyticsClient({
     <div className="mx-auto max-w-6xl space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">אנליטיקות</h1>
+          <h1 className="page-title">אנליטיקות</h1>
           <p className="mt-1 text-sm text-slate-500">מדדים ומגמות — 6 החודשים האחרונים · <span className="text-slate-400">{templateName}</span></p>
         </div>
         <div className="relative w-64">
@@ -248,7 +248,7 @@ export default function AnalyticsClient({
         {kpis.map((k) => (
           <div key={k.label} className="card p-5">
             <div className={`mb-3 grid h-9 w-9 place-items-center rounded-lg ${k.tint}`}><k.icon size={18} /></div>
-            <div className="text-2xl font-bold text-slate-900">{k.value}</div>
+            <div className="text-2xl font-bold tracking-tight text-ink-900">{k.value}</div>
             <div className="mt-0.5 text-[12.5px] text-slate-500">{k.label}</div>
             {k.sub && <div className={`mt-1 text-xs font-semibold ${k.subClass}`}>{k.sub}</div>}
           </div>
@@ -266,22 +266,22 @@ export default function AnalyticsClient({
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
             <div className="card p-5">
               <div className="mb-3 grid h-9 w-9 place-items-center rounded-lg bg-sky-50 text-sky-600"><UserPlus size={18} /></div>
-              <div className="text-2xl font-bold text-slate-900">{opsKpis.newPatients}</div>
+              <div className="text-2xl font-bold tracking-tight text-ink-900">{opsKpis.newPatients}</div>
               <div className="mt-0.5 text-[12.5px] text-slate-500">מטופלים חדשים החודש</div>
             </div>
             <div className="card p-5">
               <div className="mb-3 grid h-9 w-9 place-items-center rounded-lg bg-rose-50 text-rose-600"><Activity size={18} /></div>
-              <div className="text-2xl font-bold text-slate-900">{opsKpis.perPatient}</div>
+              <div className="text-2xl font-bold tracking-tight text-ink-900">{opsKpis.perPatient}</div>
               <div className="mt-0.5 text-[12.5px] text-slate-500">ממוצע טיפולים למטופל</div>
             </div>
             <div className="card p-5">
               <div className="mb-3 grid h-9 w-9 place-items-center rounded-lg bg-indigo-50 text-indigo-600"><CalendarClock size={18} /></div>
-              <div className="text-2xl font-bold text-slate-900">{opsKpis.peakDay}</div>
+              <div className="text-2xl font-bold tracking-tight text-ink-900">{opsKpis.peakDay}</div>
               <div className="mt-0.5 text-[12.5px] text-slate-500">יום השיא בקליניקה</div>
             </div>
             <div className="card p-5">
               <div className="mb-3 grid h-9 w-9 place-items-center rounded-lg bg-amber-50 text-amber-600"><Crown size={18} /></div>
-              <div className="truncate text-2xl font-bold text-slate-900">{opsKpis.topTherapist}</div>
+              <div className="truncate text-2xl font-bold tracking-tight text-ink-900">{opsKpis.topTherapist}</div>
               <div className="mt-0.5 text-[12.5px] text-slate-500">מוביל/ת בטיפולים (6 ח׳)</div>
             </div>
           </div>

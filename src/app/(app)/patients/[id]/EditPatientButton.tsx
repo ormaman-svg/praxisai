@@ -67,7 +67,7 @@ export default function EditPatientButton({
 
       {open && (
         <div
-          className="fixed inset-0 z-50 grid place-items-center bg-slate-900/40 p-4"
+          className="overlay"
           onClick={() => !saving && setOpen(false)}
         >
           <div

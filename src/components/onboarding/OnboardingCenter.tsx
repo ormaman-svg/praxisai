@@ -345,8 +345,8 @@ export default function OnboardingCenter({
       <button
         onClick={() => { setPanelOpen((o) => !o); router.refresh(); }}
         title="מרכז ההתחלה"
-        className={`fixed bottom-6 left-6 z-50 grid h-14 w-14 place-items-center rounded-full text-white shadow-lg transition-transform hover:scale-105 ${
-          allDone ? "bg-gradient-to-br from-emerald-500 to-teal-600" : "bg-gradient-to-br from-brand to-violet-600"
+        className={`fixed bottom-6 left-6 z-50 grid h-14 w-14 place-items-center rounded-full text-white ring-1 ring-white/15 transition-transform duration-200 hover:scale-105 active:scale-95 ${
+          allDone ? "bg-gradient-to-br from-emerald-500 to-teal-600 shadow-[0_8px_28px_rgba(16,185,129,0.42)]" : "bg-gradient-to-br from-brand to-violet-600 shadow-glow-lg"
         }`}
       >
         <span className="absolute inset-0 grid place-items-center">

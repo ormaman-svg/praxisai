@@ -70,7 +70,7 @@ export default function ChatClient({
   return (
     <div className="mx-auto flex h-[calc(100vh-4rem)] max-w-3xl flex-col">
       <div className="mb-4 shrink-0">
-        <h1 className="text-2xl font-bold text-slate-900">צ&apos;אט AI קליני</h1>
+        <h1 className="page-title">צ&apos;אט AI קליני</h1>
         <p className="mt-1 text-sm text-slate-500">שאלו שאלות קליניות — פרוטוקולים, אבחנות, תרגילים, תיעוד.</p>
       </div>
 

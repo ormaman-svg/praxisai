@@ -75,7 +75,7 @@ export default function ClinicsClient({ clinics }: { clinics: ClinicRow[] }) {
     <div className="mx-auto max-w-4xl space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">ניהול קליניקות</h1>
+          <h1 className="page-title">ניהול קליניקות</h1>
           <p className="mt-1 text-sm text-slate-500">Super-admin — גלוי לך בלבד.</p>
         </div>
         <button onClick={() => { setOpen(true); setError(null); }} className="btn-primary">
@@ -126,7 +126,7 @@ export default function ClinicsClient({ clinics }: { clinics: ClinicRow[] }) {
       </div>
 
       {open && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/40 p-4" onClick={() => setOpen(false)}>
+        <div className="overlay" onClick={() => setOpen(false)}>
           <div className="card w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
             <div className="mb-5 flex items-center justify-between">
               <h2 className="text-lg font-bold text-slate-900">קליניקה חדשה</h2>
@@ -169,7 +169,7 @@ export default function ClinicsClient({ clinics }: { clinics: ClinicRow[] }) {
 
       {/* Delete confirmation */}
       {toDelete && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/40 p-4" onClick={() => setToDelete(null)}>
+        <div className="overlay" onClick={() => setToDelete(null)}>
           <div className="card w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
             <div className="mb-4 flex items-center gap-3">
               <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-red-50 text-red-600">
