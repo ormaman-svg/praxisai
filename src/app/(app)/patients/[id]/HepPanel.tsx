@@ -116,7 +116,7 @@ export default function HepPanel({
       if (it.frequency) line += ` (${FREQ_HE[it.frequency] ?? it.frequency})`;
       lines.push(line);
       if (it.description) lines.push(`   ${it.description}`);
-      if (it.video_url) lines.push(`   🎬 ${it.video_url}`);
+      if (it.video_url) lines.push(`   🎦 ${it.video_url}`);
     });
     if (instructions.trim()) {
       lines.push("", `📋 הוראות: ${instructions.trim()}`);
@@ -224,7 +224,7 @@ export default function HepPanel({
                     {generating ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />} הפקה מ-AI
                   </button>
                 </div>
-                <input className="input" placeholder="לדוגמה: חיזוק כתף ימין" value={title} onChange={(e) => setTitle(e.target.value)} />
+                <input className="input" placeholder="לדוגמא: חיזוק כתף ימין" value={title} onChange={(e) => setTitle(e.target.value)} />
               </div>
 
               <div>

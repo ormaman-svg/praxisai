@@ -48,7 +48,7 @@ export default function DocumentsClient({
     setGenerating(false);
     if (!r.ok) {
       const d = await r.json().catch(() => null);
-      setError(d?.error ?? "יצירת המסמך נכשלה — נסו שוב.");
+      setError(d?.error ?? "יצירת המסמך נכשלה — נסו שנית.");
       return;
     }
     const { title, content } = await r.json();
@@ -165,7 +165,7 @@ export default function DocumentsClient({
         )}
       </div>
 
-      {/* ── Create modal ── */}
+      { /* ── Create modal ── */ }
       {open && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/40 p-4" onClick={() => setOpen(false)}>
           <div className="card w-full max-w-2xl p-6" onClick={(e) => e.stopPropagation()}>
@@ -223,7 +223,7 @@ export default function DocumentsClient({
         </div>
       )}
 
-      {/* ── View / sign modal ── */}
+      { /* ── View / sign modal ── */ }
       {viewDoc && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/40 p-4" onClick={closeView}>
           <div className="card flex max-h-[88vh] w-full max-w-2xl flex-col p-6" onClick={(e) => e.stopPropagation()}>
