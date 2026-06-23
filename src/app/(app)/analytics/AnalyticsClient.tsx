@@ -5,7 +5,7 @@ import { Activity, FileText, TrendingDown, Users, UserPlus, CalendarClock, Crown
 import { TREATMENT_TYPE_HE } from "@/lib/types";
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, Tooltip, ResponsiveContainer, Legend,
+  XAxis, YAxis, Tooltip, ResponsiveContainer,
 } from "recharts";
 
 type P = { id: string; first_name: string; last_name: string; kupah: string | null; status: string; created_at: string };
@@ -104,13 +104,6 @@ export default function AnalyticsClient({
     return Array.from(c.entries()).sort((a, b) => b[1] - a[1])
       .map(([k, v]) => ({ name: TREATMENT_TYPE_HE[k] ?? k, value: v }));
   }, [fT]);
-
-  /* clinic view: patients by kupah */
-  const kupahBars = useMemo(() => {
-    const c = new Map<string, number>();
-    patients.forEach((p) => c.set(p.kupah ?? "אחר", (c.get(p.kupah ?? "אחר") ?? 0) + 1));
-    return Array.from(c.entries()).sort((a, b) => b[1] - a[1]).map(([name, value]) => ({ name, value }));
-  }, [patients]);
 
   /* patient status pie */
   const statusPie = useMemo(() => {

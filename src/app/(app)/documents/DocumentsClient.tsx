@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Plus, X, FileText, Sparkles, Loader2, PenLine, BadgeCheck, Download, FileDown, ArrowUpLeft } from "lucide-react";
+import { Plus, X, FileText, Sparkles, Loader2, PenLine, BadgeCheck, Download, FileDown, ArrowUpLeft, Search, Filter } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { DOC_TYPE_HE } from "@/lib/types";
 import SignaturePad from "@/components/SignaturePad";
@@ -15,6 +15,37 @@ type DocRow = {
   patient_id: string | null;
   patients: { first_name: string; last_name: string } | null;
 };
+
+/* ── Document type icon (colored circle + letter) ── */
+function DocIcon({ type }: { type: string }) {
+  const colors: Record<string, string> = {
+    bituach_leumi: "bg-blue-50 text-blue-600",
+    referral: "bg-violet-50 text-violet-600",
+    discharge: "bg-emerald-50 text-emerald-600",
+    summary: "bg-amber-50 text-amber-600",
+  };
+  const cls = colors[type] ?? "bg-brand-50 text-brand";
+  return (
+    <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${cls}`}>
+      <FileText size={18} />
+    </span>
+  );
+}
+
+/* ── Status badge ── */
+function StatusBadge({ doc }: { doc: DocRow }) {
+  if (doc.signed_at) {
+    return (
+      <span className="badge badge-success flex items-center gap-1">
+        <BadgeCheck size={12} /> חתום
+      </span>
+    );
+  }
+  if (doc.status === "final") {
+    return <span className="badge badge-success">סופי</span>;
+  }
+  return <span className="badge badge-warning">טיוטה</span>;
+}
 
 export default function DocumentsClient({
   clinicId, docs, patients, userName,
@@ -35,6 +66,24 @@ export default function DocumentsClient({
   const [signing, setSigning] = useState(false);
   const [signature, setSignature] = useState<string | null>(null);
   const [exporting, setExporting] = useState<"pdf" | "word" | null>(null);
+  const [search, setSearch] = useState("");
+  const [filterStatus, setFilterStatus] = useState<"all" | "draft" | "final" | "signed">("all");
+
+  /* ── Filtered docs ── */
+  const filtered = docs.filter((d) => {
+    const q = search.trim().toLowerCase();
+    const matchSearch =
+      !q ||
+      d.title.toLowerCase().includes(q) ||
+      (d.patients ? `${d.patients.first_name} ${d.patients.last_name}`.toLowerCase().includes(q) : false) ||
+      (DOC_TYPE_HE[d.type] ?? d.type).toLowerCase().includes(q);
+    const matchStatus =
+      filterStatus === "all" ||
+      (filterStatus === "signed" && !!d.signed_at) ||
+      (filterStatus === "final" && d.status === "final" && !d.signed_at) ||
+      (filterStatus === "draft" && d.status === "draft");
+    return matchSearch && matchStatus;
+  });
 
   async function generateAI() {
     if (!form.patient_id) { setError("בחרו מטופל כדי לייצר מסמך עם AI."); return; }
@@ -103,7 +152,6 @@ export default function DocumentsClient({
 
   function exportPDF(doc: DocRow) {
     setExporting("pdf");
-    // The export route auto-triggers the print dialog when print=1.
     window.open(`/api/documents/export?id=${doc.id}&format=pdf-html&print=1`, "_blank", "noopener");
     setTimeout(() => setExporting(null), 1200);
   }
@@ -114,66 +162,119 @@ export default function DocumentsClient({
     setSignature(null);
   }
 
+  const statusTabs: { key: typeof filterStatus; label: string }[] = [
+    { key: "all", label: "הכל" },
+    { key: "draft", label: "טיוטות" },
+    { key: "final", label: "סופי" },
+    { key: "signed", label: "חתום" },
+  ];
+
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      {/* Page header */}
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
+          <p className="eyebrow">ניהול</p>
           <h1 className="page-title">מסמכים</h1>
-          <p className="mt-1 text-sm text-slate-500">מכתבים ודו&Prime;חות רפואיים — נוצרים ב‑AI מתוך תיק המטופל, עם חתימה דיגיטלית</p>
+          <p className="mt-1 text-sm text-ink-400">מכתבים ודו&Prime;חות רפואיים — נוצרים ב‑AI מתוך תיק המטופל, עם חתימה דיגיטלית</p>
         </div>
-        <button onClick={() => setOpen(true)} className="btn-primary"><Plus size={16} /> מסמך חדש</button>
+        <button onClick={() => setOpen(true)} className="btn-primary gap-2">
+          <Plus size={16} /> מסמך חדש
+        </button>
       </div>
 
-      <div className="card overflow-hidden">
-        {docs.length === 0 ? (
-          <div className="px-5 py-14 text-center text-sm text-slate-400">אין עדיין מסמכים. צרו את הראשון.</div>
-        ) : (
-          <ul className="divide-y divide-line">
-            {docs.map((d) => (
-              <li key={d.id}>
-                <button onClick={() => setViewDoc(d)} className="flex w-full items-center gap-4 px-5 py-4 text-right transition-colors hover:bg-slate-50">
-                  <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-brand-50 text-brand"><FileText size={17} /></div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="truncate text-[13.5px] font-semibold text-slate-800">{d.title}</span>
-                      {d.ai_generated && (
-                        <span className="flex shrink-0 items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-600">
-                          <Sparkles size={10} /> AI
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-xs text-slate-500">
-                      {DOC_TYPE_HE[d.type] ?? d.type}
-                      {d.patients ? ` · ${d.patients.first_name} ${d.patients.last_name}` : ""}
-                      {" · "}
-                      {new Date(d.created_at).toLocaleDateString("he-IL")}
-                    </div>
-                  </div>
-                  {d.signed_at ? (
-                    <span className="badge flex items-center gap-1 bg-emerald-50 text-emerald-600">
-                      <BadgeCheck size={13} /> חתום
-                    </span>
-                  ) : (
-                    <span className={`badge ${d.status === "final" ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"}`}>
-                      {d.status === "final" ? "סופי" : "טיוטה"}
+      {/* Search + filter bar */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative flex-1 min-w-[220px]">
+          <Search size={14} className="absolute end-3 top-1/2 -translate-y-1/2 text-ink-400 pointer-events-none" />
+          <input
+            className="input w-full pe-9"
+            placeholder="חיפוש לפי שם, מטופל, סוג…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <div className="flex items-center gap-1 rounded-xl border border-line bg-white p-1">
+          <Filter size={13} className="ms-1.5 text-ink-400" />
+          {statusTabs.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setFilterStatus(t.key)}
+              className={`rounded-lg px-3 py-1.5 text-[12.5px] font-medium transition-colors ${
+                filterStatus === t.key
+                  ? "bg-brand text-white shadow-sm"
+                  : "text-ink-500 hover:bg-ink-50"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Document grid */}
+      {filtered.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-icon"><FileText size={28} /></div>
+          <p className="mt-3 text-[13px] text-ink-400">
+            {docs.length === 0 ? "אין עדיין מסמכים. צרו את הראשון." : "לא נמצאו מסמכים תואמים לחיפוש."}
+          </p>
+          {docs.length === 0 && (
+            <button onClick={() => setOpen(true)} className="btn-primary btn-sm mt-4 gap-1.5">
+              <Plus size={14} /> מסמך חדש
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {filtered.map((d) => (
+            <button
+              key={d.id}
+              onClick={() => setViewDoc(d)}
+              className="card card-hover p-5 text-start flex flex-col gap-3"
+            >
+              {/* Top row: icon + status */}
+              <div className="flex items-start justify-between gap-3">
+                <DocIcon type={d.type} />
+                <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                  {d.ai_generated && (
+                    <span className="badge flex items-center gap-1 bg-violet-50 text-violet-600">
+                      <Sparkles size={10} /> AI
                     </span>
                   )}
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+                  <StatusBadge doc={d} />
+                </div>
+              </div>
+
+              {/* Title */}
+              <div>
+                <p className="truncate text-[14px] font-semibold text-ink-900 leading-snug">{d.title}</p>
+                <p className="mt-0.5 text-[12px] text-ink-400">{DOC_TYPE_HE[d.type] ?? d.type}</p>
+              </div>
+
+              {/* Footer: patient + date */}
+              <div className="mt-auto flex items-center justify-between gap-2 pt-2 border-t border-line">
+                <span className="truncate text-[12px] text-ink-500">
+                  {d.patients ? `${d.patients.first_name} ${d.patients.last_name}` : "ללא מטופל"}
+                </span>
+                <span className="shrink-0 text-[11px] text-ink-300">
+                  {new Date(d.created_at).toLocaleDateString("he-IL")}
+                </span>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* ── Create modal ── */}
       {open && (
         <div className="overlay" onClick={() => setOpen(false)}>
-          <div className="card w-full max-w-2xl p-6" onClick={(e) => e.stopPropagation()}>
-            <div className="mb-5 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-slate-900">מסמך חדש</h2>
-              <button onClick={() => setOpen(false)} className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100"><X size={18} /></button>
+          <div className="modal modal-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <h2 className="section-title">מסמך חדש</h2>
+              <button onClick={() => setOpen(false)} className="rounded-lg p-1.5 text-ink-400 hover:bg-ink-100"><X size={18} /></button>
             </div>
-            <form onSubmit={save} className="space-y-4">
+            <form onSubmit={save} className="modal-body space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="label">סוג מסמך</label>
@@ -195,14 +296,14 @@ export default function DocumentsClient({
                 type="button"
                 onClick={generateAI}
                 disabled={generating || !form.patient_id}
-                className="flex w-full items-center justify-center gap-2 rounded-lg border border-violet-200 bg-gradient-to-l from-violet-50 to-brand-50 px-4 py-3 text-sm font-semibold text-violet-700 transition-all hover:border-violet-300 disabled:opacity-50"
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-violet-200 bg-gradient-to-l from-violet-50 to-brand-50 px-4 py-3 text-[13px] font-semibold text-violet-700 transition-all hover:border-violet-300 hover:shadow-sm disabled:opacity-50"
               >
                 {generating
                   ? <><Loader2 size={16} className="animate-spin" /> ה‑AI כותב את המסמך מתוך תיק המטופל…</>
                   : <><Sparkles size={16} /> יצירה אוטומטית עם AI מתוך היסטוריית הטיפולים</>}
               </button>
               {!form.patient_id && (
-                <p className="-mt-2 text-center text-[11px] text-slate-400">בחרו מטופל כדי לאפשר יצירה עם AI</p>
+                <p className="-mt-2 text-center text-[11px] text-ink-400">בחרו מטופל כדי לאפשר יצירה עם AI</p>
               )}
 
               <div>
@@ -213,12 +314,12 @@ export default function DocumentsClient({
                 <label className="label">תוכן</label>
                 <textarea rows={10} className="input resize-y leading-relaxed" value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value, ai: false })} />
               </div>
-              {error && <div className="rounded-lg border border-red-200 bg-red-50 px-3.5 py-2.5 text-[13px] text-red-700">{error}</div>}
-              <div className="flex justify-end gap-2">
-                <button type="button" onClick={() => setOpen(false)} className="btn-ghost">ביטול</button>
-                <button type="submit" disabled={saving} className="btn-primary">{saving ? "שומר…" : "שמירה כטיוטה"}</button>
-              </div>
+              {error && <div className="rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-[13px] text-red-700">{error}</div>}
             </form>
+            <div className="modal-foot">
+              <button type="button" onClick={() => setOpen(false)} className="btn-ghost">ביטול</button>
+              <button onClick={save} disabled={saving} className="btn-primary">{saving ? "שומר…" : "שמירה כטיוטה"}</button>
+            </div>
           </div>
         </div>
       )}
@@ -226,35 +327,39 @@ export default function DocumentsClient({
       {/* ── View / sign modal ── */}
       {viewDoc && (
         <div className="overlay" onClick={closeView}>
-          <div className="card flex max-h-[88vh] w-full max-w-2xl flex-col p-6" onClick={(e) => e.stopPropagation()}>
-            <div className="mb-4 flex items-start justify-between gap-3">
-              <div>
-                <h2 className="text-lg font-bold text-slate-900">{viewDoc.title}</h2>
-                <p className="mt-0.5 text-xs text-slate-500">
-                  {DOC_TYPE_HE[viewDoc.type] ?? viewDoc.type}
-                  {viewDoc.patients && (
-                    <>
-                      {" · "}
-                      {viewDoc.patient_id ? (
-                        <Link href={`/patients/${viewDoc.patient_id}`} className="inline-flex items-center gap-1 font-semibold text-brand hover:underline">
-                          {viewDoc.patients.first_name} {viewDoc.patients.last_name}
-                          <ArrowUpLeft size={11} />
-                        </Link>
-                      ) : (
-                        `${viewDoc.patients.first_name} ${viewDoc.patients.last_name}`
-                      )}
-                    </>
-                  )}
-                  {" · "}
-                  {new Date(viewDoc.created_at).toLocaleDateString("he-IL")}
-                </p>
+          <div className="modal modal-lg flex max-h-[88vh] flex-col" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="modal-head">
+              <div className="flex items-start gap-3 min-w-0">
+                <DocIcon type={viewDoc.type} />
+                <div className="min-w-0">
+                  <h2 className="section-title truncate">{viewDoc.title}</h2>
+                  <p className="mt-0.5 text-[12px] text-ink-400">
+                    {DOC_TYPE_HE[viewDoc.type] ?? viewDoc.type}
+                    {viewDoc.patients && (
+                      <>
+                        {" · "}
+                        {viewDoc.patient_id ? (
+                          <Link href={`/patients/${viewDoc.patient_id}`} className="inline-flex items-center gap-1 font-semibold text-brand hover:underline">
+                            {viewDoc.patients.first_name} {viewDoc.patients.last_name}
+                            <ArrowUpLeft size={11} />
+                          </Link>
+                        ) : (
+                          `${viewDoc.patients.first_name} ${viewDoc.patients.last_name}`
+                        )}
+                      </>
+                    )}
+                    {" · "}
+                    {new Date(viewDoc.created_at).toLocaleDateString("he-IL")}
+                  </p>
+                </div>
               </div>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 shrink-0">
                 <button
                   onClick={() => exportPDF(viewDoc)}
                   disabled={exporting !== null}
                   title="ייצוא PDF"
-                  className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[12px] font-medium text-slate-600 border border-line hover:bg-slate-100 disabled:opacity-50 transition-colors"
+                  className="btn-ghost btn-sm gap-1.5"
                 >
                   {exporting === "pdf" ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
                   PDF
@@ -263,52 +368,55 @@ export default function DocumentsClient({
                   onClick={() => exportWord(viewDoc)}
                   disabled={exporting !== null}
                   title="ייצוא Word"
-                  className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[12px] font-medium text-slate-600 border border-line hover:bg-slate-100 disabled:opacity-50 transition-colors"
+                  className="btn-ghost btn-sm gap-1.5"
                 >
                   {exporting === "word" ? <Loader2 size={13} className="animate-spin" /> : <FileDown size={13} />}
                   Word
                 </button>
-                <button onClick={closeView} className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100"><X size={18} /></button>
+                <button onClick={closeView} className="rounded-lg p-1.5 text-ink-400 hover:bg-ink-100"><X size={18} /></button>
               </div>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto rounded-lg border border-line bg-slate-50 p-5 text-sm leading-relaxed text-slate-700 whitespace-pre-wrap">
-              {viewDoc.content || <span className="text-slate-400">אין תוכן.</span>}
-            </div>
-
-            {/* Existing signature */}
-            {viewDoc.signature_data && (
-              <div className="mt-4 flex items-center gap-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={viewDoc.signature_data} alt="חתימה" className="h-12 rounded bg-white px-2" />
-                <div className="text-[12px] text-emerald-700">
-                  <div className="flex items-center gap-1 font-bold"><BadgeCheck size={14} /> נחתם דיגיטלית</div>
-                  <div>{viewDoc.signed_by_name} · {viewDoc.signed_at ? new Date(viewDoc.signed_at).toLocaleString("he-IL") : ""}</div>
-                </div>
+            {/* Content */}
+            <div className="modal-body min-h-0 flex-1 overflow-y-auto">
+              <div className="rounded-xl border border-line bg-slate-50 p-5 text-[13.5px] leading-relaxed text-ink-700 whitespace-pre-wrap min-h-[200px]">
+                {viewDoc.content || <span className="text-ink-300">אין תוכן.</span>}
               </div>
-            )}
 
-            {/* Signing flow */}
-            {!viewDoc.signed_at && (
-              signing ? (
-                <div className="mt-4 space-y-3">
-                  <p className="text-[13px] font-semibold text-slate-700">חתימת {userName} — החתימה תנעל את המסמך כסופי:</p>
-                  <SignaturePad onChange={setSignature} />
-                  <div className="flex justify-end gap-2">
-                    <button onClick={() => { setSigning(false); setSignature(null); }} className="btn-ghost">ביטול</button>
-                    <button onClick={signAndFinalize} disabled={!signature || saving} className="btn-primary">
-                      {saving ? <Loader2 size={15} className="animate-spin" /> : <BadgeCheck size={15} />} חתימה ונעילה
-                    </button>
+              {/* Existing signature */}
+              {viewDoc.signature_data && (
+                <div className="mt-4 flex items-center gap-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={viewDoc.signature_data} alt="חתימה" className="h-12 rounded bg-white px-2" />
+                  <div className="text-[12px] text-emerald-700">
+                    <div className="flex items-center gap-1 font-bold"><BadgeCheck size={14} /> נחתם דיגיטלית</div>
+                    <div>{viewDoc.signed_by_name} · {viewDoc.signed_at ? new Date(viewDoc.signed_at).toLocaleString("he-IL") : ""}</div>
                   </div>
                 </div>
-              ) : (
-                <div className="mt-4 flex justify-end">
-                  <button onClick={() => setSigning(true)} className="btn-primary">
-                    <PenLine size={15} /> חתימה דיגיטלית וסיום
-                  </button>
-                </div>
-              )
-            )}
+              )}
+
+              {/* Signing flow */}
+              {!viewDoc.signed_at && (
+                signing ? (
+                  <div className="mt-4 space-y-3">
+                    <p className="text-[13px] font-semibold text-ink-700">חתימת {userName} — החתימה תנעל את המסמך כסופי:</p>
+                    <SignaturePad onChange={setSignature} />
+                    <div className="flex justify-end gap-2">
+                      <button onClick={() => { setSigning(false); setSignature(null); }} className="btn-ghost">ביטול</button>
+                      <button onClick={signAndFinalize} disabled={!signature || saving} className="btn-primary">
+                        {saving ? <Loader2 size={15} className="animate-spin" /> : <BadgeCheck size={15} />} חתימה ונעילה
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-4 flex justify-end">
+                    <button onClick={() => setSigning(true)} className="btn-primary gap-2">
+                      <PenLine size={15} /> חתימה דיגיטלית וסיום
+                    </button>
+                  </div>
+                )
+              )}
+            </div>
           </div>
         </div>
       )}
