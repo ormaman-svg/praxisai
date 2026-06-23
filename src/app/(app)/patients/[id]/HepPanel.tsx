@@ -145,49 +145,53 @@ export default function HepPanel({
   }
 
   return (
-    <div className="card p-5">
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="flex items-center gap-2 text-sm font-bold text-slate-900">
-          <Dumbbell size={15} className="text-violet-500" /> {config.panelTitle}
+    <div className="card overflow-hidden">
+      <div className="card-head">
+        <h2 className="section-title flex items-center gap-2">
+          <Dumbbell size={15} className="text-brand" /> {config.panelTitle}
         </h2>
-        <button onClick={() => setOpen(true)} className="text-[12.5px] font-semibold text-brand hover:underline">
-          + תוכנית
+        <button onClick={() => setOpen(true)} className="btn-ghost btn-sm">
+          <Plus size={14} /> תוכנית
         </button>
       </div>
 
+      <div className="card-body">
       {programs.length === 0 ? (
-        <p className="py-4 text-center text-[12.5px] text-slate-400">אין עדיין תוכנית.</p>
+        <div className="empty py-10">
+          <div className="empty-icon"><Dumbbell size={22} /></div>
+          <p className="text-[13px] text-ink-500">אין עדיין תוכנית.</p>
+        </div>
       ) : (
         <ul className="space-y-3">
           {programs.map((p) => (
-            <li key={p.id} className="rounded-lg border border-line p-3">
+            <li key={p.id} className="panel p-3.5">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-[13px] font-semibold text-slate-800">{p.title}</span>
+                <span className="text-[13px] font-semibold text-ink-800">{p.title}</span>
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => sendFullPlan(p)}
-                    className="flex items-center gap-1 text-[11.5px] font-semibold text-blue-600 hover:underline"
+                    className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-brand-700 transition-colors hover:text-brand-800"
                   >
                     {sendingPlanId === p.id ? <><Check size={12} /> נשלח</> : <><Send size={12} /> שלח תוכנית</>}
                   </button>
                   <button
                     onClick={() => sendNudge(p.id)}
-                    className="flex items-center gap-1 text-[11.5px] font-semibold text-emerald-600 hover:underline"
+                    className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-emerald-600 transition-colors hover:text-emerald-700"
                   >
                     {sentId === p.id ? <><Check size={12} /> נשלח</> : "תזכורת יומית"}
                   </button>
                 </div>
               </div>
-              <ul className="mt-1.5 space-y-1 text-[12px] text-slate-500">
+              <ul className="mt-2 space-y-1.5 text-[12px] text-ink-600">
                 {p.program_items.map((it, i) => (
                   <li key={i} className="space-y-0.5">
                     <div>
-                      • {it.name} {it.sets && it.reps ? `— ${it.sets}×${it.reps}` : ""} {it.frequency ? `(${FREQ_HE[it.frequency] ?? it.frequency})` : ""}
+                      <span className="text-brand-400">•</span> {it.name} {it.sets && it.reps ? `— ${it.sets}×${it.reps}` : ""} {it.frequency ? `(${FREQ_HE[it.frequency] ?? it.frequency})` : ""}
                     </div>
-                    {it.description && <div className="pr-3 text-[11px] text-slate-400">{it.description}</div>}
+                    {it.description && <div className="pe-3 text-[11px] text-ink-400">{it.description}</div>}
                     {it.video_url && (
                       <a href={it.video_url} target="_blank" rel="noopener noreferrer"
-                        className="flex items-center gap-1 pr-3 text-[11px] text-blue-500 hover:underline">
+                        className="inline-flex items-center gap-1 pe-3 text-[11px] font-medium text-accent-700 hover:text-accent-800 hover:underline">
                         <ExternalLink size={10} /> צפייה בסרטון
                       </a>
                     )}
@@ -195,7 +199,7 @@ export default function HepPanel({
                 ))}
               </ul>
               {p.lastLog && (
-                <div className="mt-1.5 text-[11px] text-slate-400">
+                <div className="mt-2.5 border-t border-line-soft pt-2 text-[11px] text-ink-400">
                   דיווח אחרון: {new Date(p.lastLog.logged_at).toLocaleDateString("he-IL")} ·{" "}
                   {p.lastLog.completed ? "בוצע" : "לא בוצע"}
                   {p.lastLog.pain_score != null ? ` · כאב ${p.lastLog.pain_score}/10` : ""}
@@ -205,6 +209,7 @@ export default function HepPanel({
           ))}
         </ul>
       )}
+      </div>
 
       {/* Create modal */}
       {open && (

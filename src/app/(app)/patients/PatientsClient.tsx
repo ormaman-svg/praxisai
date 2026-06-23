@@ -3,8 +3,9 @@
 import { useMemo, useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Plus, Search, X, Upload, AlertCircle, CheckCircle2, Trash2, Columns3 } from "lucide-react";
+import { Plus, Search, X, Upload, AlertCircle, CheckCircle2, Trash2, Columns3, Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import PageHeader from "@/components/PageHeader";
 import type { Patient } from "@/lib/types";
 
 const KUPOT = ["כללית", "מכבי", "מאוחדת", "לאומית", "פרטי"];
@@ -243,46 +244,45 @@ export default function PatientsClient({
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="page-title">מטופלים</h1>
-          <p className="page-subtitle">{initialPatients.length} מטופלים בקליניקה</p>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={() => setImportOpen(true)} className="btn-ghost !border !border-line">
-            <Upload size={16} /> ייבוא מ‑CRM
-          </button>
-          <button onClick={() => setOpen(true)} className="btn-primary">
-            <Plus size={16} /> מטופל חדש
-          </button>
-        </div>
-      </div>
+    <div className="mx-auto max-w-6xl space-y-6 animate-fade-in">
+      <PageHeader
+        icon={Users}
+        eyebrow="ניהול קליניקה"
+        title="מטופלים"
+        subtitle={`${initialPatients.length} מטופלים רשומים בקליניקה`}
+      >
+        <button onClick={() => setImportOpen(true)} className="btn-ghost">
+          <Upload size={16} /> ייבוא מ‑CRM
+        </button>
+        <button onClick={() => setOpen(true)} className="btn-primary">
+          <Plus size={16} /> מטופל חדש
+        </button>
+      </PageHeader>
 
       <div className="flex items-center gap-3">
         <div className="relative max-w-sm flex-1">
-          <Search size={16} className="pointer-events-none absolute end-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search size={16} className="pointer-events-none absolute end-3.5 top-1/2 -translate-y-1/2 text-ink-400" />
           <input className="input pe-10" placeholder="חיפוש לפי שם, ת&Prime;ז או טלפון…" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
         {/* Column picker */}
         <div className="relative" ref={colPickerRef}>
           <button
             onClick={() => setColPickerOpen((v) => !v)}
-            className="btn-ghost !border !border-line flex items-center gap-1.5 whitespace-nowrap"
+            className="btn-ghost flex items-center gap-1.5 whitespace-nowrap"
             title="בחירת עמודות"
           >
             <Columns3 size={15} />
             עמודות
           </button>
           {colPickerOpen && (
-            <div className="absolute end-0 top-full z-30 mt-1.5 w-48 rounded-xl border border-line bg-white p-3 shadow-lg">
-              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">עמודות מוצגות</p>
-              <div className="space-y-1">
+            <div className="absolute end-0 top-full z-30 mt-1.5 w-52 rounded-2xl border border-line bg-surface p-3 shadow-pop">
+              <p className="eyebrow mb-2 px-1.5 text-ink-400">עמודות מוצגות</p>
+              <div className="space-y-0.5">
                 {COL_META.map(({ key, label }) => (
-                  <label key={key} className="flex cursor-pointer items-center gap-2.5 rounded-md px-1.5 py-1 text-[13px] text-slate-700 hover:bg-slate-50">
+                  <label key={key} className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 text-[13px] text-ink-700 transition-colors hover:bg-surface-2">
                     <input
                       type="checkbox"
-                      className="h-4 w-4 rounded border-slate-300 text-brand focus:ring-brand/30"
+                      className="h-4 w-4 rounded border-line-strong text-brand focus:ring-brand/30"
                       checked={visibleCols.includes(key)}
                       onChange={() => toggleCol(key)}
                     />
@@ -297,12 +297,12 @@ export default function PatientsClient({
 
       {/* Bulk action bar */}
       {canDelete && selected.size > 0 && (
-        <div className="flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5">
+        <div className="flex items-center gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-2.5 animate-slide-up">
           <span className="flex-1 text-sm font-semibold text-red-700">{selected.size} מטופלים נבחרו</span>
-          <button onClick={() => setSelected(new Set())} className="text-xs text-red-500 hover:text-red-700">ביטול בחירה</button>
+          <button onClick={() => setSelected(new Set())} className="text-xs font-medium text-red-500 hover:text-red-700">ביטול בחירה</button>
           <button
             onClick={() => { setDeleteError(null); setConfirmDelete(true); }}
-            className="flex items-center gap-1.5 rounded-lg bg-red-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-red-700"
+            className="btn-danger btn-sm"
           >
             <Trash2 size={13} /> מחיקת {selected.size} מטופלים
           </button>
@@ -311,89 +311,105 @@ export default function PatientsClient({
 
       <div className="card overflow-hidden">
         {filtered.length === 0 ? (
-          <div className="px-5 py-14 text-center text-sm text-slate-400">
-            {initialPatients.length === 0 ? "אין עדיין מטופלים — הוסיפו את הראשון." : "לא נמצאו תוצאות לחיפוש."}
+          <div className="empty">
+            <div className="empty-icon"><Users size={24} /></div>
+            <div className="text-sm font-medium text-ink-600">
+              {initialPatients.length === 0 ? "אין עדיין מטופלים בקליניקה" : "לא נמצאו תוצאות לחיפוש"}
+            </div>
+            {initialPatients.length === 0 && (
+              <button onClick={() => setOpen(true)} className="btn-primary btn-sm mt-1">
+                <Plus size={15} /> הוספת מטופל ראשון
+              </button>
+            )}
           </div>
         ) : (
-          <table className="w-full text-start">
-            <thead>
-              <tr className="border-b border-line bg-slate-50 text-[12px] font-semibold uppercase tracking-wide text-slate-500">
-                {canDelete && (
-                  <th className="w-10 px-4 py-3">
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 rounded border-slate-300 text-brand focus:ring-brand/30"
-                      checked={filtered.length > 0 && selected.size === filtered.length}
-                      onChange={toggleAll}
-                    />
-                  </th>
-                )}
-                <th className="px-5 py-3 text-start">שם</th>
-                {visibleCols.includes("national_id") && <th className="px-5 py-3 text-start">ת״ז</th>}
-                {visibleCols.includes("dob") && <th className="px-5 py-3 text-start">תאריך לידה</th>}
-                {visibleCols.includes("kupah") && <th className="px-5 py-3 text-start">קופה</th>}
-                {visibleCols.includes("diagnosis") && <th className="px-5 py-3 text-start">אבחנה</th>}
-                {visibleCols.includes("phone") && <th className="px-5 py-3 text-start">טלפון</th>}
-                {visibleCols.includes("email") && <th className="px-5 py-3 text-start">מייל</th>}
-                {visibleCols.includes("status") && <th className="px-5 py-3 text-start">סטטוס</th>}
-                {visibleCols.includes("primary_therapist") && <th className="px-5 py-3 text-start">מטפל/ת</th>}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line text-[13.5px]">
-              {filtered.map((p) => (
-                <tr key={p.id} className={`transition-colors hover:bg-slate-50 ${selected.has(p.id) ? "bg-red-50/50" : ""}`}>
+          <div className="overflow-x-auto">
+            <table className="table">
+              <thead>
+                <tr>
                   {canDelete && (
-                    <td className="w-10 px-4 py-3.5">
+                    <th className="w-10">
                       <input
                         type="checkbox"
-                        className="h-4 w-4 rounded border-slate-300 text-brand focus:ring-brand/30"
-                        checked={selected.has(p.id)}
-                        onChange={() => toggleSelect(p.id)}
+                        className="h-4 w-4 rounded border-line-strong text-brand focus:ring-brand/30"
+                        checked={filtered.length > 0 && selected.size === filtered.length}
+                        onChange={toggleAll}
                       />
-                    </td>
+                    </th>
                   )}
-                  <td className="px-5 py-3.5">
-                    <Link href={`/patients/${p.id}`} className="font-semibold text-slate-800 hover:text-brand">
-                      {p.first_name} {p.last_name}
-                    </Link>
-                    {p.bituach_leumi_case && <span className="badge ms-2 bg-blue-50 text-blue-600">ביטוח לאומי</span>}
-                  </td>
-                  {visibleCols.includes("national_id") && (
-                    <td className="px-5 py-3.5 font-mono text-slate-600">{p.national_id ?? "—"}</td>
-                  )}
-                  {visibleCols.includes("dob") && (
-                    <td className="px-5 py-3.5 text-slate-600" dir="ltr">
-                      {p.dob ? new Date(p.dob).toLocaleDateString("he-IL") : "—"}
-                    </td>
-                  )}
-                  {visibleCols.includes("kupah") && (
-                    <td className="px-5 py-3.5 text-slate-600">{p.kupah ?? "—"}</td>
-                  )}
-                  {visibleCols.includes("diagnosis") && (
-                    <td className="max-w-[220px] truncate px-5 py-3.5 text-slate-600">{p.diagnosis ?? "—"}</td>
-                  )}
-                  {visibleCols.includes("phone") && (
-                    <td className="px-5 py-3.5 text-slate-600" dir="ltr">{p.phone ?? "—"}</td>
-                  )}
-                  {visibleCols.includes("email") && (
-                    <td className="px-5 py-3.5 text-slate-600" dir="ltr">{p.email ?? "—"}</td>
-                  )}
-                  {visibleCols.includes("status") && (
-                    <td className="px-5 py-3.5">
-                      <span className={`badge ${p.status === "active" ? "bg-emerald-50 text-emerald-600" : p.status === "on_hold" ? "bg-amber-50 text-amber-600" : "bg-slate-100 text-slate-500"}`}>
-                        {p.status === "active" ? "פעיל" : p.status === "on_hold" ? "בהמתנה" : "שוחרר"}
-                      </span>
-                    </td>
-                  )}
-                  {visibleCols.includes("primary_therapist") && (
-                    <td className="px-5 py-3.5 text-slate-600">
-                      {p.primary_therapist_id ? (therapistMap[p.primary_therapist_id] ?? "—") : "—"}
-                    </td>
-                  )}
+                  <th>שם</th>
+                  {visibleCols.includes("national_id") && <th>ת״ז</th>}
+                  {visibleCols.includes("dob") && <th>תאריך לידה</th>}
+                  {visibleCols.includes("kupah") && <th>קופה</th>}
+                  {visibleCols.includes("diagnosis") && <th>אבחנה</th>}
+                  {visibleCols.includes("phone") && <th>טלפון</th>}
+                  {visibleCols.includes("email") && <th>מייל</th>}
+                  {visibleCols.includes("status") && <th>סטטוס</th>}
+                  {visibleCols.includes("primary_therapist") && <th>מטפל/ת</th>}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filtered.map((p) => (
+                  <tr key={p.id} className={selected.has(p.id) ? "!bg-red-50/60" : ""}>
+                    {canDelete && (
+                      <td className="w-10">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 rounded border-line-strong text-brand focus:ring-brand/30"
+                          checked={selected.has(p.id)}
+                          onChange={() => toggleSelect(p.id)}
+                        />
+                      </td>
+                    )}
+                    <td>
+                      <Link href={`/patients/${p.id}`} className="group flex items-center gap-3">
+                        <span className="avatar h-9 w-9 text-[13px]">{p.first_name?.charAt(0) ?? "?"}</span>
+                        <span className="min-w-0">
+                          <span className="block truncate font-semibold text-ink-800 transition-colors group-hover:text-brand-700">
+                            {p.first_name} {p.last_name}
+                          </span>
+                          {p.bituach_leumi_case && <span className="badge badge-accent mt-0.5">ביטוח לאומי</span>}
+                        </span>
+                      </Link>
+                    </td>
+                    {visibleCols.includes("national_id") && (
+                      <td className="font-mono text-ink-500" dir="ltr">{p.national_id ?? "—"}</td>
+                    )}
+                    {visibleCols.includes("dob") && (
+                      <td className="text-ink-500" dir="ltr">
+                        {p.dob ? new Date(p.dob).toLocaleDateString("he-IL") : "—"}
+                      </td>
+                    )}
+                    {visibleCols.includes("kupah") && (
+                      <td className="text-ink-600">{p.kupah ?? "—"}</td>
+                    )}
+                    {visibleCols.includes("diagnosis") && (
+                      <td className="max-w-[220px] truncate text-ink-500">{p.diagnosis ?? "—"}</td>
+                    )}
+                    {visibleCols.includes("phone") && (
+                      <td className="text-ink-500" dir="ltr">{p.phone ?? "—"}</td>
+                    )}
+                    {visibleCols.includes("email") && (
+                      <td className="text-ink-500" dir="ltr">{p.email ?? "—"}</td>
+                    )}
+                    {visibleCols.includes("status") && (
+                      <td>
+                        <span className={`badge ${p.status === "active" ? "badge-green" : p.status === "on_hold" ? "badge-amber" : "badge-gray"}`}>
+                          <span className={`dot ${p.status === "active" ? "bg-emerald-500" : p.status === "on_hold" ? "bg-amber-500" : "bg-ink-300"}`} />
+                          {p.status === "active" ? "פעיל" : p.status === "on_hold" ? "בהמתנה" : "שוחרר"}
+                        </span>
+                      </td>
+                    )}
+                    {visibleCols.includes("primary_therapist") && (
+                      <td className="text-ink-600">
+                        {p.primary_therapist_id ? (therapistMap[p.primary_therapist_id] ?? "—") : "—"}
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
@@ -402,8 +418,8 @@ export default function PatientsClient({
         <div className="overlay" onClick={() => setOpen(false)}>
           <div className="modal w-full max-w-lg p-6" onClick={(e) => e.stopPropagation()}>
             <div className="mb-5 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-slate-900">מטופל חדש</h2>
-              <button onClick={() => setOpen(false)} className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100"><X size={18} /></button>
+              <h2 className="text-lg font-bold text-ink-900">מטופל חדש</h2>
+              <button onClick={() => setOpen(false)} className="btn-icon"><X size={18} /></button>
             </div>
             <form onSubmit={save} className="grid grid-cols-2 gap-4">
               <div><label className="label">שם פרטי *</label>
@@ -427,7 +443,7 @@ export default function PatientsClient({
                   <option value="">ללא</option>
                   {therapists.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
                 </select></div>
-              <label className="col-span-2 flex items-center gap-2.5 text-sm text-slate-700 sm:col-span-1 sm:self-end sm:pb-2.5">
+              <label className="col-span-2 flex items-center gap-2.5 text-sm text-ink-700 sm:col-span-1 sm:self-end sm:pb-2.5">
                 <input type="checkbox" className="h-4 w-4 rounded border-line text-brand focus:ring-brand/30"
                        checked={form.bituach_leumi_case} onChange={(e) => setForm({ ...form, bituach_leumi_case: e.target.checked })} />
                 תיק ביטוח לאומי
@@ -453,11 +469,11 @@ export default function PatientsClient({
                 <Trash2 size={18} className="text-red-600" />
               </div>
               <div>
-                <h2 className="text-base font-bold text-slate-900">מחיקת {selected.size} מטופלים</h2>
-                <p className="mt-0.5 text-[13px] text-slate-500">פעולה זו אינה הפיכה</p>
+                <h2 className="text-base font-bold text-ink-900">מחיקת {selected.size} מטופלים</h2>
+                <p className="mt-0.5 text-[13px] text-ink-500">פעולה זו אינה הפיכה</p>
               </div>
             </div>
-            <p className="mb-5 text-[13px] leading-relaxed text-slate-600">
+            <p className="mb-5 text-[13px] leading-relaxed text-ink-600">
               כל הטיפולים, המדידות והפגישות של המטופלים הנבחרים יימחקו לצמיתות.
               מסמכים שנוצרו יישארו קיימים ללא שיוך.
             </p>
@@ -480,29 +496,29 @@ export default function PatientsClient({
           <div className="modal flex max-h-[88vh] w-full max-w-3xl flex-col p-6" onClick={(e) => e.stopPropagation()}>
             <div className="mb-5 flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-bold text-slate-900">ייבוא מטופלים מ‑CRM</h2>
-                <p className="mt-0.5 text-xs text-slate-500">העלו קובץ CSV מהמערכת הקיימת — המערכת תזהה את השדות אוטומטית</p>
+                <h2 className="text-lg font-bold text-ink-900">ייבוא מטופלים מ‑CRM</h2>
+                <p className="mt-0.5 text-xs text-ink-500">העלו קובץ CSV מהמערכת הקיימת — המערכת תזהה את השדות אוטומטית</p>
               </div>
-              <button onClick={closeImport} className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100"><X size={18} /></button>
+              <button onClick={closeImport} className="btn-icon"><X size={18} /></button>
             </div>
 
             {importResult && "inserted" in importResult ? (
               <div className="flex flex-col items-center gap-4 py-10 text-center">
                 <CheckCircle2 size={48} className="text-emerald-500" />
                 <div>
-                  <div className="text-xl font-bold text-slate-900">הייבוא הצליח!</div>
-                  <div className="mt-1 text-sm text-slate-500">{importResult.inserted} מטופלים נוספו לקליניקה.</div>
+                  <div className="text-xl font-bold text-ink-900">הייבוא הצליח!</div>
+                  <div className="mt-1 text-sm text-ink-500">{importResult.inserted} מטופלים נוספו לקליניקה.</div>
                 </div>
                 <button onClick={closeImport} className="btn-primary mt-2">סגירה</button>
               </div>
             ) : (
               <div className="min-h-0 flex-1 overflow-y-auto space-y-5">
                 {/* File upload */}
-                <label className="flex cursor-pointer flex-col items-center gap-3 rounded-xl border-2 border-dashed border-slate-300 px-6 py-8 transition-colors hover:border-brand hover:bg-brand-50/30">
-                  <Upload size={28} className="text-slate-400" />
+                <label className="flex cursor-pointer flex-col items-center gap-3 rounded-xl border-2 border-dashed border-line-strong px-6 py-8 transition-colors hover:border-brand hover:bg-brand-50/40">
+                  <Upload size={28} className="text-ink-400" />
                   <div className="text-center">
-                    <div className="text-[13.5px] font-semibold text-slate-700">לחצו לבחירת קובץ CSV</div>
-                    <div className="mt-0.5 text-[11.5px] text-slate-400">ייצאו את רשימת המטופלים מהמערכת הקיימת, שמרו כ‑CSV ותעלו כאן</div>
+                    <div className="text-[13.5px] font-semibold text-ink-700">לחצו לבחירת קובץ CSV</div>
+                    <div className="mt-0.5 text-[11.5px] text-ink-400">ייצאו את רשימת המטופלים מהמערכת הקיימת, שמרו כ‑CSV ותעלו כאן</div>
                   </div>
                   <input type="file" accept=".csv,text/csv" className="hidden" onChange={handleFileChange} />
                 </label>
@@ -516,7 +532,7 @@ export default function PatientsClient({
                 {csvRows.length > 0 && (
                   <>
                     <div>
-                      <h3 className="mb-3 text-[12px] font-bold uppercase tracking-wider text-slate-500">מיפוי עמודות</h3>
+                      <h3 className="mb-3 eyebrow text-ink-400">מיפוי עמודות</h3>
                       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                         {(["first_name", "last_name", "national_id", "phone", "email", "dob", "kupah", "diagnosis"] as const).map((field) => {
                           const labels: Record<string, string> = {
@@ -543,12 +559,12 @@ export default function PatientsClient({
 
                     {/* Preview */}
                     <div>
-                      <h3 className="mb-2 text-[12px] font-bold uppercase tracking-wider text-slate-500">
+                      <h3 className="mb-2 eyebrow text-ink-400">
                         תצוגה מקדימה — {csvRows.length} שורות
                       </h3>
                       <div className="max-h-48 overflow-auto rounded-lg border border-line">
                         <table className="w-full text-[11.5px]">
-                          <thead className="sticky top-0 bg-slate-50 text-[11px] font-semibold text-slate-500">
+                          <thead className="sticky top-0 bg-surface-2 text-[11px] font-semibold text-ink-500">
                             <tr>
                               <th className="px-3 py-2 text-right">שם פרטי</th>
                               <th className="px-3 py-2 text-right">שם משפחה</th>
@@ -559,18 +575,18 @@ export default function PatientsClient({
                           </thead>
                           <tbody className="divide-y divide-line">
                             {csvRows.slice(0, 10).map((row, i) => (
-                              <tr key={i} className="hover:bg-slate-50">
+                              <tr key={i} className="hover:bg-surface-2">
                                 <td className="px-3 py-1.5">{colMap.first_name ? row[colMap.first_name] : "—"}</td>
                                 <td className="px-3 py-1.5">{colMap.last_name ? row[colMap.last_name] : "—"}</td>
                                 <td className="px-3 py-1.5 font-mono">{colMap.national_id ? row[colMap.national_id] || "—" : "—"}</td>
                                 <td className="px-3 py-1.5 font-mono">{colMap.phone ? row[colMap.phone] || "—" : "—"}</td>
-                                <td className="max-w-[140px] truncate px-3 py-1.5 text-slate-500">{colMap.diagnosis ? row[colMap.diagnosis] || "—" : "—"}</td>
+                                <td className="max-w-[140px] truncate px-3 py-1.5 text-ink-500">{colMap.diagnosis ? row[colMap.diagnosis] || "—" : "—"}</td>
                               </tr>
                             ))}
                           </tbody>
                         </table>
                         {csvRows.length > 10 && (
-                          <div className="border-t border-line px-3 py-2 text-center text-[11px] text-slate-400">
+                          <div className="border-t border-line px-3 py-2 text-center text-[11px] text-ink-400">
                             ו‑{csvRows.length - 10} שורות נוספות…
                           </div>
                         )}

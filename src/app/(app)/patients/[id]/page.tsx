@@ -1,11 +1,11 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { ArrowRight, Activity, Clock, BarChart2, Ruler, Printer, FileText, ExternalLink } from "lucide-react";
+import { Activity, Clock, BarChart2, Ruler, Printer, FileText, ExternalLink, IdCard, Phone, Stethoscope, Building2, TrendingUp, PieChart, FolderOpen, Files } from "lucide-react";
 import { DOC_TYPE_HE, TREATMENT_TYPE_HE } from "@/lib/types";
 import { getClinicTemplate } from "@/lib/clinic-template-server";
 import { getHomeProgramConfig } from "@/lib/clinic-templates";
 import { Donut } from "@/components/charts";
+import { BackLink } from "@/components/PageHeader";
 import TreatmentForm from "./TreatmentForm";
 import VasChart from "./VasChart";
 import RomChart from "./RomChart";
@@ -115,86 +115,114 @@ export default async function PatientPage({ params }: { params: { id: string } }
       value: totalTreatments,
       label: "סה״כ טיפולים",
       tint: "bg-brand-50 text-brand",
+      ring: "ring-brand-100",
     },
     {
       icon: Clock,
       value: daysSinceLast === null ? "—" : daysSinceLast === 0 ? "היום" : daysSinceLast,
       label: "ימים מאז הטיפול האחרון",
       tint: "bg-amber-50 text-amber-600",
+      ring: "ring-amber-100",
     },
     {
       icon: BarChart2,
       value: template.has_scale && avgVas !== null ? avgVas : "—",
       label: template.has_scale ? `ממוצע ${template.scale_label}` : "מדד תוצאה",
       tint: "bg-emerald-50 text-emerald-600",
+      ring: "ring-emerald-100",
     },
     {
       icon: Ruler,
       value: totalMeasurements,
       label: "מדידות (ROM)",
-      tint: "bg-violet-50 text-violet-600",
+      tint: "bg-accent-50 text-accent-600",
+      ring: "ring-accent-100",
     },
   ];
 
-  return (
-    <div className="mx-auto max-w-5xl space-y-6">
-      <Link href="/patients" className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-slate-500 hover:text-brand">
-        <ArrowRight size={15} /> כל המטופלים
-      </Link>
+  const statusMeta: Record<string, { he: string; badge: string; dot: string }> = {
+    active:     { he: "פעיל",   badge: "badge-green", dot: "bg-emerald-500" },
+    on_hold:    { he: "בהמתנה", badge: "badge-amber", dot: "bg-amber-500" },
+    discharged: { he: "שוחרר",  badge: "badge-gray",  dot: "bg-ink-300" },
+  };
+  const status = statusMeta[patient.status] ?? statusMeta.active;
 
-      {/* Header card */}
-      <div className="card flex flex-wrap items-center gap-5 p-6">
-        <div className="grid h-14 w-14 place-items-center rounded-full bg-brand-50 text-xl font-bold text-brand">
-          {patient.first_name.charAt(0)}
-        </div>
-        <div className="min-w-0 flex-1">
-          <h1 className="text-xl font-bold text-slate-900">
-            {patient.first_name} {patient.last_name}
-            {patient.bituach_leumi_case && <span className="badge ms-2 bg-blue-50 text-blue-600 align-middle">ביטוח לאומי</span>}
-          </h1>
-          <p className="mt-0.5 text-sm text-slate-500">
-            {[age ? `גיל ${age}` : null, patient.kupah, patient.diagnosis].filter(Boolean).join(" · ") || "—"}
-          </p>
-        </div>
-        <div className="flex flex-col items-end gap-2">
-          <div className="text-sm text-slate-500" dir="ltr">{patient.phone ?? ""}</div>
-          <div className="flex items-center gap-2">
+  return (
+    <div className="mx-auto max-w-5xl space-y-6 animate-fade-in">
+      <BackLink href="/patients" label="כל המטופלים" />
+
+      {/* Patient header */}
+      <div className="card overflow-hidden">
+        <div className="flex flex-wrap items-start gap-5 p-6">
+          <span className="avatar h-16 w-16 text-2xl shadow-glow">
+            {patient.first_name.charAt(0)}
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h1 className="page-title">{patient.first_name} {patient.last_name}</h1>
+              <span className={`badge ${status.badge}`}>
+                <span className={`dot ${status.dot}`} /> {status.he}
+              </span>
+              {patient.bituach_leumi_case && <span className="badge badge-accent">ביטוח לאומי</span>}
+            </div>
+            {/* Key facts as chips */}
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              {age !== null && (
+                <span className="chip">גיל {age}</span>
+              )}
+              {patient.kupah && (
+                <span className="chip"><Building2 size={13} className="text-ink-400" /> {patient.kupah}</span>
+              )}
+              {patient.national_id && (
+                <span className="chip"><IdCard size={13} className="text-ink-400" /> <span dir="ltr">{patient.national_id}</span></span>
+              )}
+              {patient.phone && (
+                <span className="chip"><Phone size={13} className="text-ink-400" /> <span dir="ltr">{patient.phone}</span></span>
+              )}
+              {patient.diagnosis && (
+                <span className="chip"><Stethoscope size={13} className="text-ink-400" /> {patient.diagnosis}</span>
+              )}
+            </div>
+          </div>
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
             <EditPatientButton patient={patient} therapists={therapists} />
             <a
               href={`/api/reports/referrer?patient_id=${patient.id}&type=referrer&print=1`}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1.5 rounded-md border border-line px-3 py-1.5 text-[12px] font-semibold text-slate-600 hover:bg-slate-50"
+              className="btn-ghost btn-sm"
               title="ייצא דוח תוצאות לגורם המפנה"
             >
-              <FileText size={13} /> דוח גורם מפנה
+              <FileText size={14} /> דוח גורם מפנה
             </a>
             {patient.bituach_leumi_case && (
               <a
                 href={`/api/reports/referrer?patient_id=${patient.id}&type=bituach_leumi&print=1`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1.5 rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-[12px] font-semibold text-blue-700 hover:bg-blue-100"
+                className="btn-sm inline-flex items-center justify-center gap-2 rounded-lg border border-accent-200 bg-accent-50 font-semibold text-accent-700 transition-colors hover:bg-accent-100"
                 title="ייצא דוח ביטוח לאומי"
               >
-                <ExternalLink size={12} /> ביטוח לאומי
+                <ExternalLink size={13} /> ביטוח לאומי
               </a>
             )}
           </div>
         </div>
-      </div>
 
-      {/* KPI strip */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {kpis.map((k) => (
-          <div key={k.label} className="card p-4">
-            <div className={`mb-2.5 grid h-8 w-8 place-items-center rounded-lg ${k.tint}`}>
-              <k.icon size={16} />
+        {/* KPI strip — inset into the header card */}
+        <div className="grid grid-cols-2 divide-line border-t border-line sm:grid-cols-4 sm:divide-x sm:divide-x-reverse">
+          {kpis.map((k) => (
+            <div key={k.label} className="flex items-center gap-3 px-5 py-4">
+              <div className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ring-1 ${k.tint} ${k.ring}`}>
+                <k.icon size={18} />
+              </div>
+              <div className="min-w-0">
+                <div className="stat-number">{k.value}</div>
+                <div className="mt-0.5 truncate text-[12px] text-ink-500">{k.label}</div>
+              </div>
             </div>
-            <div className="page-title">{k.value}</div>
-            <div className="mt-0.5 text-[12px] text-slate-500">{k.label}</div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -202,42 +230,48 @@ export default async function PatientPage({ params }: { params: { id: string } }
         <div className="space-y-6 lg:col-span-2">
           <TreatmentForm patientId={patient.id} template={template} />
 
-          <div className="card">
-            <div className="border-b border-line px-5 py-4">
-              <h2 className="text-sm font-bold text-slate-900">היסטוריית טיפולים ({treatments?.length ?? 0})</h2>
+          <div className="card overflow-hidden">
+            <div className="card-head">
+              <h2 className="section-title flex items-center gap-2">
+                <Activity size={15} className="text-brand" /> היסטוריית טיפולים
+              </h2>
+              <span className="badge badge-gray">{treatments?.length ?? 0}</span>
             </div>
             {(treatments?.length ?? 0) === 0 ? (
-              <div className="px-5 py-10 text-center text-sm text-slate-400">אין עדיין טיפולים מתועדים למטופל זה.</div>
+              <div className="empty">
+                <div className="empty-icon"><Activity size={24} /></div>
+                <div className="text-sm text-ink-500">אין עדיין טיפולים מתועדים למטופל זה.</div>
+              </div>
             ) : (
               <ul className="divide-y divide-line">
                 {treatments!.map((t: any) => (
-                  <li key={t.id} className="px-5 py-4">
-                    <div className="mb-1.5 flex items-center gap-2.5">
-                      <span className="badge bg-brand-50 text-brand">{TREATMENT_TYPE_HE[t.type] ?? t.type}</span>
+                  <li key={t.id} className="px-5 py-4 transition-colors hover:bg-surface-2">
+                    <div className="mb-2 flex items-center gap-2.5">
+                      <span className="badge badge-brand">{TREATMENT_TYPE_HE[t.type] ?? t.type}</span>
                       {t.vas !== null && template.has_scale && (
-                        <span className={`badge ${t.vas >= 7 ? "bg-red-50 text-red-600" : t.vas >= 4 ? "bg-amber-50 text-amber-600" : "bg-emerald-50 text-emerald-600"}`}>
+                        <span className={`badge ${t.vas >= 7 ? "badge-red" : t.vas >= 4 ? "badge-amber" : "badge-green"}`}>
                           {template.scale_label} {t.vas}
                         </span>
                       )}
-                      <span className="ms-auto text-xs text-slate-400">
+                      <span className="ms-auto text-xs text-ink-400">
                         {new Date(t.treated_at).toLocaleDateString("he-IL", { day: "numeric", month: "long", year: "numeric" })}
                         {t.profiles?.full_name ? ` · ${t.profiles.full_name}` : ""}
                       </span>
                     </div>
                     {(t.note?.sections?.length || t.subjective || t.assessment || t.plan) && (
-                      <div className="space-y-1 text-[13px] leading-relaxed text-slate-600">
+                      <div className="space-y-1 text-[13px] leading-relaxed text-ink-600">
                         {t.note?.sections?.length
                           ? t.note.sections.map((s: any) => (
                               <p key={s.key}>
-                                <span className="font-semibold text-slate-700">{s.letter}:</span> {s.content}
+                                <span className="font-semibold text-ink-800">{s.letter}:</span> {s.content}
                               </p>
                             ))
                           : (
                             <>
-                              {t.subjective && <p><span className="font-semibold text-slate-700">S:</span> {t.subjective}</p>}
-                              {t.objective && <p><span className="font-semibold text-slate-700">O:</span> {t.objective}</p>}
-                              {t.assessment && <p><span className="font-semibold text-slate-700">A:</span> {t.assessment}</p>}
-                              {t.plan && <p><span className="font-semibold text-slate-700">P:</span> {t.plan}</p>}
+                              {t.subjective && <p><span className="font-semibold text-ink-800">S:</span> {t.subjective}</p>}
+                              {t.objective && <p><span className="font-semibold text-ink-800">O:</span> {t.objective}</p>}
+                              {t.assessment && <p><span className="font-semibold text-ink-800">A:</span> {t.assessment}</p>}
+                              {t.plan && <p><span className="font-semibold text-ink-800">P:</span> {t.plan}</p>}
                             </>
                           )}
                       </div>
@@ -253,39 +287,63 @@ export default async function PatientPage({ params }: { params: { id: string } }
         <div className="space-y-6">
           {/* Outcome scale trend */}
           {template.has_scale && vasSeries.length >= 2 && (
-            <div className="card p-5">
-              <h2 className="mb-3 text-sm font-bold text-slate-900">{template.scale_label} — מגמה</h2>
-              <VasChart
-                data={vasSeries}
-                scaleLabel={template.scale_label}
-                improvementLower={template.scale_improvement_lower}
-              />
+            <div className="card overflow-hidden">
+              <div className="card-head">
+                <h2 className="section-title flex items-center gap-2">
+                  <TrendingUp size={15} className="text-accent-600" /> {template.scale_label} — מגמה
+                </h2>
+              </div>
+              <div className="card-body">
+                <VasChart
+                  data={vasSeries}
+                  scaleLabel={template.scale_label}
+                  improvementLower={template.scale_improvement_lower}
+                />
+              </div>
             </div>
           )}
 
           {/* ROM progression */}
           {(measurements ?? []).some((m) => m.kind === "ROM") && (
-            <div className="card p-5">
-              <h2 className="mb-3 text-sm font-bold text-slate-900">טווח תנועה (ROM)</h2>
-              <RomChart measurements={measurements ?? []} />
+            <div className="card overflow-hidden">
+              <div className="card-head">
+                <h2 className="section-title flex items-center gap-2">
+                  <Ruler size={15} className="text-accent-600" /> טווח תנועה (ROM)
+                </h2>
+              </div>
+              <div className="card-body">
+                <RomChart measurements={measurements ?? []} />
+              </div>
             </div>
           )}
 
           {/* PROM trends — one card per scale */}
           {Array.from(promByScale.entries()).map(([label, series]) =>
             series.length >= 2 ? (
-              <div key={label} className="card p-5">
-                <h2 className="mb-3 text-sm font-bold text-slate-900">{label} — מגמה</h2>
-                <PromChart data={series} scaleLabel={label} improvementLower={false} />
+              <div key={label} className="card overflow-hidden">
+                <div className="card-head">
+                  <h2 className="section-title flex items-center gap-2">
+                    <TrendingUp size={15} className="text-accent-600" /> {label} — מגמה
+                  </h2>
+                </div>
+                <div className="card-body">
+                  <PromChart data={series} scaleLabel={label} improvementLower={false} />
+                </div>
               </div>
             ) : null
           )}
 
           {/* Treatment type distribution */}
           {typeDonut.length >= 2 && (
-            <div className="card p-5">
-              <h2 className="mb-3 text-sm font-bold text-slate-900">התפלגות סוגי טיפול</h2>
-              <Donut data={typeDonut} />
+            <div className="card overflow-hidden">
+              <div className="card-head">
+                <h2 className="section-title flex items-center gap-2">
+                  <PieChart size={15} className="text-brand" /> התפלגות סוגי טיפול
+                </h2>
+              </div>
+              <div className="card-body">
+                <Donut data={typeDonut} />
+              </div>
             </div>
           )}
 
@@ -313,12 +371,18 @@ export default async function PatientPage({ params }: { params: { id: string } }
           />
 
           {/* Documents */}
-          <div className="card">
-            <div className="border-b border-line px-5 py-4">
-              <h2 className="text-sm font-bold text-slate-900">מסמכים</h2>
+          <div className="card overflow-hidden">
+            <div className="card-head">
+              <h2 className="section-title flex items-center gap-2">
+                <Files size={15} className="text-ink-500" /> מסמכים
+              </h2>
+              {(docs?.length ?? 0) > 0 && <span className="badge badge-gray">{docs!.length}</span>}
             </div>
             {(docs?.length ?? 0) === 0 ? (
-              <div className="px-5 py-8 text-center text-[13px] text-slate-400">אין מסמכים למטופל זה.</div>
+              <div className="empty">
+                <div className="empty-icon"><FolderOpen size={24} /></div>
+                <div className="text-[13px] text-ink-500">אין מסמכים למטופל זה.</div>
+              </div>
             ) : (
               <ul className="divide-y divide-line">
                 {docs!.map((d) => (
@@ -327,17 +391,20 @@ export default async function PatientPage({ params }: { params: { id: string } }
                       href={`/api/documents/export?id=${d.id}&format=pdf-html&print=1`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="group flex items-center gap-3 px-5 py-3 transition-colors hover:bg-slate-50"
+                      className="group flex items-center gap-3 px-5 py-3.5 transition-colors hover:bg-surface-2"
                       title="פתיחת מסמך להדפסה / PDF"
                     >
+                      <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-surface-3 text-ink-500 transition-colors group-hover:bg-brand-50 group-hover:text-brand">
+                        <FileText size={16} />
+                      </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5">
-                          <span className="truncate text-[13px] font-semibold text-slate-800 group-hover:text-brand">{d.title}</span>
-                          <Printer size={12} className="shrink-0 text-slate-400 transition-colors group-hover:text-brand" />
+                          <span className="truncate text-[13px] font-semibold text-ink-800 group-hover:text-brand">{d.title}</span>
+                          <Printer size={12} className="shrink-0 text-ink-400 transition-colors group-hover:text-brand" />
                         </div>
-                        <div className="text-xs text-slate-400">{DOC_TYPE_HE[d.type] ?? d.type}</div>
+                        <div className="text-xs text-ink-400">{DOC_TYPE_HE[d.type] ?? d.type}</div>
                       </div>
-                      <span className={`badge ${d.status === "final" ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"}`}>
+                      <span className={`badge ${d.status === "final" ? "badge-green" : "badge-amber"}`}>
                         {d.status === "final" ? "סופי" : "טיוטה"}
                       </span>
                     </a>

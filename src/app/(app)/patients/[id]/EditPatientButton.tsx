@@ -60,9 +60,9 @@ export default function EditPatientButton({
     <>
       <button
         onClick={() => setOpen(true)}
-        className="flex items-center gap-1.5 rounded-md border border-line px-3 py-1.5 text-[12px] font-semibold text-slate-600 hover:bg-slate-50"
+        className="btn-ghost btn-sm"
       >
-        <Pencil size={13} /> עריכת פרטים
+        <Pencil size={14} /> עריכת פרטים
       </button>
 
       {open && (
@@ -71,14 +71,14 @@ export default function EditPatientButton({
           onClick={() => !saving && setOpen(false)}
         >
           <div
-            className="card w-full max-w-lg p-6"
+            className="modal w-full max-w-lg p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-5 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-slate-900">עריכת פרטי מטופל</h2>
+              <h2 className="text-lg font-bold text-ink-900">עריכת פרטי מטופל</h2>
               <button
                 onClick={() => setOpen(false)}
-                className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100"
+                className="btn-icon"
               >
                 <X size={18} />
               </button>
@@ -184,7 +184,7 @@ export default function EditPatientButton({
                   ))}
                 </select>
               </div>
-              <label className="flex items-center gap-2.5 self-end pb-2.5 text-sm text-slate-700">
+              <label className="flex items-center gap-2.5 self-end pb-2.5 text-sm text-ink-700">
                 <input
                   type="checkbox"
                   className="h-4 w-4 rounded border-line text-brand focus:ring-brand/30"

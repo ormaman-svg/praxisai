@@ -55,10 +55,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   if (list.length === 0) {
     return (
-      <div className="min-h-screen grid place-items-center p-6">
+      <div className="app-canvas min-h-screen grid place-items-center p-6">
         <div className="card max-w-md p-8 text-center">
-          <h1 className="text-lg font-bold text-slate-900 mb-2">אין שיוך לקליניקה</h1>
-          <p className="text-sm text-slate-500 leading-relaxed">
+          <div className="empty-icon mx-auto mb-4">🏥</div>
+          <h1 className="text-lg font-bold text-ink-900 mb-2">אין שיוך לקליניקה</h1>
+          <p className="text-sm text-ink-500 leading-relaxed">
             החשבון שלך פעיל אך אינו משויך לאף קליניקה. פנה למנהל הקליניקה לקבלת הזמנה.
           </p>
         </div>
@@ -132,7 +133,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     // dir=rtl on <html> → first flex child renders on the RIGHT
-    <div className="flex min-h-screen">
+    <div className="app-canvas flex min-h-screen">
       <Sidebar
         memberships={list}
         activeClinicId={active.clinic_id}
@@ -142,7 +143,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         clinicTypeIcon={clinicTemplate.icon}
         clinicTypeLabel={clinicTemplate.name}
       />
-      <main className="flex-1 min-w-0 p-6 lg:p-8">{children}</main>
+      <main className="flex-1 min-w-0 p-5 lg:p-8">{children}</main>
       <OnboardingCenter
         steps={onboardingSteps}
         initialTourDone={onboardingRow.data?.tour_done ?? false}
