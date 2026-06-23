@@ -235,7 +235,7 @@ export default async function PatientPage({ params }: { params: { id: string } }
               <h2 className="section-title flex items-center gap-2">
                 <Activity size={15} className="text-brand" /> היסטוריית טיפולים
               </h2>
-              <span className="badge badge-gray">{treatments?.length ?? 0}</span>
+              <span className="badge badge-neutral">{treatments?.length ?? 0}</span>
             </div>
             {(treatments?.length ?? 0) === 0 ? (
               <div className="empty-state">
@@ -376,10 +376,10 @@ export default async function PatientPage({ params }: { params: { id: string } }
               <h2 className="section-title flex items-center gap-2">
                 <Files size={15} className="text-ink-500" /> מסמכים
               </h2>
-              {(docs?.length ?? 0) > 0 && <span className="badge badge-gray">{docs!.length}</span>}
+              {(docs?.length ?? 0) > 0 && <span className="badge badge-neutral">{docs!.length}</span>}
             </div>
             {(docs?.length ?? 0) === 0 ? (
-              <div className="empty">
+              <div className="empty-state">
                 <div className="empty-icon"><FolderOpen size={24} /></div>
                 <div className="text-[13px] text-ink-500">אין מסמכים למטופל זה.</div>
               </div>

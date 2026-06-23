@@ -60,12 +60,12 @@ const REVOKE_WINDOW_MS = 2 * 24 * 60 * 60 * 1000;
 // Primary badge marks whether the contact is a registered (active) patient,
 // not the bot/human channel state.
 function patientBadge(c: Conversation): { label: string; cls: string } {
-  if (!c.patient_id || !c.patients) return { label: "לא רשום", cls: "bg-amber-50 text-amber-600" };
+  if (!c.patient_id || !c.patients) return { label: "לא רשום", cls: "badge-warning" };
   switch (c.patients.status) {
-    case "active": return { label: "מטופל פעיל", cls: "bg-emerald-50 text-emerald-600" };
-    case "discharged": return { label: "שוחרר", cls: "bg-slate-100 text-slate-400" };
-    case "on_hold": return { label: "בהמתנה", cls: "bg-slate-100 text-slate-500" };
-    default: return { label: "מטופל", cls: "bg-emerald-50 text-emerald-600" };
+    case "active": return { label: "מטופל פעיל", cls: "badge-success" };
+    case "discharged": return { label: "שוחרר", cls: "badge-neutral" };
+    case "on_hold": return { label: "בהמתנה", cls: "badge-neutral" };
+    default: return { label: "מטופל", cls: "badge-success" };
   }
 }
 
@@ -121,7 +121,7 @@ function MediaContent({ storagePath, mediaType }: { storagePath: string; mediaTy
 
   const filename = storagePath.split("/").pop() ?? "media";
 
-  if (!url) return <Loader2 size={16} className="animate-spin text-slate-400" />;
+  if (!url) return <Loader2 size={16} className="animate-spin text-ink-400" />;
 
   if (mediaType === "image") {
     return (
@@ -158,9 +158,9 @@ function MediaContent({ storagePath, mediaType }: { storagePath: string; mediaTy
         <video src={url} controls className="w-full rounded-lg" preload="metadata">
           <source src={url} />
         </video>
-        <div className="mt-1 flex items-center justify-between text-[11px] text-slate-400">
+        <div className="mt-1 flex items-center justify-between text-[11px] text-ink-400">
           <span className="flex items-center gap-1"><Play size={10} /> סרטון</span>
-          <button onClick={() => downloadFile(url, filename)} className="flex items-center gap-1 hover:text-slate-600"><Download size={11} /> הורדה</button>
+          <button onClick={() => downloadFile(url, filename)} className="flex items-center gap-1 hover:text-ink-600"><Download size={11} /> הורדה</button>
         </div>
       </div>
     );
@@ -168,9 +168,9 @@ function MediaContent({ storagePath, mediaType }: { storagePath: string; mediaTy
   if (mediaType === "audio") {
     return (
       <div className="flex items-center gap-2">
-        <FileAudio size={16} className="shrink-0 text-slate-400" />
+        <FileAudio size={16} className="shrink-0 text-ink-400" />
         <audio src={url} controls className="h-8 w-40" preload="metadata" />
-        <button onClick={() => downloadFile(url, filename)} title="הורדה" className="text-slate-400 hover:text-slate-600"><Download size={14} /></button>
+        <button onClick={() => downloadFile(url, filename)} title="הורדה" className="text-ink-400 hover:text-ink-600"><Download size={14} /></button>
       </div>
     );
   }
@@ -178,6 +178,21 @@ function MediaContent({ storagePath, mediaType }: { storagePath: string; mediaTy
     <button onClick={() => downloadFile(url, filename)} className="flex items-center gap-1 underline">
       <Download size={13} /> הורדת קובץ
     </button>
+  );
+}
+
+/* ── Avatar helper ── */
+function Avatar({ name, size = "md" }: { name: string; size?: "sm" | "md" }) {
+  const initials = name
+    .split(" ")
+    .map((w) => w[0] ?? "")
+    .slice(0, 2)
+    .join("");
+  const dim = size === "sm" ? "h-8 w-8 text-[11px]" : "h-10 w-10 text-[13px]";
+  return (
+    <span className={`inline-flex shrink-0 items-center justify-center rounded-full bg-brand-100 font-bold text-brand-700 ${dim}`}>
+      {initials || "?"}
+    </span>
   );
 }
 
@@ -430,22 +445,38 @@ export default function InboxClient({
       })
     : conversations;
 
+  /* ── timestamp helper ── */
+  function shortTime(iso: string) {
+    const d = new Date(iso);
+    const today = new Date();
+    if (d.toDateString() === today.toDateString()) {
+      return d.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
+    }
+    return d.toLocaleDateString("he-IL", { day: "numeric", month: "short" });
+  }
+
   return (
-    <div className="mx-auto max-w-6xl">
-      <div className="mb-5 flex items-center justify-between">
-        <h1 className="page-title">תיבת הודעות</h1>
-        <button onClick={() => setNewChatOpen(true)} className="btn-primary !py-2 !text-[13px]">
-          <MessageSquarePlus size={16} /> הודעה חדשה
+    <div className="mx-auto max-w-6xl space-y-4">
+      {/* Page header */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="eyebrow">תקשורת</p>
+          <h1 className="page-title">תיבת הודעות</h1>
+        </div>
+        <button onClick={() => setNewChatOpen(true)} className="btn-primary btn-sm gap-1.5">
+          <MessageSquarePlus size={15} /> הודעה חדשה
         </button>
       </div>
 
-      <div className="card flex h-[calc(100vh-12rem)] overflow-hidden">
-        {/* Conversation list */}
-        <div className={`flex w-full shrink-0 flex-col border-e border-line sm:w-72 ${activeId ? "hidden sm:flex" : "flex"}`}>
-          {/* Search input */}
-          <div className="border-b border-line px-3 py-2">
+      {/* Two-column shell */}
+      <div className="card flex h-[calc(100vh-13rem)] overflow-hidden">
+
+        {/* ── Conversation list (320px) ── */}
+        <div className={`flex w-full shrink-0 flex-col border-e border-line sm:w-80 ${activeId ? "hidden sm:flex" : "flex"}`}>
+          {/* Search */}
+          <div className="border-b border-line px-3 py-3">
             <div className="relative">
-              <Search size={14} className="absolute end-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Search size={14} className="absolute end-3 top-1/2 -translate-y-1/2 text-ink-400 pointer-events-none" />
               <input
                 className="input w-full pe-8 !py-1.5 text-[13px]"
                 placeholder="חיפוש לפי שם, טלפון…"
@@ -454,92 +485,132 @@ export default function InboxClient({
               />
             </div>
           </div>
+
           <div className="flex-1 overflow-y-auto">
-          {conversations.length === 0 ? (
-            <div className="grid h-full place-items-center px-6 text-center text-[13px] text-slate-400">
-              <div>
-                <MessageCircle size={28} className="mx-auto mb-2 text-slate-300" />
-                אין עדיין שיחות.
+            {conversations.length === 0 ? (
+              <div className="grid h-full place-items-center px-6 text-center">
+                <div>
+                  <MessageCircle size={32} className="mx-auto mb-3 text-ink-200" />
+                  <p className="text-[13px] text-ink-400">אין עדיין שיחות.</p>
+                </div>
               </div>
-            </div>
-          ) : filteredConversations.length === 0 ? (
-            <div className="px-4 py-8 text-center text-[13px] text-slate-400">
-              לא נמצאו תוצאות עבור &quot;{search}&quot;
-            </div>
-          ) : (
-            <ul className="divide-y divide-line">
-              {filteredConversations.map((c) => (
-                <li key={c.id}>
-                  <button
-                    onClick={() => setActiveId(c.id)}
-                    className={`w-full px-4 py-3 text-start transition-colors hover:bg-slate-50 ${activeId === c.id ? "bg-brand-50/40" : ""}`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="truncate text-[13.5px] font-semibold text-slate-800">{name(c)}</span>
-                      <span className={`badge shrink-0 ${patientBadge(c).cls}`}>{patientBadge(c).label}</span>
-                    </div>
-                    <div className="mt-0.5 flex items-center gap-1.5">
-                      {displayPhone(c) && (
-                        <span className="truncate text-[11.5px] text-slate-400" dir="ltr">{displayPhone(c)}</span>
-                      )}
-                      {c.status === "human" && (
-                        <span className="badge shrink-0 bg-amber-50 text-amber-600">ממתין לטיפול</span>
-                      )}
-                      {c.status === "closed" && (
-                        <span className="badge shrink-0 bg-slate-100 text-slate-400">סגור</span>
-                      )}
-                    </div>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
+            ) : filteredConversations.length === 0 ? (
+              <div className="px-4 py-8 text-center text-[13px] text-ink-400">
+                לא נמצאו תוצאות עבור &quot;{search}&quot;
+              </div>
+            ) : (
+              <ul className="divide-y divide-line">
+                {filteredConversations.map((c) => {
+                  const isActive = activeId === c.id;
+                  const badge = patientBadge(c);
+                  const hasUnread = c.status === "human";
+                  return (
+                    <li key={c.id}>
+                      <button
+                        onClick={() => setActiveId(c.id)}
+                        className={`w-full px-4 py-3.5 text-start transition-colors hover:bg-brand-50/30 ${isActive ? "bg-brand-50/50 border-e-2 border-brand" : ""}`}
+                      >
+                        <div className="flex items-start gap-3">
+                          {/* Avatar */}
+                          <div className="relative mt-0.5">
+                            <Avatar name={name(c)} size="sm" />
+                            {hasUnread && (
+                              <span className="absolute -end-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-electric-500 ring-2 ring-white" />
+                            )}
+                          </div>
+                          {/* Info */}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-1">
+                              <span className={`truncate text-[13px] font-semibold ${isActive ? "text-brand-700" : "text-ink-800"}`}>{name(c)}</span>
+                              {c.last_message_at && (
+                                <span className="shrink-0 text-[10.5px] text-ink-300">{shortTime(c.last_message_at)}</span>
+                              )}
+                            </div>
+                            <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                              <span className={`badge ${badge.cls}`}>{badge.label}</span>
+                              {c.status === "human" && (
+                                <span className="badge badge-warning">ממתין לטיפול</span>
+                              )}
+                              {c.status === "closed" && (
+                                <span className="badge badge-neutral">סגור</span>
+                              )}
+                              {c.status === "bot" && (
+                                <span className="badge badge-brand">בוט</span>
+                              )}
+                            </div>
+                            {displayPhone(c) && (
+                              <p className="mt-0.5 truncate text-[11px] text-ink-300" dir="ltr">{displayPhone(c)}</p>
+                            )}
+                          </div>
+                        </div>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </div>
         </div>
 
-        {/* Thread */}
+        {/* ── Message thread (flex-1) ── */}
         {active ? (
           <div className="flex min-w-0 flex-1 flex-col">
-            <div className="flex items-center gap-3 border-b border-line px-5 py-3">
-              <button onClick={() => setActiveId(null)} className="rounded-md p-1 text-slate-400 hover:bg-slate-100 sm:hidden">
-                <ArrowLeft size={18} />
+            {/* Thread header */}
+            <div className="flex items-center gap-3 border-b border-line bg-white px-5 py-3.5">
+              {/* Back (mobile) */}
+              <button onClick={() => setActiveId(null)} className="rounded-lg p-1.5 text-ink-400 hover:bg-ink-100 sm:hidden">
+                <ArrowLeft size={17} />
               </button>
+              {/* Avatar */}
+              <Avatar name={name(active)} />
+              {/* Name + status */}
               <div className="min-w-0 flex-1">
                 {active.patient_id ? (
                   <Link
                     href={`/patients/${active.patient_id}`}
-                    className="group inline-flex items-center gap-1.5 truncate text-[14px] font-bold text-slate-900 hover:text-brand"
+                    className="group inline-flex items-center gap-1.5 truncate text-[14px] font-bold text-ink-900 hover:text-brand"
                   >
                     {name(active)}
-                    <ArrowUpLeft size={13} className="shrink-0 text-slate-400 transition-colors group-hover:text-brand" />
+                    <ArrowUpLeft size={13} className="shrink-0 text-ink-300 transition-colors group-hover:text-brand" />
                   </Link>
                 ) : (
-                  <div className="truncate text-[14px] font-bold text-slate-900">{name(active)}</div>
+                  <div className="truncate text-[14px] font-bold text-ink-900">{name(active)}</div>
                 )}
-                {displayPhone(active) && (
-                  <div className="text-[11.5px] text-slate-400" dir="ltr">{displayPhone(active)}</div>
-                )}
+                <div className="flex items-center gap-2 mt-0.5">
+                  {/* Channel status badge */}
+                  {active.status === "bot" && <span className="badge badge-brand">בוט פעיל</span>}
+                  {active.status === "human" && <span className="badge badge-warning">ממתין לנציג</span>}
+                  {active.status === "closed" && <span className="badge badge-neutral">סגור</span>}
+                  {/* Patient status badge */}
+                  <span className={`badge ${patientBadge(active).cls}`}>{patientBadge(active).label}</span>
+                  {displayPhone(active) && (
+                    <span className="text-[11.5px] text-ink-300" dir="ltr">{displayPhone(active)}</span>
+                  )}
+                </div>
               </div>
-              {active.status === "bot" ? (
-                <button onClick={() => setStatus("human")} className="btn-ghost !border !border-line !py-1.5 !text-[12.5px]">
-                  <UserRound size={14} /> קח על עצמי
+              {/* Controls */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                {active.status === "bot" ? (
+                  <button onClick={() => setStatus("human")} className="btn-ghost btn-sm gap-1.5">
+                    <UserRound size={13} /> קח על עצמי
+                  </button>
+                ) : active.status === "human" ? (
+                  <button onClick={() => setStatus("bot")} className="btn-ghost btn-sm gap-1.5">
+                    <Bot size={13} /> החזר לבוט
+                  </button>
+                ) : null}
+                <button
+                  onClick={() => deleteConversation(active.id)}
+                  disabled={deletingId === active.id}
+                  title="מחק שיחה"
+                  className="rounded-lg p-1.5 text-ink-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                >
+                  {deletingId === active.id ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
                 </button>
-              ) : active.status === "human" ? (
-                <button onClick={() => setStatus("bot")} className="btn-ghost !border !border-line !py-1.5 !text-[12.5px]">
-                  <Bot size={14} /> החזר לבוט
-                </button>
-              ) : null}
-              <button
-                onClick={() => deleteConversation(active.id)}
-                disabled={deletingId === active.id}
-                title="מחק שיחה"
-                className="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
-              >
-                {deletingId === active.id ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
-              </button>
+              </div>
             </div>
 
-            {/* Add-patient banner — shown when this conversation has no linked patient */}
+            {/* Add-patient banner */}
             {!active.patient_id && (
               <div className="border-b border-amber-100 bg-amber-50/60 px-5 py-2.5">
                 {!showAddPatient ? (
@@ -551,31 +622,13 @@ export default function InboxClient({
                   </button>
                 ) : (
                   <form onSubmit={addPatient} className="flex flex-wrap items-center gap-2">
-                    <input
-                      required
-                      className="input !py-1 w-28 text-[12.5px]"
-                      placeholder="שם פרטי"
-                      value={addFirst}
-                      onChange={(e) => setAddFirst(e.target.value)}
-                    />
-                    <input
-                      required
-                      className="input !py-1 w-28 text-[12.5px]"
-                      placeholder="שם משפחה"
-                      value={addLast}
-                      onChange={(e) => setAddLast(e.target.value)}
-                    />
-                    <input
-                      dir="ltr"
-                      className="input !py-1 w-28 text-[12.5px]"
-                      placeholder="טלפון"
-                      value={addPhone}
-                      onChange={(e) => setAddPhone(e.target.value)}
-                    />
-                    <button type="submit" disabled={addSaving} className="btn-primary !py-1 !text-[12px]">
+                    <input required className="input !py-1 w-28 text-[12.5px]" placeholder="שם פרטי" value={addFirst} onChange={(e) => setAddFirst(e.target.value)} />
+                    <input required className="input !py-1 w-28 text-[12.5px]" placeholder="שם משפחה" value={addLast} onChange={(e) => setAddLast(e.target.value)} />
+                    <input dir="ltr" className="input !py-1 w-28 text-[12.5px]" placeholder="טלפון" value={addPhone} onChange={(e) => setAddPhone(e.target.value)} />
+                    <button type="submit" disabled={addSaving} className="btn-primary btn-sm">
                       {addSaving ? <Loader2 size={12} className="animate-spin" /> : "הוסף"}
                     </button>
-                    <button type="button" onClick={() => setShowAddPatient(false)} className="rounded p-1 text-slate-400 hover:text-slate-600">
+                    <button type="button" onClick={() => setShowAddPatient(false)} className="rounded p-1 text-ink-400 hover:text-ink-600">
                       <X size={14} />
                     </button>
                     {addError && <span className="text-[11.5px] text-red-600">{addError}</span>}
@@ -584,89 +637,101 @@ export default function InboxClient({
               </div>
             )}
 
-            <div ref={scrollRef} className="flex-1 space-y-2.5 overflow-y-auto bg-slate-50/50 px-5 py-4">
+            {/* Messages */}
+            <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto bg-slate-50/50 px-5 py-5">
               {messages.map((m) => {
-                const out = m.direction === "outbound";
+                const isBot = m.direction === "outbound";
                 const quoted = m.reply_to_id ? messages.find((x) => x.id === m.reply_to_id) : null;
                 return (
-                <div key={m.id} className={`group flex items-end gap-1 ${out ? "justify-start" : "justify-end"}`}>
-                  {/* Action menu trigger (appears on hover) */}
-                  <div className="relative self-center">
-                    <button
-                      onClick={() => setMenuMsgId(menuMsgId === m.id ? null : m.id)}
-                      className="rounded-full p-1 text-slate-300 opacity-0 transition-opacity hover:bg-slate-200 hover:text-slate-600 group-hover:opacity-100"
-                      title="פעולות"
-                    >
-                      <ChevronDown size={15} />
-                    </button>
-                    {menuMsgId === m.id && (
-                      <>
-                        <div className="fixed inset-0 z-10" onClick={() => setMenuMsgId(null)} />
-                        <div className="absolute z-20 mt-1 min-w-[150px] overflow-hidden rounded-xl border border-line bg-white py-1 text-[13px] shadow-lg start-0">
-                          <button onClick={() => { setReplyTo(m); setMenuMsgId(null); }} className="flex w-full items-center gap-2 px-3 py-1.5 text-start hover:bg-slate-50">
-                            <CornerUpLeft size={14} className="text-slate-400" /> תגובה
-                          </button>
-                          <button onClick={() => { setForwardMsg(m); setMenuMsgId(null); }} className="flex w-full items-center gap-2 px-3 py-1.5 text-start hover:bg-slate-50">
-                            <Share2 size={14} className="text-slate-400" /> העברה
-                          </button>
-                          {m.body && (
-                            <button onClick={() => copyMessage(m)} className="flex w-full items-center gap-2 px-3 py-1.5 text-start hover:bg-slate-50">
-                              <Copy size={14} className="text-slate-400" /> העתקה
-                            </button>
-                          )}
-                          <button onClick={() => deleteMessage(m, "me")} className="flex w-full items-center gap-2 px-3 py-1.5 text-start text-red-600 hover:bg-red-50">
-                            <Trash2 size={14} /> מחק עבורי
-                          </button>
-                          {canRevoke(m) && (
-                            <button onClick={() => deleteMessage(m, "everyone")} className="flex w-full items-center gap-2 px-3 py-1.5 text-start text-red-600 hover:bg-red-50">
-                              <Trash2 size={14} /> מחק אצל כולם
-                            </button>
-                          )}
-                        </div>
-                      </>
+                  <div key={m.id} className={`group flex items-end gap-2 ${isBot ? "justify-start" : "justify-end"}`}>
+                    {/* Bot avatar */}
+                    {isBot && (
+                      <span className="mb-1 grid h-7 w-7 shrink-0 place-items-center rounded-full bg-brand-100 text-brand">
+                        <Bot size={14} />
+                      </span>
                     )}
-                  </div>
 
-                  <div className={`max-w-[75%] rounded-2xl px-3.5 py-2 text-[13px] leading-relaxed ${
-                    out ? "bg-brand text-white" : "border border-line bg-white text-slate-700"
-                  }`}>
-                    {quoted && (
-                      <div className={`mb-1.5 truncate rounded-lg border-s-2 px-2 py-1 text-[11.5px] ${
-                        out ? "border-white/50 bg-white/15 text-white/80" : "border-brand/50 bg-slate-50 text-slate-500"
-                      }`}>
-                        {quoted.body ?? "📎 מדיה"}
+                    {/* Message action menu */}
+                    <div className="relative self-center order-first">
+                      <button
+                        onClick={() => setMenuMsgId(menuMsgId === m.id ? null : m.id)}
+                        className="rounded-full p-1 text-ink-200 opacity-0 transition-opacity hover:bg-ink-100 hover:text-ink-600 group-hover:opacity-100"
+                        title="פעולות"
+                      >
+                        <ChevronDown size={14} />
+                      </button>
+                      {menuMsgId === m.id && (
+                        <>
+                          <div className="fixed inset-0 z-10" onClick={() => setMenuMsgId(null)} />
+                          <div className="absolute z-20 mt-1 min-w-[150px] overflow-hidden rounded-xl border border-line bg-white py-1 text-[13px] shadow-lg start-0">
+                            <button onClick={() => { setReplyTo(m); setMenuMsgId(null); }} className="flex w-full items-center gap-2 px-3 py-1.5 text-start hover:bg-slate-50">
+                              <CornerUpLeft size={14} className="text-ink-400" /> תגובה
+                            </button>
+                            <button onClick={() => { setForwardMsg(m); setMenuMsgId(null); }} className="flex w-full items-center gap-2 px-3 py-1.5 text-start hover:bg-slate-50">
+                              <Share2 size={14} className="text-ink-400" /> העברה
+                            </button>
+                            {m.body && (
+                              <button onClick={() => copyMessage(m)} className="flex w-full items-center gap-2 px-3 py-1.5 text-start hover:bg-slate-50">
+                                <Copy size={14} className="text-ink-400" /> העתקה
+                              </button>
+                            )}
+                            <button onClick={() => deleteMessage(m, "me")} className="flex w-full items-center gap-2 px-3 py-1.5 text-start text-red-600 hover:bg-red-50">
+                              <Trash2 size={14} /> מחק עבורי
+                            </button>
+                            {canRevoke(m) && (
+                              <button onClick={() => deleteMessage(m, "everyone")} className="flex w-full items-center gap-2 px-3 py-1.5 text-start text-red-600 hover:bg-red-50">
+                                <Trash2 size={14} /> מחק אצל כולם
+                              </button>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Bubble */}
+                    <div className={`max-w-[72%] rounded-2xl px-3.5 py-2.5 text-[13px] leading-relaxed shadow-sm ${
+                      isBot
+                        ? "rounded-ss-sm bg-brand-50 text-ink-800"
+                        : "rounded-se-sm bg-ink-100 text-ink-900"
+                    }`}>
+                      {quoted && (
+                        <div className={`mb-1.5 truncate rounded-lg border-s-2 px-2 py-1 text-[11.5px] ${
+                          isBot ? "border-brand/50 bg-brand-100/50 text-ink-500" : "border-ink-400/40 bg-ink-200/40 text-ink-500"
+                        }`}>
+                          {quoted.body ?? "📎 מדיה"}
+                        </div>
+                      )}
+                      {m.media_url && m.media_type && (
+                        <div className="mb-1.5">
+                          <MediaContent storagePath={m.media_url} mediaType={m.media_type} />
+                        </div>
+                      )}
+                      {m.body && <div style={{ whiteSpace: "pre-wrap" }}>{m.body}</div>}
+                      <div className="mt-0.5 text-[10px] text-ink-400" dir="ltr">
+                        {new Date(m.created_at).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}
                       </div>
-                    )}
-                    {m.media_url && m.media_type && (
-                      <div className="mb-1.5">
-                        <MediaContent storagePath={m.media_url} mediaType={m.media_type} />
-                      </div>
-                    )}
-                    {m.body && <div style={{ whiteSpace: "pre-wrap" }}>{m.body}</div>}
-                    <div className={`mt-0.5 text-[10px] ${out ? "text-white/60" : "text-slate-400"}`} dir="ltr">
-                      {new Date(m.created_at).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}
                     </div>
                   </div>
-                </div>
                 );
               })}
             </div>
 
+            {/* Compose area */}
             {active.status === "human" ? (
-              <div className="border-t border-line">
+              <div className="border-t border-line bg-white">
                 {replyTo && (
                   <div className="flex items-center gap-2 border-b border-line bg-slate-50 px-4 py-2">
                     <CornerUpLeft size={14} className="shrink-0 text-brand" />
                     <div className="min-w-0 flex-1 border-s-2 border-brand/50 ps-2">
                       <div className="text-[11px] font-semibold text-brand">תגובה</div>
-                      <div className="truncate text-[12px] text-slate-500">{replyTo.body ?? "📎 מדיה"}</div>
+                      <div className="truncate text-[12px] text-ink-400">{replyTo.body ?? "📎 מדיה"}</div>
                     </div>
-                    <button onClick={() => setReplyTo(null)} className="rounded p-1 text-slate-400 hover:text-slate-600">
+                    <button onClick={() => setReplyTo(null)} className="rounded p-1 text-ink-400 hover:text-ink-600">
                       <X size={14} />
                     </button>
                   </div>
                 )}
-                <div className="flex items-center gap-2 px-4 py-3">
+                <div className="flex items-center gap-2.5 px-4 py-3">
                   <input
                     className="input flex-1"
                     placeholder="כתבו הודעה…"
@@ -680,7 +745,7 @@ export default function InboxClient({
                 </div>
               </div>
             ) : (
-              <div className="border-t border-line px-4 py-3 text-center text-[12px] text-slate-400">
+              <div className="border-t border-line bg-white px-4 py-3.5 text-center text-[12px] text-ink-400">
                 {active.status === "bot"
                   ? "הבוט מנהל את השיחה. לחצו \"קח על עצמי\" כדי לכתוב ידנית."
                   : "השיחה סגורה."}
@@ -688,12 +753,16 @@ export default function InboxClient({
             )}
           </div>
         ) : (
-          <div className="hidden flex-1 place-items-center text-[13px] text-slate-400 sm:grid">
-            בחרו שיחה כדי לצפות בהודעות
+          <div className="hidden flex-1 flex-col items-center justify-center gap-3 text-center sm:flex">
+            <span className="grid h-14 w-14 place-items-center rounded-2xl bg-brand-50 text-brand">
+              <MessageCircle size={26} />
+            </span>
+            <p className="text-[13px] text-ink-400">בחרו שיחה מהרשימה כדי לצפות בהודעות</p>
           </div>
         )}
       </div>
 
+      {/* Modals */}
       {forwardMsg && (
         <ForwardModal
           msg={forwardMsg}
@@ -713,15 +782,18 @@ export default function InboxClient({
         />
       )}
 
+      {/* Toast notification */}
       {toast && (
         <button
           onClick={() => { setActiveId(toast.convId); setToast(null); }}
-          className="fixed bottom-5 start-5 z-[70] flex items-center gap-2.5 rounded-xl border border-line bg-white px-4 py-3 shadow-pop transition hover:shadow-card-hover"
+          className="fixed bottom-5 start-5 z-[70] flex items-center gap-3 rounded-xl border border-line bg-white px-4 py-3 shadow-pop transition hover:shadow-card-hover"
         >
-          <span className="grid h-8 w-8 place-items-center rounded-full bg-brand-50 text-brand-600"><MessageCircle size={16} /></span>
+          <span className="grid h-9 w-9 place-items-center rounded-full bg-brand-50 text-brand">
+            <MessageCircle size={17} />
+          </span>
           <span className="text-start">
-            <span className="block text-[13px] font-semibold text-slate-900">הודעה חדשה מ{toast.label}</span>
-            <span className="block text-[11.5px] text-slate-400">לחצו לפתיחת השיחה</span>
+            <span className="block text-[13px] font-semibold text-ink-900">הודעה חדשה מ{toast.label}</span>
+            <span className="block text-[11.5px] text-ink-400">לחצו לפתיחת השיחה</span>
           </span>
         </button>
       )}
@@ -767,43 +839,45 @@ function ForwardModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={onClose}>
-      <div className="card w-full max-w-md p-5" onClick={(e) => e.stopPropagation()}>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-[15px] font-bold text-slate-900">העברת הודעה</h2>
-          <button onClick={onClose} className="rounded p-1 text-slate-400 hover:text-slate-600"><X size={16} /></button>
+    <div className="overlay" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-head">
+          <h2 className="section-title">העברת הודעה</h2>
+          <button onClick={onClose} className="rounded-lg p-1.5 text-ink-400 hover:bg-ink-100"><X size={16} /></button>
         </div>
-        <div className="mb-3 truncate rounded-lg bg-slate-50 px-3 py-2 text-[12.5px] text-slate-500">
-          {msg.body ?? "📎 מדיה"}
-        </div>
-
-        <div className="mb-2 flex items-end gap-2">
-          <div className="flex-1">
-            <label className="mb-1 block text-[12px] text-slate-500">העברה למספר חדש</label>
-            <input dir="ltr" className="input w-full !py-1.5 text-[13px]" placeholder="05XXXXXXXX" value={phone} onChange={(e) => setPhone(e.target.value)} />
+        <div className="modal-body space-y-4">
+          <div className="truncate rounded-lg bg-ink-50 px-3 py-2 text-[12.5px] text-ink-500">
+            {msg.body ?? "📎 מדיה"}
           </div>
-          <button disabled={busy || !phone.trim()} onClick={() => forward({ to_phone: phone.trim() })} className="btn-primary !py-2 !text-[12.5px]">שלח</button>
-        </div>
 
-        <div className="mb-1 mt-3 text-[12px] text-slate-500">או בחרו שיחה קיימת</div>
-        <input className="input mb-2 w-full !py-1.5 text-[13px]" placeholder="חיפוש שיחה…" value={q} onChange={(e) => setQ(e.target.value)} />
-        <div className="max-h-56 overflow-y-auto rounded-lg border border-line">
-          {list.length === 0 ? (
-            <div className="px-3 py-4 text-center text-[12.5px] text-slate-400">אין שיחות</div>
-          ) : (
-            <ul className="divide-y divide-line">
-              {list.map((c) => (
-                <li key={c.id}>
-                  <button disabled={busy} onClick={() => forward({ to_conversation_id: c.id })} className="flex w-full items-center justify-between px-3 py-2 text-start hover:bg-slate-50">
-                    <span className="truncate text-[13px] text-slate-700">{convLabel(c)}</span>
-                    {busy && <Loader2 size={13} className="animate-spin text-slate-400" />}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
+          <div className="flex items-end gap-2">
+            <div className="flex-1">
+              <label className="label">העברה למספר חדש</label>
+              <input dir="ltr" className="input w-full" placeholder="05XXXXXXXX" value={phone} onChange={(e) => setPhone(e.target.value)} />
+            </div>
+            <button disabled={busy || !phone.trim()} onClick={() => forward({ to_phone: phone.trim() })} className="btn-primary">שלח</button>
+          </div>
+
+          <p className="text-[12px] text-ink-400">או בחרו שיחה קיימת</p>
+          <input className="input w-full" placeholder="חיפוש שיחה…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <div className="max-h-48 overflow-y-auto rounded-lg border border-line">
+            {list.length === 0 ? (
+              <div className="px-3 py-4 text-center text-[12.5px] text-ink-400">אין שיחות</div>
+            ) : (
+              <ul className="divide-y divide-line">
+                {list.map((c) => (
+                  <li key={c.id}>
+                    <button disabled={busy} onClick={() => forward({ to_conversation_id: c.id })} className="flex w-full items-center justify-between px-3 py-2.5 text-start hover:bg-slate-50">
+                      <span className="truncate text-[13px] text-ink-700">{convLabel(c)}</span>
+                      {busy && <Loader2 size={13} className="animate-spin text-ink-400" />}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          {err && <p className="text-[12px] text-red-600">{err}</p>}
         </div>
-        {err && <p className="mt-2 text-[12px] text-red-600">{err}</p>}
       </div>
     </div>
   );
@@ -835,19 +909,25 @@ function NewChatModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={onClose}>
-      <form className="card w-full max-w-md p-5" onClick={(e) => e.stopPropagation()} onSubmit={submit}>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-[15px] font-bold text-slate-900">הודעה חדשה</h2>
-          <button type="button" onClick={onClose} className="rounded p-1 text-slate-400 hover:text-slate-600"><X size={16} /></button>
+    <div className="overlay" onClick={onClose}>
+      <form className="modal" onClick={(e) => e.stopPropagation()} onSubmit={submit}>
+        <div className="modal-head">
+          <h2 className="section-title">הודעה חדשה</h2>
+          <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-ink-400 hover:bg-ink-100"><X size={16} /></button>
         </div>
-        <label className="mb-1 block text-[12px] text-slate-500">מספר טלפון</label>
-        <input dir="ltr" required className="input mb-3 w-full" placeholder="05XXXXXXXX" value={phone} onChange={(e) => setPhone(e.target.value)} />
-        <label className="mb-1 block text-[12px] text-slate-500">הודעה</label>
-        <textarea required className="input mb-3 h-24 w-full resize-none" placeholder="כתבו הודעה…" value={text} onChange={(e) => setText(e.target.value)} />
-        {err && <p className="mb-2 text-[12px] text-red-600">{err}</p>}
-        <div className="flex justify-end gap-2">
-          <button type="button" onClick={onClose} className="btn-ghost !border !border-line">ביטול</button>
+        <div className="modal-body space-y-4">
+          <div>
+            <label className="label">מספר טלפון</label>
+            <input dir="ltr" required className="input w-full" placeholder="05XXXXXXXX" value={phone} onChange={(e) => setPhone(e.target.value)} />
+          </div>
+          <div>
+            <label className="label">הודעה</label>
+            <textarea required className="input h-24 w-full resize-none" placeholder="כתבו הודעה…" value={text} onChange={(e) => setText(e.target.value)} />
+          </div>
+          {err && <p className="text-[12px] text-red-600">{err}</p>}
+        </div>
+        <div className="modal-foot">
+          <button type="button" onClick={onClose} className="btn-ghost">ביטול</button>
           <button type="submit" disabled={busy || !phone.trim() || !text.trim()} className="btn-primary">
             {busy ? <Loader2 size={15} className="animate-spin" /> : <><Send size={14} /> שלח</>}
           </button>
