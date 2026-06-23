@@ -6,7 +6,7 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { findPatientByPhone, normalizePhone } from "@/lib/whatsapp/normalize";
-import { sendText, toChatId, chatIdToPhone, getMediaBase64, type EvolutionCreds } from "@/lib/whatsapp/evolution-api";
+import { sendText, toChatId, chatIdToPhone, getMediaBase64, setWebhook, type EvolutionCreds } from "@/lib/whatsapp/evolution-api";
 import { notifyEscalation, notifyNewMessage } from "@/lib/notifications/escalation";
 import { encryptMessage } from "@/lib/crypto/messages";
 import {
@@ -55,6 +55,31 @@ export async function POST(request: Request) {
   }
 
   console.log("[evolution] webhook event:", payload?.event, "instance:", payload?.instance);
+
+  // Self-healing: when Evolution tells us the connection is live, re-register the
+  // webhook immediately so we keep receiving events even after reconnects.
+  if (payload?.event === "connection.update") {
+    const state = payload?.data?.state ?? payload?.data?.instance?.state;
+    if (state === "open") {
+      const instanceName: string = payload?.instance ?? "";
+      const supabase = createAdminClient();
+      const { data: allClinics } = await supabase
+        .from("clinics").select("id, settings").not("settings->evolution_instance", "is", null);
+      const clinic = allClinics?.find(
+        (c) => (c.settings as Record<string, string>)?.evolution_instance === instanceName
+      ) ?? null;
+      if (clinic) {
+        const s = clinic.settings as Record<string, string>;
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "");
+        if (appUrl && s.evolution_host && s.evolution_api_key) {
+          const creds = { host: s.evolution_host, apiKey: s.evolution_api_key, instance: instanceName };
+          await setWebhook(creds, `${appUrl}/api/whatsapp/evolution`).catch(() => {});
+          console.log("[evolution] self-healed webhook on connection.update open");
+        }
+      }
+    }
+    return Response.json({ ok: true });
+  }
 
   // Only handle inbound messages
   if (payload?.event !== "messages.upsert") return Response.json({ ok: true });

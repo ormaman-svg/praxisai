@@ -144,7 +144,7 @@ export async function setWebhook(
           url: webhookUrl,
           webhookByEvents: false,
           webhookBase64: false,
-          events: ["MESSAGES_UPSERT"],
+          events: ["MESSAGES_UPSERT", "CONNECTION_UPDATE"],
         },
       }),
     });

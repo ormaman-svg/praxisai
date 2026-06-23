@@ -47,7 +47,7 @@ export async function POST(request: Request) {
         url: webhookUrl,
         webhookByEvents: false,
         webhookBase64: false,
-        events: ["MESSAGES_UPSERT"],
+        events: ["MESSAGES_UPSERT", "CONNECTION_UPDATE"],
       },
     }),
   });
