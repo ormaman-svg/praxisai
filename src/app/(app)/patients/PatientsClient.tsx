@@ -311,7 +311,7 @@ export default function PatientsClient({
 
       <div className="card overflow-hidden">
         {filtered.length === 0 ? (
-          <div className="empty">
+          <div className="empty-state">
             <div className="empty-icon"><Users size={24} /></div>
             <div className="text-sm font-medium text-ink-600">
               {initialPatients.length === 0 ? "אין עדיין מטופלים בקליניקה" : "לא נמצאו תוצאות לחיפוש"}
@@ -324,7 +324,7 @@ export default function PatientsClient({
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="table">
+            <table className="data-table">
               <thead>
                 <tr>
                   {canDelete && (
@@ -363,12 +363,14 @@ export default function PatientsClient({
                     )}
                     <td>
                       <Link href={`/patients/${p.id}`} className="group flex items-center gap-3">
-                        <span className="avatar h-9 w-9 text-[13px]">{p.first_name?.charAt(0) ?? "?"}</span>
+                        <span className="inline-grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand-gradient text-[13px] font-bold text-white shadow-glow">
+                          {p.first_name?.charAt(0) ?? "?"}
+                        </span>
                         <span className="min-w-0">
                           <span className="block truncate font-semibold text-ink-800 transition-colors group-hover:text-brand-700">
                             {p.first_name} {p.last_name}
                           </span>
-                          {p.bituach_leumi_case && <span className="badge badge-accent mt-0.5">ביטוח לאומי</span>}
+                          {p.bituach_leumi_case && <span className="badge badge-electric mt-0.5">ביטוח לאומי</span>}
                         </span>
                       </Link>
                     </td>
@@ -394,8 +396,8 @@ export default function PatientsClient({
                     )}
                     {visibleCols.includes("status") && (
                       <td>
-                        <span className={`badge ${p.status === "active" ? "badge-green" : p.status === "on_hold" ? "badge-amber" : "badge-gray"}`}>
-                          <span className={`dot ${p.status === "active" ? "bg-emerald-500" : p.status === "on_hold" ? "bg-amber-500" : "bg-ink-300"}`} />
+                        <span className={`badge ${p.status === "active" ? "badge-success" : p.status === "on_hold" ? "badge-warning" : "badge-neutral"}`}>
+                          <span className={`inline-block h-1.5 w-1.5 rounded-full ${p.status === "active" ? "bg-emerald-500" : p.status === "on_hold" ? "bg-amber-500" : "bg-ink-300"}`} />
                           {p.status === "active" ? "פעיל" : p.status === "on_hold" ? "בהמתנה" : "שוחרר"}
                         </span>
                       </td>
@@ -416,42 +418,46 @@ export default function PatientsClient({
       {/* Add patient modal */}
       {open && (
         <div className="overlay" onClick={() => setOpen(false)}>
-          <div className="modal w-full max-w-lg p-6" onClick={(e) => e.stopPropagation()}>
-            <div className="mb-5 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-ink-900">מטופל חדש</h2>
+          <div className="modal w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <div>
+                <p className="eyebrow">ניהול מטופלים</p>
+                <h2 className="text-lg font-bold text-ink-900">מטופל חדש</h2>
+              </div>
               <button onClick={() => setOpen(false)} className="btn-icon"><X size={18} /></button>
             </div>
-            <form onSubmit={save} className="grid grid-cols-2 gap-4">
-              <div><label className="label">שם פרטי *</label>
-                <input required className="input" value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} /></div>
-              <div><label className="label">שם משפחה *</label>
-                <input required className="input" value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} /></div>
-              <div><label className="label">ת&Prime;ז *</label>
-                <input required dir="ltr" className="input" value={form.national_id} onChange={(e) => setForm({ ...form, national_id: e.target.value })} /></div>
-              <div><label className="label">תאריך לידה</label>
-                <input dir="ltr" type="date" className="input" value={form.dob} onChange={(e) => setForm({ ...form, dob: e.target.value })} /></div>
-              <div><label className="label">טלפון</label>
-                <input dir="ltr" className="input" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
-              <div><label className="label">קופת חולים</label>
-                <select className="input" value={form.kupah} onChange={(e) => setForm({ ...form, kupah: e.target.value })}>
-                  {KUPOT.map((k) => <option key={k}>{k}</option>)}
-                </select></div>
-              <div className="col-span-2"><label className="label">אבחנה</label>
-                <input className="input" placeholder="למשל: כאב כתף ימין, s/p ניתוח" value={form.diagnosis} onChange={(e) => setForm({ ...form, diagnosis: e.target.value })} /></div>
-              <div><label className="label">מטפל/ת אחראי/ת</label>
-                <select className="input" value={form.primary_therapist_id} onChange={(e) => setForm({ ...form, primary_therapist_id: e.target.value })}>
-                  <option value="">ללא</option>
-                  {therapists.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-                </select></div>
-              <label className="col-span-2 flex items-center gap-2.5 text-sm text-ink-700 sm:col-span-1 sm:self-end sm:pb-2.5">
-                <input type="checkbox" className="h-4 w-4 rounded border-line text-brand focus:ring-brand/30"
-                       checked={form.bituach_leumi_case} onChange={(e) => setForm({ ...form, bituach_leumi_case: e.target.checked })} />
-                תיק ביטוח לאומי
-              </label>
+            <form onSubmit={save}>
+              <div className="modal-body grid grid-cols-2 gap-4">
+                <div><label className="label">שם פרטי *</label>
+                  <input required className="input" value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} /></div>
+                <div><label className="label">שם משפחה *</label>
+                  <input required className="input" value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} /></div>
+                <div><label className="label">ת&Prime;ז *</label>
+                  <input required dir="ltr" className="input" value={form.national_id} onChange={(e) => setForm({ ...form, national_id: e.target.value })} /></div>
+                <div><label className="label">תאריך לידה</label>
+                  <input dir="ltr" type="date" className="input" value={form.dob} onChange={(e) => setForm({ ...form, dob: e.target.value })} /></div>
+                <div><label className="label">טלפון</label>
+                  <input dir="ltr" className="input" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
+                <div><label className="label">קופת חולים</label>
+                  <select className="input" value={form.kupah} onChange={(e) => setForm({ ...form, kupah: e.target.value })}>
+                    {KUPOT.map((k) => <option key={k}>{k}</option>)}
+                  </select></div>
+                <div className="col-span-2"><label className="label">אבחנה</label>
+                  <input className="input" placeholder="למשל: כאב כתף ימין, s/p ניתוח" value={form.diagnosis} onChange={(e) => setForm({ ...form, diagnosis: e.target.value })} /></div>
+                <div><label className="label">מטפל/ת אחראי/ת</label>
+                  <select className="input" value={form.primary_therapist_id} onChange={(e) => setForm({ ...form, primary_therapist_id: e.target.value })}>
+                    <option value="">ללא</option>
+                    {therapists.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  </select></div>
+                <label className="col-span-2 flex items-center gap-2.5 text-sm text-ink-700 sm:col-span-1 sm:self-end sm:pb-2.5">
+                  <input type="checkbox" className="h-4 w-4 rounded border-line text-brand focus:ring-brand/30"
+                         checked={form.bituach_leumi_case} onChange={(e) => setForm({ ...form, bituach_leumi_case: e.target.checked })} />
+                  תיק ביטוח לאומי
+                </label>
 
-              {error && <div className="col-span-2 rounded-lg border border-red-200 bg-red-50 px-3.5 py-2.5 text-[13px] text-red-700">{error}</div>}
-
-              <div className="col-span-2 mt-1 flex justify-end gap-2">
+                {error && <div className="col-span-2 rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-[13px] text-red-700">{error}</div>}
+              </div>
+              <div className="modal-foot">
                 <button type="button" onClick={() => setOpen(false)} className="btn-ghost">ביטול</button>
                 <button type="submit" disabled={saving} className="btn-primary">{saving ? "שומר…" : "שמירת מטופל"}</button>
               </div>
@@ -463,24 +469,28 @@ export default function PatientsClient({
       {/* Delete confirmation modal */}
       {confirmDelete && (
         <div className="overlay" onClick={() => !deleting && setConfirmDelete(false)}>
-          <div className="modal w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
-            <div className="mb-4 flex items-center gap-3">
-              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-red-100">
-                <Trash2 size={18} className="text-red-600" />
-              </div>
-              <div>
-                <h2 className="text-base font-bold text-ink-900">מחיקת {selected.size} מטופלים</h2>
-                <p className="mt-0.5 text-[13px] text-ink-500">פעולה זו אינה הפיכה</p>
+          <div className="modal modal-sm" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <div className="flex items-center gap-3">
+                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-red-100">
+                  <Trash2 size={18} className="text-red-600" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-ink-900">מחיקת {selected.size} מטופלים</h2>
+                  <p className="mt-0.5 text-[13px] text-ink-500">פעולה זו אינה הפיכה</p>
+                </div>
               </div>
             </div>
-            <p className="mb-5 text-[13px] leading-relaxed text-ink-600">
-              כל הטיפולים, המדידות והפגישות של המטופלים הנבחרים יימחקו לצמיתות.
-              מסמכים שנוצרו יישארו קיימים ללא שיוך.
-            </p>
-            {deleteError && (
-              <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3.5 py-2.5 text-[13px] text-red-700">{deleteError}</div>
-            )}
-            <div className="flex justify-end gap-2">
+            <div className="modal-body">
+              <p className="text-[13px] leading-relaxed text-ink-600">
+                כל הטיפולים, המדידות והפגישות של המטופלים הנבחרים יימחקו לצמיתות.
+                מסמכים שנוצרו יישארו קיימים ללא שיוך.
+              </p>
+              {deleteError && (
+                <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-[13px] text-red-700">{deleteError}</div>
+              )}
+            </div>
+            <div className="modal-foot">
               <button onClick={() => setConfirmDelete(false)} disabled={deleting} className="btn-ghost">ביטול</button>
               <button onClick={handleDelete} disabled={deleting} className="btn-danger">
                 {deleting ? "מוחק…" : `מחיקת ${selected.size} מטופלים`}
@@ -493,9 +503,10 @@ export default function PatientsClient({
       {/* ── CSV Import modal ── */}
       {importOpen && (
         <div className="overlay" onClick={closeImport}>
-          <div className="modal flex max-h-[88vh] w-full max-w-3xl flex-col p-6" onClick={(e) => e.stopPropagation()}>
-            <div className="mb-5 flex items-center justify-between">
+          <div className="modal modal-lg flex max-h-[88vh] w-full flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
               <div>
+                <p className="eyebrow">ייבוא נתונים</p>
                 <h2 className="text-lg font-bold text-ink-900">ייבוא מטופלים מ‑CRM</h2>
                 <p className="mt-0.5 text-xs text-ink-500">העלו קובץ CSV מהמערכת הקיימת — המערכת תזהה את השדות אוטומטית</p>
               </div>
@@ -503,7 +514,7 @@ export default function PatientsClient({
             </div>
 
             {importResult && "inserted" in importResult ? (
-              <div className="flex flex-col items-center gap-4 py-10 text-center">
+              <div className="modal-body flex flex-col items-center gap-4 py-10 text-center">
                 <CheckCircle2 size={48} className="text-emerald-500" />
                 <div>
                   <div className="text-xl font-bold text-ink-900">הייבוא הצליח!</div>
@@ -512,102 +523,105 @@ export default function PatientsClient({
                 <button onClick={closeImport} className="btn-primary mt-2">סגירה</button>
               </div>
             ) : (
-              <div className="min-h-0 flex-1 overflow-y-auto space-y-5">
-                {/* File upload */}
-                <label className="flex cursor-pointer flex-col items-center gap-3 rounded-xl border-2 border-dashed border-line-strong px-6 py-8 transition-colors hover:border-brand hover:bg-brand-50/40">
-                  <Upload size={28} className="text-ink-400" />
-                  <div className="text-center">
-                    <div className="text-[13.5px] font-semibold text-ink-700">לחצו לבחירת קובץ CSV</div>
-                    <div className="mt-0.5 text-[11.5px] text-ink-400">ייצאו את רשימת המטופלים מהמערכת הקיימת, שמרו כ‑CSV ותעלו כאן</div>
-                  </div>
-                  <input type="file" accept=".csv,text/csv" className="hidden" onChange={handleFileChange} />
-                </label>
-
-                {importResult && "error" in importResult && (
-                  <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">
-                    <AlertCircle size={15} className="mt-0.5 shrink-0" /> {importResult.error}
-                  </div>
-                )}
-
-                {csvRows.length > 0 && (
-                  <>
-                    <div>
-                      <h3 className="mb-3 eyebrow text-ink-400">מיפוי עמודות</h3>
-                      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                        {(["first_name", "last_name", "national_id", "phone", "email", "dob", "kupah", "diagnosis"] as const).map((field) => {
-                          const labels: Record<string, string> = {
-                            first_name: "שם פרטי *", last_name: "שם משפחה *",
-                            national_id: "ת.ז", phone: "טלפון", email: "אימייל",
-                            dob: "תאריך לידה", kupah: "קופה", diagnosis: "אבחנה",
-                          };
-                          return (
-                            <div key={field}>
-                              <label className="label">{labels[field]}</label>
-                              <select
-                                className="input"
-                                value={colMap[field] ?? ""}
-                                onChange={(e) => setColMap({ ...colMap, [field]: e.target.value })}
-                              >
-                                <option value="">— לא ממופה —</option>
-                                {csvHeaders.map((h) => <option key={h} value={h}>{h}</option>)}
-                              </select>
-                            </div>
-                          );
-                        })}
-                      </div>
+              <>
+                <div className="modal-body min-h-0 flex-1 overflow-y-auto space-y-5">
+                  {/* File upload */}
+                  <label className="flex cursor-pointer flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-line-strong px-6 py-8 transition-colors hover:border-brand hover:bg-brand-50/40">
+                    <Upload size={28} className="text-ink-400" />
+                    <div className="text-center">
+                      <div className="text-[13.5px] font-semibold text-ink-700">לחצו לבחירת קובץ CSV</div>
+                      <div className="mt-0.5 text-[11.5px] text-ink-400">ייצאו את רשימת המטופלים מהמערכת הקיימת, שמרו כ‑CSV ותעלו כאן</div>
                     </div>
+                    <input type="file" accept=".csv,text/csv" className="hidden" onChange={handleFileChange} />
+                  </label>
 
-                    {/* Preview */}
-                    <div>
-                      <h3 className="mb-2 eyebrow text-ink-400">
-                        תצוגה מקדימה — {csvRows.length} שורות
-                      </h3>
-                      <div className="max-h-48 overflow-auto rounded-lg border border-line">
-                        <table className="w-full text-[11.5px]">
-                          <thead className="sticky top-0 bg-surface-2 text-[11px] font-semibold text-ink-500">
-                            <tr>
-                              <th className="px-3 py-2 text-right">שם פרטי</th>
-                              <th className="px-3 py-2 text-right">שם משפחה</th>
-                              <th className="px-3 py-2 text-right">ת.ז</th>
-                              <th className="px-3 py-2 text-right">טלפון</th>
-                              <th className="px-3 py-2 text-right">אבחנה</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-line">
-                            {csvRows.slice(0, 10).map((row, i) => (
-                              <tr key={i} className="hover:bg-surface-2">
-                                <td className="px-3 py-1.5">{colMap.first_name ? row[colMap.first_name] : "—"}</td>
-                                <td className="px-3 py-1.5">{colMap.last_name ? row[colMap.last_name] : "—"}</td>
-                                <td className="px-3 py-1.5 font-mono">{colMap.national_id ? row[colMap.national_id] || "—" : "—"}</td>
-                                <td className="px-3 py-1.5 font-mono">{colMap.phone ? row[colMap.phone] || "—" : "—"}</td>
-                                <td className="max-w-[140px] truncate px-3 py-1.5 text-ink-500">{colMap.diagnosis ? row[colMap.diagnosis] || "—" : "—"}</td>
+                  {importResult && "error" in importResult && (
+                    <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">
+                      <AlertCircle size={15} className="mt-0.5 shrink-0" /> {importResult.error}
+                    </div>
+                  )}
+
+                  {csvRows.length > 0 && (
+                    <>
+                      <div>
+                        <h3 className="mb-3 eyebrow text-ink-400">מיפוי עמודות</h3>
+                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                          {(["first_name", "last_name", "national_id", "phone", "email", "dob", "kupah", "diagnosis"] as const).map((field) => {
+                            const labels: Record<string, string> = {
+                              first_name: "שם פרטי *", last_name: "שם משפחה *",
+                              national_id: "ת.ז", phone: "טלפון", email: "אימייל",
+                              dob: "תאריך לידה", kupah: "קופה", diagnosis: "אבחנה",
+                            };
+                            return (
+                              <div key={field}>
+                                <label className="label">{labels[field]}</label>
+                                <select
+                                  className="input"
+                                  value={colMap[field] ?? ""}
+                                  onChange={(e) => setColMap({ ...colMap, [field]: e.target.value })}
+                                >
+                                  <option value="">— לא ממופה —</option>
+                                  {csvHeaders.map((h) => <option key={h} value={h}>{h}</option>)}
+                                </select>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Preview */}
+                      <div>
+                        <h3 className="mb-2 eyebrow text-ink-400">
+                          תצוגה מקדימה — {csvRows.length} שורות
+                        </h3>
+                        <div className="max-h-48 overflow-auto rounded-xl border border-line">
+                          <table className="data-table">
+                            <thead>
+                              <tr>
+                                <th>שם פרטי</th>
+                                <th>שם משפחה</th>
+                                <th>ת.ז</th>
+                                <th>טלפון</th>
+                                <th>אבחנה</th>
                               </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                        {csvRows.length > 10 && (
-                          <div className="border-t border-line px-3 py-2 text-center text-[11px] text-ink-400">
-                            ו‑{csvRows.length - 10} שורות נוספות…
-                          </div>
-                        )}
+                            </thead>
+                            <tbody>
+                              {csvRows.slice(0, 10).map((row, i) => (
+                                <tr key={i}>
+                                  <td>{colMap.first_name ? row[colMap.first_name] : "—"}</td>
+                                  <td>{colMap.last_name ? row[colMap.last_name] : "—"}</td>
+                                  <td className="font-mono">{colMap.national_id ? row[colMap.national_id] || "—" : "—"}</td>
+                                  <td className="font-mono">{colMap.phone ? row[colMap.phone] || "—" : "—"}</td>
+                                  <td className="max-w-[140px] truncate text-ink-500">{colMap.diagnosis ? row[colMap.diagnosis] || "—" : "—"}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                          {csvRows.length > 10 && (
+                            <div className="border-t border-line px-3 py-2 text-center text-[11px] text-ink-400">
+                              ו‑{csvRows.length - 10} שורות נוספות…
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-
-                    <div className="flex justify-end gap-2 pb-1">
-                      <button onClick={closeImport} className="btn-ghost">ביטול</button>
-                      <button
-                        onClick={runImport}
-                        disabled={importing || !colMap.first_name || !colMap.last_name}
-                        className="btn-primary"
-                      >
-                        {importing
-                          ? "מייבא…"
-                          : `ייבוא ${csvRows.filter((r) => colMap.first_name ? r[colMap.first_name] : false).length} מטופלים`}
-                      </button>
-                    </div>
-                  </>
+                    </>
+                  )}
+                </div>
+                {csvRows.length > 0 && (
+                  <div className="modal-foot">
+                    <button onClick={closeImport} className="btn-ghost">ביטול</button>
+                    <button
+                      onClick={runImport}
+                      disabled={importing || !colMap.first_name || !colMap.last_name}
+                      className="btn-primary"
+                    >
+                      {importing
+                        ? "מייבא…"
+                        : `ייבוא ${csvRows.filter((r) => colMap.first_name ? r[colMap.first_name] : false).length} מטופלים`}
+                    </button>
+                  </div>
                 )}
-              </div>
+              </>
             )}
           </div>
         </div>

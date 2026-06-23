@@ -4,7 +4,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, Users, FileText, BarChart3, LogOut, Mic, MessageSquare,
-  ShieldCheck, Building2, Settings, CalendarDays, CreditCard, Inbox, MessageCircle,
+  ShieldCheck, Building2, Settings, CalendarDays, CreditCard, Inbox,
+  MessageCircle, ChevronRight, Stethoscope,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import ClinicSwitcher from "./ClinicSwitcher";
@@ -13,50 +14,72 @@ import type { Membership, MemberRole } from "@/lib/types";
 import { ROLE_HE } from "@/lib/types";
 import { isSuperAdminEmail } from "@/lib/super-admins";
 
-const NAV = [
-  { href: "/dashboard", label: "לוח בקרה",      icon: LayoutDashboard },
-  { href: "/schedule",  label: "יומן תורים",    icon: CalendarDays },
-  { href: "/inbox",     label: "תיבת הודעות",   icon: Inbox },
+const NAV_MAIN = [
+  { href: "/dashboard", label: "לוח בקרה",     icon: LayoutDashboard },
+  { href: "/schedule",  label: "יומן",           icon: CalendarDays },
+  { href: "/inbox",     label: "הודעות",         icon: Inbox },
   { href: "/patients",  label: "מטופלים",        icon: Users },
   { href: "/scribe",    label: "תיעוד AI",       icon: Mic },
-  { href: "/chat",      label: "צ'אט AI",        icon: MessageSquare },
-  { href: "/analytics", label: "אנליטיקות",      icon: BarChart3 },
+  { href: "/chat",      label: "עוזר AI",        icon: MessageSquare },
+  { href: "/analytics", label: "נתונים",         icon: BarChart3 },
   { href: "/documents", label: "מסמכים",         icon: FileText },
 ];
 
-function NavLink({ href, label, icon: Icon, active }: {
-  href: string; label: string; icon: React.ElementType; active: boolean;
-}) {
+const NAV_ADMIN = [
+  { href: "/admin/users",       label: "משתמשים",     icon: ShieldCheck },
+  { href: "/settings/whatsapp", label: "WhatsApp",    icon: MessageCircle },
+  { href: "/settings/billing",  label: "חיוב",        icon: CreditCard },
+];
+
+const NAV_SUPER = [
+  { href: "/admin/clinics",     label: "קליניקות",    icon: Building2 },
+  { href: "/settings/template", label: "תבניות",      icon: Settings },
+];
+
+function NavItem({
+  href, label, icon: Icon, active,
+}: { href: string; label: string; icon: React.ElementType; active: boolean }) {
   return (
     <Link
       href={href}
-      className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13.5px] font-medium transition-all duration-200 ease-out-expo ${
-        active
+      className={`
+        group flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13.5px] font-medium
+        transition-all duration-150 relative
+        ${active
           ? "text-white"
-          : "text-slate-400 hover:text-slate-100"
-      }`}
+          : "text-slate-400 hover:text-white"
+        }
+      `}
     >
-      {/* active background */}
       {active && (
-        <span className="absolute inset-0 rounded-xl bg-gradient-to-l from-violet-600/25 to-indigo-600/15 ring-1 ring-inset ring-violet-400/20" />
+        <span className="absolute inset-0 rounded-xl bg-white/[0.09]" />
       )}
-      {/* active accent bar on the inline-start edge */}
       {active && (
-        <span className="absolute inset-y-2 start-0 w-[3px] rounded-full bg-gradient-to-b from-violet-400 to-indigo-400" />
-      )}
-      {/* hover background (only when not active) */}
-      {!active && (
-        <span className="absolute inset-0 rounded-xl bg-white/0 transition-colors duration-200 group-hover:bg-white/[0.04]" />
+        <span className="absolute start-0 inset-y-[6px] w-[3px] rounded-full bg-brand" />
       )}
       <Icon
-        size={17.5}
-        strokeWidth={active ? 2.3 : 2}
-        className={`relative z-10 shrink-0 transition-colors duration-200 ${
-          active ? "text-violet-300" : "text-slate-500 group-hover:text-slate-300"
+        size={17}
+        strokeWidth={active ? 2.2 : 1.8}
+        className={`relative shrink-0 transition-colors duration-150 ${
+          active ? "text-brand-300" : "text-slate-500 group-hover:text-slate-300"
         }`}
       />
-      <span className="relative z-10">{label}</span>
+      <span className="relative">{label}</span>
+      {active && (
+        <ChevronRight size={13} className="relative ms-auto text-brand-400/60" />
+      )}
     </Link>
+  );
+}
+
+function NavGroup({ label }: { label: string }) {
+  return (
+    <div className="mx-3 mt-5 mb-1.5 flex items-center gap-2">
+      <span className="text-[10.5px] font-semibold uppercase tracking-[0.15em] text-slate-600">
+        {label}
+      </span>
+      <div className="flex-1 h-px bg-white/[0.05]" />
+    </div>
   );
 }
 
@@ -83,71 +106,103 @@ export default function Sidebar({
     router.refresh();
   }
 
+  const initials = userName
+    .trim()
+    .split(" ")
+    .map((w) => w[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase() || "?";
+
   return (
-    <aside className="sticky top-0 flex h-screen w-[268px] shrink-0 flex-col overflow-hidden bg-navy">
-      {/* subtle depth: top brand glow + inner hairline on the content edge */}
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-violet-600/[0.07] via-transparent to-transparent" />
-      <div className="pointer-events-none absolute inset-y-0 start-0 w-px bg-white/[0.06]" />
+    <aside
+      className="sticky top-0 flex h-screen w-[256px] shrink-0 flex-col overflow-hidden"
+      style={{ background: "linear-gradient(180deg, #111827 0%, #0C111D 100%)" }}
+    >
+      {/* Subtle top accent */}
+      <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-brand-500/40 to-transparent" />
 
       {/* Logo */}
-      <div className="relative flex items-center gap-3 px-5 pb-5 pt-6">
-        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 shadow-glow ring-1 ring-white/10">
-          <Logo size={18} className="text-white" />
+      <div className="flex items-center gap-3 px-5 pt-6 pb-4">
+        <div
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-lg"
+          style={{ background: "linear-gradient(135deg, #14B8A6 0%, #0D9488 100%)" }}
+        >
+          <Logo size={16} className="text-white" />
         </div>
-        <span className="font-display text-[18px] font-bold tracking-tight text-white">
-          praxis<span className="text-violet-400">AI</span>
+        <span className="text-[17px] font-bold tracking-tight text-white">
+          praxis<span className="text-brand-400">AI</span>
         </span>
       </div>
 
       {/* Clinic switcher */}
-      <div className="relative px-3 pb-3">
+      <div className="px-3 pb-3">
         <ClinicSwitcher memberships={memberships} activeClinicId={activeClinicId} />
       </div>
 
-      {/* Clinic type badge */}
+      {/* Clinic type */}
       {clinicTypeLabel && (
-        <div className="relative px-4 pb-3">
-          <div
-            className="flex items-center gap-2 rounded-lg border border-violet-400/[0.14] bg-violet-500/[0.07] px-2.5 py-1.5"
-            title={`סוג קליניקה: ${clinicTypeLabel}`}
-          >
-            <span className="text-sm leading-none">{clinicTypeIcon ?? "🩺"}</span>
-            <span className="truncate text-[11.5px] font-semibold text-violet-200/90">{clinicTypeLabel}</span>
-          </div>
+        <div className="mx-3 mb-3 flex items-center gap-2 rounded-lg border border-white/[0.06] bg-white/[0.03] px-2.5 py-1.5">
+          <span className="text-sm leading-none">{clinicTypeIcon ?? "🩺"}</span>
+          <span className="truncate text-[12px] font-medium text-slate-400">{clinicTypeLabel}</span>
         </div>
       )}
 
-      <div className="relative mx-4 mb-3 h-px bg-white/[0.06]" />
-
       {/* Nav */}
-      <nav className="relative flex-1 space-y-0.5 overflow-y-auto px-3 pb-3">
-        {NAV.map(({ href, label, icon }) => (
-          <NavLink key={href} href={href} label={label} icon={icon} active={pathname.startsWith(href)} />
+      <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 pb-2">
+        {NAV_MAIN.map(({ href, label, icon }) => (
+          <NavItem
+            key={href}
+            href={href}
+            label={label}
+            icon={icon}
+            active={pathname === href || pathname.startsWith(href + "/")}
+          />
         ))}
 
         {isAdmin && (
           <>
-            <div className="mb-1.5 mt-6 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600">ניהול</div>
-            <NavLink href="/admin/users"        label="משתמשים והרשאות" icon={ShieldCheck}    active={pathname.startsWith("/admin/users")} />
-            <NavLink href="/settings/whatsapp"  label="חיבור WhatsApp"  icon={MessageCircle}  active={pathname.startsWith("/settings/whatsapp")} />
-            <NavLink href="/settings/billing"   label="חיוב ומנוי"     icon={CreditCard}     active={pathname.startsWith("/settings/billing")} />
+            <NavGroup label="ניהול" />
+            {NAV_ADMIN.map(({ href, label, icon }) => (
+              <NavItem
+                key={href}
+                href={href}
+                label={label}
+                icon={icon}
+                active={pathname.startsWith(href)}
+              />
+            ))}
           </>
         )}
 
         {isSuperAdmin && (
           <>
-            <div className="mb-1.5 mt-6 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600">Super Admin</div>
-            <NavLink href="/admin/clinics"      label="קליניקות"        icon={Building2}  active={pathname.startsWith("/admin/clinics")} />
-            <NavLink href="/settings/template"  label="סוג הקליניקה"   icon={Settings}   active={pathname.startsWith("/settings/template")} />
+            <NavGroup label="Super" />
+            {NAV_SUPER.map(({ href, label, icon }) => (
+              <NavItem
+                key={href}
+                href={href}
+                label={label}
+                icon={icon}
+                active={pathname.startsWith(href)}
+              />
+            ))}
           </>
         )}
       </nav>
 
-      {/* User card */}
-      <div className="relative border-t border-white/[0.06] p-3">
-        <div className="group flex items-center gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-white/[0.04]">
-          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 text-sm font-bold text-white ring-1 ring-white/10">
-            {userName.trim().charAt(0) || "?"}
+      {/* User */}
+      <div
+        className="p-3"
+        style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}
+      >
+        <div className="flex items-center gap-3 rounded-xl px-2.5 py-2 transition-colors hover:bg-white/[0.04]">
+          {/* Avatar */}
+          <div
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-[13px] font-bold text-white"
+            style={{ background: "linear-gradient(135deg, #14B8A6 0%, #3B82F6 100%)" }}
+          >
+            {initials}
           </div>
           <div className="min-w-0 flex-1">
             <div className="truncate text-[13px] font-semibold text-white">{userName}</div>
@@ -156,7 +211,7 @@ export default function Sidebar({
           <button
             onClick={signOut}
             title="התנתקות"
-            className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-white/[0.08] hover:text-violet-300"
+            className="rounded-lg p-1.5 text-slate-600 transition-colors hover:bg-white/[0.08] hover:text-slate-300"
           >
             <LogOut size={15} />
           </button>

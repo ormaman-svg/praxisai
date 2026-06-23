@@ -1,142 +1,158 @@
 import type { Config } from "tailwindcss";
 
 /**
- * praxisAI design system — "Aurora Clinical".
- * A confident, premium clinical product: a cool paper canvas with a faint
- * aurora at the top, a violet→indigo brand paired with a cyan "AI" accent,
- * layered realistic shadows, generous radii, and a deep ink navigation rail.
- * Token names are stable (brand / navy / ink / line / accent) so every
- * component inherits the language; values define the look.
+ * praxisAI — "Clinic OS" design system.
+ * Teal identity, near-black sidebar, crisp white cards, rich data ink.
+ * Completely new palette — confident, modern, clinical.
  */
 const config: Config = {
   content: ["./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
       colors: {
-        // Canvas + surfaces
-        bg: "#f4f5f9",
-        surface: "#ffffff",
-        "surface-2": "#fafbfd",
-        "surface-3": "#f1f2f7",
+        // Canvas
+        bg:         "#F4F6FA",
+        surface:    "#FFFFFF",
+        "surface-2":"#F9FAFB",
+        "surface-3":"#F1F4F8",
 
-        // Brand — violet→indigo, the primary identity
+        // Brand — teal: medical, precise, trustworthy
         brand: {
-          DEFAULT: "#7c3aed",
-          50:  "#f5f3ff",
-          100: "#ede9fe",
-          200: "#ddd6fe",
-          300: "#c4b5fd",
-          400: "#a78bfa",
-          500: "#8b5cf6",
-          600: "#7c3aed",
-          700: "#6d28d9",
-          800: "#5b21b6",
-          900: "#4c1d95",
-          950: "#2e1065",
+          DEFAULT: "#0D9488",
+          50:  "#F0FDFA",
+          100: "#CCFBF1",
+          200: "#99F6E4",
+          300: "#5EEAD4",
+          400: "#2DD4BF",
+          500: "#14B8A6",
+          600: "#0D9488",
+          700: "#0F766E",
+          800: "#115E59",
+          900: "#134E4A",
+          950: "#042F2E",
         },
 
-        // Accent — cyan/sky, the "AI / intelligence" highlight (data, focus, live)
-        accent: {
-          DEFAULT: "#06b6d4",
-          50:  "#ecfeff",
-          100: "#cffafe",
-          200: "#a5f3fc",
-          300: "#67e8f9",
-          400: "#22d3ee",
-          500: "#06b6d4",
-          600: "#0891b2",
-          700: "#0e7490",
-          800: "#155e75",
-          900: "#164e63",
+        // Electric — blue for AI/interactive accents
+        electric: {
+          DEFAULT: "#3B82F6",
+          50:  "#EFF6FF",
+          100: "#DBEAFE",
+          200: "#BFDBFE",
+          300: "#93C5FD",
+          400: "#60A5FA",
+          500: "#3B82F6",
+          600: "#2563EB",
+          700: "#1D4ED8",
+          800: "#1E40AF",
+          900: "#1E3A8A",
         },
 
-        // Deep ink for the sidebar / nav — near-black with a cool indigo undertone
-        navy: {
-          DEFAULT: "#0b0c14",
-          950: "#07070c",
-          900: "#0b0c14",
-          800: "#12131c",
-          700: "#1b1c28",
-          600: "#272838",
-          500: "#383a4d",
+        // Sidebar / nav rail — near-black, slightly blue-shifted
+        rail: {
+          DEFAULT: "#0C111D",
+          900: "#0C111D",
+          800: "#111827",
+          700: "#1C2536",
+          600: "#293548",
+          500: "#3A4A5C",
+          400: "#5A6A7C",
+          300: "#8B9CB0",
         },
 
-        // Cool neutral ink scale for text
+        // Ink — cool neutral text scale
         ink: {
-          50:  "#f7f8fa",
-          100: "#eef0f4",
-          200: "#dfe2e9",
-          300: "#c5cad6",
-          400: "#9aa1b2",
-          500: "#6c7384",
-          600: "#4d5362",
-          700: "#383d49",
-          800: "#23262f",
-          900: "#13151b",
+          50:  "#F8FAFC",
+          100: "#F1F5F9",
+          200: "#E2E8F0",
+          300: "#CBD5E1",
+          400: "#94A3B8",
+          500: "#64748B",
+          600: "#475569",
+          700: "#334155",
+          800: "#1E293B",
+          900: "#0F172A",
         },
 
         // Hairlines
-        line: "#e7e8ef",
-        "line-soft": "#eef0f4",
-        "line-strong": "#d8dae3",
+        line:         "#E8ECF2",
+        "line-soft":  "#F1F4F8",
+        "line-strong":"#D1D9E4",
+
+        // Status
+        success: { DEFAULT: "#16A34A", light: "#DCFCE7", text: "#15803D" },
+        warning: { DEFAULT: "#D97706", light: "#FEF3C7", text: "#B45309" },
+        danger:  { DEFAULT: "#DC2626", light: "#FEE2E2", text: "#B91C1C" },
       },
       fontFamily: {
-        sans: ["Assistant", "Inter", "system-ui", "sans-serif"],
-        display: ["Plus Jakarta Sans", "Assistant", "sans-serif"],
-        mono: ["ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
-      },
-      fontSize: {
-        "display": ["2.5rem",  { lineHeight: "1.06", letterSpacing: "-0.025em" }],
-        "title":   ["1.6rem",  { lineHeight: "1.15", letterSpacing: "-0.02em" }],
+        sans:    ["Inter", "Assistant", "system-ui", "sans-serif"],
+        display: ["Inter", "Assistant", "sans-serif"],
+        mono:    ["JetBrains Mono", "ui-monospace", "monospace"],
       },
       backgroundImage: {
-        "brand-gradient": "linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)",
-        "brand-accent": "linear-gradient(120deg, #7c3aed 0%, #6366f1 50%, #06b6d4 100%)",
+        "brand-gradient":  "linear-gradient(135deg, #14B8A6 0%, #0D9488 100%)",
+        "electric-gradient":"linear-gradient(135deg, #60A5FA 0%, #3B82F6 100%)",
+        "dark-gradient":   "linear-gradient(180deg, #1C2536 0%, #0C111D 100%)",
+        "hero-gradient":   "linear-gradient(135deg, #0D9488 0%, #3B82F6 50%, #7C3AED 100%)",
       },
       boxShadow: {
-        xs:           "0 1px 2px rgba(17,19,28,0.05)",
-        card:         "0 1px 2px rgba(17,19,28,0.04), 0 4px 16px rgba(17,19,28,0.05)",
-        "card-hover": "0 2px 4px rgba(17,19,28,0.05), 0 14px 36px rgba(17,19,28,0.11)",
-        pop:          "0 1px 2px rgba(17,19,28,0.06), 0 20px 52px rgba(17,19,28,0.20)",
-        glow:         "0 6px 18px rgba(124,58,237,0.30)",
-        "glow-lg":    "0 12px 32px rgba(124,58,237,0.40)",
-        "glow-accent":"0 6px 18px rgba(6,182,212,0.30)",
-        "inner-top":  "inset 0 1px 0 rgba(255,255,255,0.08)",
+        xs:             "0 1px 2px rgba(15,23,42,0.04)",
+        sm:             "0 1px 3px rgba(15,23,42,0.06), 0 1px 2px rgba(15,23,42,0.04)",
+        card:           "0 0 0 1px rgba(15,23,42,0.06), 0 1px 3px rgba(15,23,42,0.04), 0 4px 12px rgba(15,23,42,0.04)",
+        "card-hover":   "0 0 0 1px rgba(13,148,136,0.15), 0 4px 8px rgba(15,23,42,0.05), 0 12px 28px rgba(15,23,42,0.09)",
+        pop:            "0 0 0 1px rgba(15,23,42,0.08), 0 8px 24px rgba(15,23,42,0.12), 0 32px 64px rgba(15,23,42,0.18)",
+        glow:           "0 0 0 1px rgba(13,148,136,0.2), 0 4px 16px rgba(13,148,136,0.25)",
+        "glow-electric":"0 0 0 1px rgba(59,130,246,0.2), 0 4px 16px rgba(59,130,246,0.25)",
+        inner:          "inset 0 1px 0 rgba(255,255,255,0.06)",
       },
       borderRadius: {
-        "lg": "10px",
-        "xl": "12px",
+        "sm":  "6px",
+        "md":  "8px",
+        "lg":  "10px",
+        "xl":  "12px",
         "2xl": "16px",
-        "3xl": "22px",
+        "3xl": "20px",
         "4xl": "28px",
       },
       keyframes: {
-        "fade-in": { from: { opacity: "0" }, to: { opacity: "1" } },
+        "fade-in": {
+          from: { opacity: "0" },
+          to:   { opacity: "1" },
+        },
         "slide-up": {
-          from: { opacity: "0", transform: "translateY(10px)" },
-          to: { opacity: "1", transform: "translateY(0)" },
+          from: { opacity: "0", transform: "translateY(12px)" },
+          to:   { opacity: "1", transform: "translateY(0)" },
+        },
+        "slide-in-right": {
+          from: { opacity: "0", transform: "translateX(12px)" },
+          to:   { opacity: "1", transform: "translateX(0)" },
         },
         "scale-in": {
-          from: { opacity: "0", transform: "scale(0.97)" },
-          to: { opacity: "1", transform: "scale(1)" },
+          from: { opacity: "0", transform: "scale(0.96)" },
+          to:   { opacity: "1", transform: "scale(1)" },
         },
-        "aurora-drift": {
-          "0%, 100%": { transform: "translate3d(0,0,0) scale(1)" },
-          "50%": { transform: "translate3d(0,-2%,0) scale(1.05)" },
+        "shimmer": {
+          from: { backgroundPosition: "-200% 0" },
+          to:   { backgroundPosition: "200% 0" },
         },
-        shimmer: { "100%": { transform: "translateX(100%)" } },
+        "pulse-ring": {
+          "0%, 100%": { transform: "scale(1)", opacity: "0.8" },
+          "50%":      { transform: "scale(1.15)", opacity: "0.3" },
+        },
       },
       animation: {
-        "fade-in": "fade-in 0.3s ease",
-        "slide-up": "slide-up 0.4s cubic-bezier(0.16,1,0.3,1)",
-        "scale-in": "scale-in 0.2s cubic-bezier(0.16,1,0.3,1)",
-        "aurora": "aurora-drift 14s ease-in-out infinite",
+        "fade-in":        "fade-in 0.25s ease both",
+        "slide-up":       "slide-up 0.3s cubic-bezier(0.16,1,0.3,1) both",
+        "slide-in-right": "slide-in-right 0.3s cubic-bezier(0.16,1,0.3,1) both",
+        "scale-in":       "scale-in 0.22s cubic-bezier(0.16,1,0.3,1) both",
+        "shimmer":        "shimmer 2s linear infinite",
+        "pulse-ring":     "pulse-ring 2s ease-in-out infinite",
       },
       transitionTimingFunction: {
-        "out-expo": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "spring": "cubic-bezier(0.16, 1, 0.3, 1)",
       },
     },
   },
   plugins: [],
 };
+
 export default config;

@@ -45,13 +45,13 @@ export default function TreatmentForm({ patientId, template }: { patientId: stri
       <div className="card p-4">
         <div className="mb-3 flex items-center gap-2">
           <Plus size={16} className="text-brand" />
-          <h2 className="text-sm font-bold text-slate-900">תיעוד טיפול חדש</h2>
+          <h2 className="text-sm font-bold text-ink-900">תיעוד טיפול חדש</h2>
         </div>
-        <p className="mb-3 text-[12.5px] text-slate-500">בחרו כיצד לתעד את הטיפול:</p>
+        <p className="mb-3 text-[12.5px] text-ink-500">בחרו כיצד לתעד את הטיפול:</p>
         <div className="grid grid-cols-2 gap-2.5">
           <button onClick={() => setOpen(true)} className="btn-ghost !flex-col !items-start !gap-1 !py-3 text-start">
-            <span className="flex items-center gap-1.5 font-bold text-slate-800"><Pencil size={15} /> תיעוד ידני</span>
-            <span className="text-[11.5px] font-normal text-slate-500">מילוי הסעיפים בעצמכם</span>
+            <span className="flex items-center gap-1.5 font-bold text-ink-800"><Pencil size={15} /> תיעוד ידני</span>
+            <span className="text-[11.5px] font-normal text-ink-500">מילוי הסעיפים בעצמכם</span>
           </button>
           <Link href={`/scribe?patient=${patientId}`} className="btn-primary !flex-col !items-start !gap-1 !py-3 text-start">
             <span className="flex items-center gap-1.5 font-bold"><Mic size={15} /> תיעוד עם AI</span>
@@ -64,8 +64,8 @@ export default function TreatmentForm({ patientId, template }: { patientId: stri
 
   return (
     <div className="card p-5">
-      <h2 className="mb-4 text-sm font-bold text-slate-900">
-        תיעוד טיפול חדש — <span className="font-normal text-slate-500">{template.name}</span>
+      <h2 className="mb-4 text-sm font-bold text-ink-900">
+        תיעוד טיפול חדש — <span className="font-normal text-ink-500">{template.name}</span>
       </h2>
       <form onSubmit={save} className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
@@ -98,7 +98,7 @@ export default function TreatmentForm({ patientId, template }: { patientId: stri
                 {fields.map((f) => (
                   <div key={f.key}>
                     {s.subsections?.length ? (
-                      <span className="mb-1 block text-[11.5px] font-semibold text-slate-500">{f.label}</span>
+                      <span className="mb-1 block text-[11.5px] font-semibold text-ink-500">{f.label}</span>
                     ) : null}
                     <textarea rows={2} className="input resize-y" value={sections[f.key] ?? ""}
                               placeholder={f.placeholder}

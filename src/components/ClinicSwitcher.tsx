@@ -41,30 +41,44 @@ export default function ClinicSwitcher({
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center gap-2.5 rounded-xl border border-white/[0.08] bg-white/[0.06] px-3 py-2.5 text-start transition-all hover:bg-white/[0.10]"
+        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-start transition-all hover:bg-white/[0.06]"
+        style={{ border: "1px solid rgba(255,255,255,0.07)" }}
       >
-        <Building2 size={15} className="shrink-0 text-violet-400" />
+        <Building2 size={14} className="shrink-0 text-brand-400" />
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[13px] font-semibold text-white">{active?.clinics?.name ?? "קליניקה"}</div>
-          <div className="text-[11px] text-slate-500">{active ? ROLE_HE[active.role] : ""}</div>
+          <div className="truncate text-[13px] font-semibold text-white">
+            {active?.clinics?.name ?? "קליניקה"}
+          </div>
+          <div className="text-[11px] text-rail-300">
+            {active ? ROLE_HE[active.role] : ""}
+          </div>
         </div>
-        {memberships.length > 1 && <ChevronsUpDown size={13} className="shrink-0 text-slate-600" />}
+        {memberships.length > 1 && (
+          <ChevronsUpDown size={13} className="shrink-0 text-rail-400" />
+        )}
       </button>
 
       {open && memberships.length > 1 && (
-        <div className="absolute inset-x-0 top-full z-30 mt-1.5 overflow-hidden rounded-xl border border-white/[0.08] bg-navy-800 shadow-pop">
+        <div
+          className="absolute inset-x-0 top-full z-30 mt-1.5 overflow-hidden rounded-xl shadow-pop"
+          style={{ background: "#1C2536", border: "1px solid rgba(255,255,255,0.08)" }}
+        >
           {memberships.map((m) => (
             <button
               key={m.clinic_id}
               disabled={busy}
               onClick={() => switchTo(m.clinic_id)}
-              className="flex w-full items-center gap-2.5 px-3 py-2.5 text-start transition-colors hover:bg-white/[0.05] disabled:opacity-50"
+              className="flex w-full items-center gap-2.5 px-3 py-2.5 text-start transition-colors hover:bg-white/[0.06] disabled:opacity-50"
             >
               <div className="min-w-0 flex-1">
-                <div className="truncate text-[13px] font-medium text-white">{m.clinics?.name}</div>
-                <div className="text-[11px] text-slate-500">{ROLE_HE[m.role]}</div>
+                <div className="truncate text-[13px] font-medium text-white">
+                  {m.clinics?.name}
+                </div>
+                <div className="text-[11px] text-rail-300">{ROLE_HE[m.role]}</div>
               </div>
-              {m.clinic_id === activeClinicId && <Check size={13} className="text-violet-400" />}
+              {m.clinic_id === activeClinicId && (
+                <Check size={13} className="text-brand-400" />
+              )}
             </button>
           ))}
         </div>

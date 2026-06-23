@@ -4,6 +4,14 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Logo from "@/components/Logo";
+import { ArrowLeft, Stethoscope, BarChart3, MessageSquare, Shield } from "lucide-react";
+
+const FEATURES = [
+  { icon: Stethoscope,   title: "תיעוד AI",      desc: "הקלטת טיפול → SOAP מלא בשניות" },
+  { icon: BarChart3,     title: "אנליטיקות",    desc: "נתוני קליניקה בזמן אמת" },
+  { icon: MessageSquare, title: "WhatsApp Bot", desc: "עוזר AI שמתקשר עם מטופלים" },
+  { icon: Shield,        title: "אבטחה מלאה",   desc: "הצפנה end-to-end, HIPAA-ready" },
+];
 
 export default function LoginPage() {
   const router = useRouter();
@@ -33,9 +41,6 @@ export default function LoginPage() {
       provider: "google",
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
-        // Force Google's account chooser every time so the browser's currently
-        // signed-in Google account is never used silently — prevents logging
-        // in as the wrong person.
         queryParams: { prompt: "select_account" },
       },
     });
@@ -56,63 +61,120 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen grid lg:grid-cols-[1.05fr_1fr]">
+    <div
+      className="min-h-screen grid lg:grid-cols-[1fr_480px]"
+      style={{ background: "#F4F6FA" }}
+    >
       {/* Brand panel */}
-      <div className="relative hidden overflow-hidden bg-navy p-12 text-white lg:flex lg:flex-col lg:justify-between">
-        {/* atmospheric depth */}
-        <div className="pointer-events-none absolute -start-24 -top-24 h-96 w-96 rounded-full bg-violet-600/25 blur-[120px]" />
-        <div className="pointer-events-none absolute -end-32 bottom-0 h-[28rem] w-[28rem] rounded-full bg-indigo-600/20 blur-[130px]" />
+      <div
+        className="relative hidden overflow-hidden lg:flex lg:flex-col lg:justify-between p-12"
+        style={{
+          background: "linear-gradient(160deg, #0C111D 0%, #111827 40%, #0F1E2E 100%)",
+        }}
+      >
         <div
-          className="pointer-events-none absolute inset-0 opacity-[0.06]"
-          style={{
-            backgroundImage:
-              "linear-gradient(rgba(255,255,255,.6) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.6) 1px, transparent 1px)",
-            backgroundSize: "44px 44px",
-            maskImage: "radial-gradient(ellipse 80% 60% at 50% 40%, black, transparent)",
-            WebkitMaskImage: "radial-gradient(ellipse 80% 60% at 50% 40%, black, transparent)",
-          }}
+          className="pointer-events-none absolute -top-32 -end-20 h-[500px] w-[500px] rounded-full opacity-20"
+          style={{ background: "radial-gradient(circle, #0D9488 0%, transparent 70%)" }}
+        />
+        <div
+          className="pointer-events-none absolute bottom-0 -start-32 h-[400px] w-[400px] rounded-full opacity-15"
+          style={{ background: "radial-gradient(circle, #3B82F6 0%, transparent 70%)" }}
         />
 
         <div className="relative flex items-center gap-3">
-          <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 shadow-glow ring-1 ring-white/10">
+          <div
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-xl"
+            style={{ background: "linear-gradient(135deg, #14B8A6, #0D9488)" }}
+          >
             <Logo size={20} className="text-white" />
           </div>
-          <span className="font-display text-xl font-bold tracking-tight">praxisAI</span>
+          <span className="text-[20px] font-bold text-white">
+            praxis<span style={{ color: "#14B8A6" }}>AI</span>
+          </span>
         </div>
 
         <div className="relative">
-          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[12px] font-medium text-violet-200">
-            <span className="h-1.5 w-1.5 rounded-full bg-violet-400" />
-            פלטפורמת AI קלינית
+          <div
+            className="mb-4 inline-flex items-center gap-2 rounded-full px-3 py-1 text-[12px] font-medium"
+            style={{
+              color: "#5EEAD4",
+              background: "rgba(13,148,136,0.12)",
+              border: "1px solid rgba(13,148,136,0.2)",
+            }}
+          >
+            <span className="h-1.5 w-1.5 rounded-full" style={{ background: "#14B8A6" }} />
+            מערכת ניהול קליניקה חכמה
           </div>
-          <h1 className="mb-4 font-display text-[2.6rem] font-bold leading-[1.08] tracking-tight">
+          <h1 className="mb-4 text-[2.8rem] font-bold leading-[1.08] tracking-tight text-white">
             פחות ניירת.<br />
-            <span className="bg-gradient-to-l from-violet-300 to-indigo-300 bg-clip-text text-transparent">יותר זמן לטפל.</span>
+            <span style={{
+              background: "linear-gradient(135deg,#14B8A6,#3B82F6)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              backgroundClip: "text",
+            }}>
+              יותר טיפול.
+            </span>
           </h1>
-          <p className="max-w-md leading-relaxed text-slate-300/90">
-            הקליטו את הטיפול — praxisAI תכתוב את הרשומה, תכין את הדוחות
-            ותשאיר אתכם פנויים למה שבאמת חשוב.
+          <p className="max-w-md text-[15px] leading-relaxed text-slate-400">
+            praxisAI מתעדת כל טיפול, שולחת תזכורות, ומנהלת את הקליניקה — כדי שתוכלו להתמקד במה שחשוב.
           </p>
+
+          <div className="mt-8 grid grid-cols-2 gap-3">
+            {FEATURES.map(({ icon: Icon, title, desc }) => (
+              <div
+                key={title}
+                className="flex items-start gap-3 rounded-2xl p-3.5"
+                style={{
+                  background: "rgba(255,255,255,0.04)",
+                  border: "1px solid rgba(255,255,255,0.06)",
+                }}
+              >
+                <div
+                  className="grid h-8 w-8 shrink-0 place-items-center rounded-xl"
+                  style={{ background: "rgba(13,148,136,0.15)" }}
+                >
+                  <Icon size={15} style={{ color: "#5EEAD4" }} />
+                </div>
+                <div>
+                  <div className="text-[13px] font-semibold text-white">{title}</div>
+                  <div className="text-[11.5px] leading-tight mt-0.5" style={{ color: "#64748B" }}>{desc}</div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
-        <p className="relative text-xs text-slate-500">© {new Date().getFullYear()} praxisAI · כל הזכויות שמורות</p>
+        <p className="relative text-[12px]" style={{ color: "#374151" }}>
+          © {new Date().getFullYear()} praxisAI · כל הזכויות שמורות
+        </p>
       </div>
 
-      {/* Form */}
-      <div className="flex items-center justify-center bg-bg p-6">
-        <div className="w-full max-w-sm animate-slide-up">
+      {/* Form panel */}
+      <div className="flex items-center justify-center bg-white p-8">
+        <div className="w-full max-w-[360px] animate-slide-up">
           <div className="lg:hidden mb-8 flex items-center gap-3">
-            <div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 shadow-glow">
-              <Logo size={18} className="text-white" />
+            <div
+              className="grid h-9 w-9 place-items-center rounded-xl"
+              style={{ background: "linear-gradient(135deg, #14B8A6, #0D9488)" }}
+            >
+              <Logo size={17} className="text-white" />
             </div>
-            <span className="font-display text-lg font-bold">praxisAI</span>
+            <span className="text-[17px] font-bold text-ink-900">
+              praxis<span style={{ color: "#0D9488" }}>AI</span>
+            </span>
           </div>
 
-          <h2 className="mb-1.5 text-2xl font-bold tracking-tight text-ink-900">כניסה למערכת</h2>
-          <p className="mb-6 text-sm text-ink-500">ברוכים השבים — התחברו כדי להמשיך.</p>
+          <h2 className="text-[1.65rem] font-bold tracking-tight text-ink-900 mb-1">
+            כניסה למערכת
+          </h2>
+          <p className="text-[14px] text-ink-500 mb-6">ברוכים השבים — התחברו כדי להמשיך</p>
 
           {expired && (
-            <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-[13px] text-amber-800">
+            <div
+              className="mb-5 flex items-start gap-3 rounded-xl border px-4 py-3 text-[13px]"
+              style={{ background: "#FFFBEB", borderColor: "#FDE68A", color: "#92400E" }}
+            >
               פג תוקף החיבור — מטעמי אבטחה יש להתחבר מחדש.
             </div>
           )}
@@ -120,7 +182,12 @@ export default function LoginPage() {
           <button
             onClick={signInWithGoogle}
             disabled={googleLoading}
-            className="btn-ghost w-full mb-4 !py-3 gap-3"
+            className="w-full mb-4 flex items-center justify-center gap-3 rounded-xl py-3 text-[14px] font-semibold transition-all hover:bg-ink-50 disabled:opacity-50"
+            style={{
+              color: "#1E293B",
+              border: "1px solid rgba(15,23,42,0.12)",
+              boxShadow: "0 1px 3px rgba(15,23,42,0.06)",
+            }}
           >
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
               <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
@@ -132,34 +199,50 @@ export default function LoginPage() {
           </button>
 
           <div className="relative mb-4">
-            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-line" /></div>
-            <div className="relative flex justify-center"><span className="bg-white px-3 text-xs text-slate-400">או עם דוא&Prime;ל</span></div>
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-line" />
+            </div>
+            <div className="relative flex justify-center">
+              <span className="bg-white px-3 text-[12px] text-ink-400">או עם דוא&Prime;ל</span>
+            </div>
           </div>
 
           <form onSubmit={signIn} className="space-y-4">
             <div>
               <label className="label">דוא&Prime;ל</label>
-              <input dir="ltr" type="email" required className="input" value={email}
-                     onChange={(e) => setEmail(e.target.value)} placeholder="name@clinic.co.il" />
+              <input
+                dir="ltr" type="email" required className="input"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="name@clinic.co.il"
+              />
             </div>
             <div>
               <label className="label">סיסמה</label>
-              <input dir="ltr" type="password" required className="input" value={password}
-                     onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
+              <input
+                dir="ltr" type="password" required className="input"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+              />
             </div>
 
             {error && (
-              <div className="rounded-lg bg-red-50 border border-red-200 px-3.5 py-2.5 text-[13px] text-red-700 leading-relaxed">
+              <div
+                className="flex items-start gap-3 rounded-xl border px-4 py-3 text-[13px]"
+                style={{ background: "#FFF1F2", borderColor: "#FECDD3", color: "#BE123C" }}
+              >
                 {error}
               </div>
             )}
 
-            <button type="submit" disabled={loading} className="btn-primary w-full">
+            <button type="submit" disabled={loading} className="btn-primary w-full" style={{ paddingTop: "12px", paddingBottom: "12px", fontSize: "15px" }}>
               {loading ? "מתחבר..." : "כניסה"}
+              {!loading && <ArrowLeft size={16} />}
             </button>
           </form>
 
-          <p className="mt-6 text-xs text-slate-400 leading-relaxed">
+          <p className="mt-6 text-[12px] text-ink-400 leading-relaxed">
             קיבלת מייל הזמנה? לחץ על הקישור שבמייל כדי להגדיר סיסמה ולהיכנס לראשונה.
           </p>
         </div>
