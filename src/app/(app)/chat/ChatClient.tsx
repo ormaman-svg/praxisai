@@ -33,7 +33,7 @@ export default function ChatClient({
     });
 
     if (!res.ok || !res.body) {
-      setMessages([...next, { role: "assistant", content: "אירעה שגיאה — נסו שוב." }]);
+      setMessages([...next, { role: "assistant", content: "אירעה שגיאה — נסוו שנית." }]);
       setLoading(false);
       return;
     }
