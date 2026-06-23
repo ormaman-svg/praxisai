@@ -9,20 +9,20 @@ body {
   font-feature-settings: "rlig" 1, "calt" 1;
 }
 
-/* ── Scrollbar ─────────────────────────────────────────────────────── */
+/* ── Scrollbar ───────────────────────────────────────── */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(124,58,237,0.18); border-radius: 99px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(124,58,237,0.32); }
 
-/* ── Card ──────────────────────────────────────────────────────────── */
+/* ── Card ──────────────────────────────────────────── */
 .card {
   @apply bg-white rounded-2xl;
   border: 1px solid rgba(0,0,0,0.07);
   box-shadow: 0 1px 2px rgba(0,0,0,0.03), 0 4px 20px rgba(100,60,200,0.06);
 }
 
-/* ── Buttons ───────────────────────────────────────────────────────── */
+/* ── Buttons ─────────────────────────────────────────── */
 .btn-primary {
   @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white
          disabled:opacity-50 disabled:cursor-not-allowed;
@@ -47,7 +47,7 @@ body {
 }
 .btn-ghost:hover { border-color: #c9c6d8; }
 
-/* ── Input ─────────────────────────────────────────────────────────── */
+/* ── Input ───────────────────────────────────────────── */
 .input {
   @apply w-full rounded-xl text-sm text-slate-800 placeholder:text-slate-400;
   background: #faf9fd;
@@ -62,24 +62,24 @@ body {
   box-shadow: 0 0 0 3px rgba(124,58,237,0.12);
 }
 
-/* ── Label ─────────────────────────────────────────────────────────── */
+/* ── Label ──────────────────────────────────────────── */
 .label {
   @apply block text-[12.5px] font-semibold text-slate-500 mb-1.5;
   letter-spacing: 0.01em;
 }
 
-/* ── Badge ─────────────────────────────────────────────────────────── */
+/* ── Badge ──────────────────────────────────────────── */
 .badge {
   @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold;
 }
 
-/* ── Smooth focus for all interactive elements ─────────────────────── */
+/* ── Smooth focus for all interactive elements ──────────────────── */
 *:focus-visible {
   outline: 2px solid #8b5cf6;
   outline-offset: 2px;
 }
 
-/* ── Global inbox notifier slide-up animation ──────────────────────── */
+/* ── Global inbox notifier slide-up animation ────────────────────── */
 @keyframes slideUp {
   from { opacity: 0; transform: translateY(12px); }
   to   { opacity: 1; transform: translateY(0); }

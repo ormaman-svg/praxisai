@@ -20,9 +20,9 @@ export default function LoginPage() {
     setExpired(params.get("expired") === "1");
     const err = params.get("error");
     if (err === "not_invited") {
-      setError("הכתובת הזו לא הוזמנה למערכת. הכניסה היא בהזמנה בלבד — פנה למנהל הקליניקה.");
+      setError("הכתובת הזאת לא הוזמנה למערכת. הכניסה היא בהזמנה בלבד — פנה למנהל הקליניקה.");
     } else if (err === "auth") {
-      setError("ההתחברות נכשלה. נסה שוב.");
+      setError("ההתחברות נכשלה. נסה שנית.");
     }
   }, []);
 
@@ -47,7 +47,7 @@ export default function LoginPage() {
     setError(null);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
-      setError("פרטי ההתחברות שגויים. פנה למנהל הקליניקה אם אינך זוכר את הסיסמה.");
+      setError("פרטי ההתחברות שגויים. פנה למנהל הקליניקה אם אינך זוכר את הסיסמא.");
       setLoading(false);
       return;
     }
@@ -117,7 +117,7 @@ export default function LoginPage() {
                      onChange={(e) => setEmail(e.target.value)} placeholder="name@clinic.co.il" />
             </div>
             <div>
-              <label className="label">סיסמה</label>
+              <label className="label">סיסמא</label>
               <input dir="ltr" type="password" required className="input" value={password}
                      onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
             </div>
@@ -134,7 +134,7 @@ export default function LoginPage() {
           </form>
 
           <p className="mt-6 text-xs text-slate-400 leading-relaxed">
-            קיבלת מייל הזמנה? לחץ על הקישור שבמייל כדי להגדיר סיסמה ולהיכנס לראשונה.
+            קיבלת מייל הזמנה? לחץ על הקישור שבמייל כדי להגדיר סיסמא ולהיכנס לראשונה.
           </p>
         </div>
       </div>
