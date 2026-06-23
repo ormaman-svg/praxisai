@@ -141,9 +141,9 @@ export default async function PatientPage({ params }: { params: { id: string } }
   ];
 
   const statusMeta: Record<string, { he: string; badge: string; dot: string }> = {
-    active:     { he: "פעיל",   badge: "badge-green", dot: "bg-emerald-500" },
-    on_hold:    { he: "בהמתנה", badge: "badge-amber", dot: "bg-amber-500" },
-    discharged: { he: "שוחרר",  badge: "badge-gray",  dot: "bg-ink-300" },
+    active:     { he: "פעיל",   badge: "badge-success", dot: "bg-emerald-500" },
+    on_hold:    { he: "בהמתנה", badge: "badge-warning", dot: "bg-amber-500" },
+    discharged: { he: "שוחרר",  badge: "badge-neutral", dot: "bg-ink-300" },
   };
   const status = statusMeta[patient.status] ?? statusMeta.active;
 
@@ -154,33 +154,33 @@ export default async function PatientPage({ params }: { params: { id: string } }
       {/* Patient header */}
       <div className="card overflow-hidden">
         <div className="flex flex-wrap items-start gap-5 p-6">
-          <span className="avatar h-16 w-16 text-2xl shadow-glow">
+          <span className="inline-grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-brand-gradient text-2xl font-bold text-white shadow-glow">
             {patient.first_name.charAt(0)}
           </span>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2.5">
               <h1 className="page-title">{patient.first_name} {patient.last_name}</h1>
               <span className={`badge ${status.badge}`}>
-                <span className={`dot ${status.dot}`} /> {status.he}
+                <span className={`inline-block h-1.5 w-1.5 rounded-full ${status.dot}`} /> {status.he}
               </span>
-              {patient.bituach_leumi_case && <span className="badge badge-accent">ביטוח לאומי</span>}
+              {patient.bituach_leumi_case && <span className="badge badge-electric">ביטוח לאומי</span>}
             </div>
             {/* Key facts as chips */}
             <div className="mt-3 flex flex-wrap items-center gap-2">
               {age !== null && (
-                <span className="chip">גיל {age}</span>
+                <span className="inline-flex items-center gap-1 rounded-lg bg-surface-2 px-2.5 py-1 text-[12.5px] font-medium text-ink-700">גיל {age}</span>
               )}
               {patient.kupah && (
-                <span className="chip"><Building2 size={13} className="text-ink-400" /> {patient.kupah}</span>
+                <span className="inline-flex items-center gap-1 rounded-lg bg-surface-2 px-2.5 py-1 text-[12.5px] font-medium text-ink-700"><Building2 size={13} className="text-ink-400" /> {patient.kupah}</span>
               )}
               {patient.national_id && (
-                <span className="chip"><IdCard size={13} className="text-ink-400" /> <span dir="ltr">{patient.national_id}</span></span>
+                <span className="inline-flex items-center gap-1 rounded-lg bg-surface-2 px-2.5 py-1 text-[12.5px] font-medium text-ink-700"><IdCard size={13} className="text-ink-400" /> <span dir="ltr">{patient.national_id}</span></span>
               )}
               {patient.phone && (
-                <span className="chip"><Phone size={13} className="text-ink-400" /> <span dir="ltr">{patient.phone}</span></span>
+                <span className="inline-flex items-center gap-1 rounded-lg bg-surface-2 px-2.5 py-1 text-[12.5px] font-medium text-ink-700"><Phone size={13} className="text-ink-400" /> <span dir="ltr">{patient.phone}</span></span>
               )}
               {patient.diagnosis && (
-                <span className="chip"><Stethoscope size={13} className="text-ink-400" /> {patient.diagnosis}</span>
+                <span className="inline-flex items-center gap-1 rounded-lg bg-surface-2 px-2.5 py-1 text-[12.5px] font-medium text-ink-700"><Stethoscope size={13} className="text-ink-400" /> {patient.diagnosis}</span>
               )}
             </div>
           </div>
@@ -238,7 +238,7 @@ export default async function PatientPage({ params }: { params: { id: string } }
               <span className="badge badge-gray">{treatments?.length ?? 0}</span>
             </div>
             {(treatments?.length ?? 0) === 0 ? (
-              <div className="empty">
+              <div className="empty-state">
                 <div className="empty-icon"><Activity size={24} /></div>
                 <div className="text-sm text-ink-500">אין עדיין טיפולים מתועדים למטופל זה.</div>
               </div>
@@ -249,7 +249,7 @@ export default async function PatientPage({ params }: { params: { id: string } }
                     <div className="mb-2 flex items-center gap-2.5">
                       <span className="badge badge-brand">{TREATMENT_TYPE_HE[t.type] ?? t.type}</span>
                       {t.vas !== null && template.has_scale && (
-                        <span className={`badge ${t.vas >= 7 ? "badge-red" : t.vas >= 4 ? "badge-amber" : "badge-green"}`}>
+                        <span className={`badge ${t.vas >= 7 ? "badge-danger" : t.vas >= 4 ? "badge-warning" : "badge-success"}`}>
                           {template.scale_label} {t.vas}
                         </span>
                       )}
@@ -404,7 +404,7 @@ export default async function PatientPage({ params }: { params: { id: string } }
                         </div>
                         <div className="text-xs text-ink-400">{DOC_TYPE_HE[d.type] ?? d.type}</div>
                       </div>
-                      <span className={`badge ${d.status === "final" ? "badge-green" : "badge-amber"}`}>
+                      <span className={`badge ${d.status === "final" ? "badge-success" : "badge-warning"}`}>
                         {d.status === "final" ? "סופי" : "טיוטה"}
                       </span>
                     </a>
