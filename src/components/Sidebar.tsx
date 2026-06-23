@@ -2,27 +2,19 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useState } from "react";
 import {
   LayoutDashboard, Users, FileText, BarChart3, LogOut, Mic, MessageSquare,
-  ShieldCheck, Building2, Settings, CalendarDays, CreditCard, Inbox, MessageCircle,
+  ShieldCheck, Building2, Settings, CalendarDays, CreditCard, Inbox, MessageCircle, Globe,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import ClinicSwitcher from "./ClinicSwitcher";
 import Logo from "./Logo";
 import type { Membership, MemberRole } from "@/lib/types";
-import { ROLE_HE } from "@/lib/types";
 import { isSuperAdminEmail } from "@/lib/super-admins";
-
-const NAV = [
-  { href: "/dashboard", label: "לוח בקרה",      icon: LayoutDashboard },
-  { href: "/schedule",  label: "יומן תורים",    icon: CalendarDays },
-  { href: "/inbox",     label: "תיבת הודעות",   icon: Inbox },
-  { href: "/patients",  label: "מטופלים",        icon: Users },
-  { href: "/scribe",    label: "תיעוד AI",       icon: Mic },
-  { href: "/chat",      label: "צ'אט AI",        icon: MessageSquare },
-  { href: "/analytics", label: "אנליטיקות",      icon: BarChart3 },
-  { href: "/documents", label: "מסמכים",         icon: FileText },
-];
+import { useLang } from "@/lib/i18n/context";
+import { useT } from "@/lib/i18n/use-translation";
+import { LANG_META, type Lang } from "@/lib/i18n/translations";
 
 function NavLink({ href, label, icon: Icon, active }: {
   href: string; label: string; icon: React.ElementType; active: boolean;
@@ -42,6 +34,56 @@ function NavLink({ href, label, icon: Icon, active }: {
   );
 }
 
+const LANGS = Object.entries(LANG_META) as [Lang, typeof LANG_META[Lang]][];
+
+function LanguagePicker() {
+  const { lang, setLang } = useLang();
+  const t = useT();
+  const [open, setOpen] = useState(false);
+  const current = LANG_META[lang];
+
+  return (
+    <div className="relative px-3 pb-2">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center gap-2.5 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-[12.5px] font-medium text-slate-400 transition-colors hover:bg-white/[0.07] hover:text-slate-200"
+        title={t.common.language}
+      >
+        <Globe size={14} className="shrink-0 text-slate-500" />
+        <span className="flex-1 text-start">{current.label}</span>
+        <span className="text-base leading-none">{current.flag}</span>
+      </button>
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute bottom-full start-0 z-20 mb-1.5 w-full overflow-hidden rounded-xl border border-white/[0.1] bg-[#15161f] shadow-pop">
+            <div className="px-3 py-2 text-[10px] font-semibold uppercase tracking-widest text-slate-600">
+              {t.common.language}
+            </div>
+            {LANGS.map(([code, meta]) => (
+              <button
+                key={code}
+                onClick={() => { setLang(code); setOpen(false); }}
+                className={`flex w-full items-center gap-3 px-3 py-2.5 text-[13px] transition-colors ${
+                  code === lang
+                    ? "bg-violet-500/[0.15] font-semibold text-violet-200"
+                    : "text-slate-400 hover:bg-white/[0.05] hover:text-slate-200"
+                }`}
+                dir={meta.dir}
+              >
+                <span className="text-base leading-none">{meta.flag}</span>
+                <span className="flex-1 text-start">{meta.label}</span>
+                {code === lang && <span className="h-1.5 w-1.5 rounded-full bg-violet-400" />}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function Sidebar({
   memberships, activeClinicId, role, userName, userEmail, clinicTypeIcon, clinicTypeLabel,
 }: {
@@ -55,8 +97,20 @@ export default function Sidebar({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const t = useT();
   const isAdmin = role === "owner" || role === "admin";
   const isSuperAdmin = isSuperAdminEmail(userEmail);
+
+  const NAV = [
+    { href: "/dashboard", label: t.nav.dashboard,  icon: LayoutDashboard },
+    { href: "/schedule",  label: t.nav.schedule,   icon: CalendarDays },
+    { href: "/inbox",     label: t.nav.inbox,      icon: Inbox },
+    { href: "/patients",  label: t.nav.patients,   icon: Users },
+    { href: "/scribe",    label: t.nav.scribe,     icon: Mic },
+    { href: "/chat",      label: t.nav.chat,       icon: MessageSquare },
+    { href: "/analytics", label: t.nav.analytics,  icon: BarChart3 },
+    { href: "/documents", label: t.nav.documents,  icon: FileText },
+  ];
 
   async function signOut() {
     await createClient().auth.signOut();
@@ -105,21 +159,26 @@ export default function Sidebar({
 
         {isAdmin && (
           <>
-            <div className="mb-1.5 mt-5 px-3 text-[10.5px] font-semibold uppercase tracking-widest text-slate-600">ניהול</div>
-            <NavLink href="/admin/users"        label="משתמשים והרשאות" icon={ShieldCheck}    active={pathname.startsWith("/admin/users")} />
-            <NavLink href="/settings/whatsapp"  label="חיבור WhatsApp"  icon={MessageCircle}  active={pathname.startsWith("/settings/whatsapp")} />
-            <NavLink href="/settings/billing"   label="חיוב ומנוי"     icon={CreditCard}     active={pathname.startsWith("/settings/billing")} />
+            <div className="mb-1.5 mt-5 px-3 text-[10.5px] font-semibold uppercase tracking-widest text-slate-600">
+              {t.adminSection.title}
+            </div>
+            <NavLink href="/admin/users"        label={t.adminSection.users}    icon={ShieldCheck}    active={pathname.startsWith("/admin/users")} />
+            <NavLink href="/settings/whatsapp"  label={t.adminSection.whatsapp} icon={MessageCircle}  active={pathname.startsWith("/settings/whatsapp")} />
+            <NavLink href="/settings/billing"   label={t.adminSection.billing}  icon={CreditCard}     active={pathname.startsWith("/settings/billing")} />
           </>
         )}
 
         {isSuperAdmin && (
           <>
             <div className="mb-1.5 mt-5 px-3 text-[10.5px] font-semibold uppercase tracking-widest text-slate-600">Super Admin</div>
-            <NavLink href="/admin/clinics"      label="קליניקות"        icon={Building2}  active={pathname.startsWith("/admin/clinics")} />
-            <NavLink href="/settings/template"  label="סוג הקליניקה"   icon={Settings}   active={pathname.startsWith("/settings/template")} />
+            <NavLink href="/admin/clinics"      label={t.superAdminSection.clinics}   icon={Building2}  active={pathname.startsWith("/admin/clinics")} />
+            <NavLink href="/settings/template"  label={t.superAdminSection.template}  icon={Settings}   active={pathname.startsWith("/settings/template")} />
           </>
         )}
       </nav>
+
+      {/* Language picker */}
+      <LanguagePicker />
 
       {/* User card */}
       <div className="border-t border-white/[0.06] p-3">
@@ -129,11 +188,11 @@ export default function Sidebar({
           </div>
           <div className="min-w-0 flex-1">
             <div className="truncate text-[13px] font-semibold text-white">{userName}</div>
-            <div className="truncate text-[11px] text-slate-500">{ROLE_HE[role]}</div>
+            <div className="truncate text-[11px] text-slate-500">{t.roles[role]}</div>
           </div>
           <button
             onClick={signOut}
-            title="התנתקות"
+            title={t.common.signOut}
             className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-white/[0.08] hover:text-violet-300"
           >
             <LogOut size={15} />

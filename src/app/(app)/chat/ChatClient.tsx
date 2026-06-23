@@ -2,12 +2,14 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Send, Loader2, Bot, User } from "lucide-react";
+import { useT } from "@/lib/i18n/use-translation";
 
 type Message = { role: "user" | "assistant"; content: string };
 
 export default function ChatClient({
   expertise, starters: STARTERS,
 }: { expertise: string; starters: string[] }) {
+  const t = useT();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -33,7 +35,7 @@ export default function ChatClient({
     });
 
     if (!res.ok || !res.body) {
-      setMessages([...next, { role: "assistant", content: "אירעה שגיאה — נסוו שנית." }]);
+      setMessages([...next, { role: "assistant", content: t.chat.errorMsg }]);
       setLoading(false);
       return;
     }
@@ -70,8 +72,8 @@ export default function ChatClient({
   return (
     <div className="mx-auto flex h-[calc(100vh-4rem)] max-w-3xl flex-col">
       <div className="mb-4 shrink-0">
-        <h1 className="text-2xl font-bold text-slate-900">צ&apos;אט AI קליני</h1>
-        <p className="mt-1 text-sm text-slate-500">שאלו שאלות קליניות — פרוטוקולים, אבחנות, תרגילים, תיעוד.</p>
+        <h1 className="text-2xl font-bold text-slate-900">{t.chat.title}</h1>
+        <p className="mt-1 text-sm text-slate-500">{t.chat.subtitle}</p>
       </div>
 
       {/* Messages */}
@@ -81,8 +83,8 @@ export default function ChatClient({
             <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-full bg-brand-50 text-brand">
               <Bot size={28} />
             </div>
-            <p className="text-sm font-semibold text-slate-700 mb-1">עוזר AI קליני ל{expertise}</p>
-            <p className="text-sm text-slate-400 mb-6">שאלו כל שאלה קלינית — אני כאן לעזור.</p>
+            <p className="text-sm font-semibold text-slate-700 mb-1">{t.chat.clinicalAssistant}{expertise}</p>
+            <p className="text-sm text-slate-400 mb-6">{t.chat.askAnything}</p>
             <div className="grid gap-2 sm:grid-cols-2">
               {STARTERS.map((s) => (
                 <button
@@ -128,7 +130,7 @@ export default function ChatClient({
             ref={textareaRef}
             rows={1}
             className="input flex-1 resize-none min-h-[44px] max-h-32 py-2.5 text-sm"
-            placeholder="שאלו שאלה קלינית…"
+            placeholder={t.chat.placeholder}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -142,7 +144,7 @@ export default function ChatClient({
             {loading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
           </button>
         </div>
-        <p className="mt-2 text-center text-[11px] text-slate-400">Enter לשליחה · Shift+Enter לשורה חדשה</p>
+        <p className="mt-2 text-center text-[11px] text-slate-400">{t.chat.hint}</p>
       </div>
     </div>
   );
