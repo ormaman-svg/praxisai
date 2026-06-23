@@ -3,19 +3,15 @@
 import { useMemo, useState } from "react";
 import { Activity, FileText, TrendingDown, Users, UserPlus, CalendarClock, Crown } from "lucide-react";
 import { TREATMENT_TYPE_HE } from "@/lib/types";
-import {
-  AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, Tooltip, ResponsiveContainer,
-} from "recharts";
+import { Line, Donut } from "@/components/charts";
+import { useT } from "@/lib/i18n/use-translation";
 
 type P = { id: string; first_name: string; last_name: string; kupah: string | null; status: string; created_at: string };
 type T = { id: string; patient_id: string; therapist_id: string | null; treated_at: string; type: string; vas: number | null };
 type M = { id: string; patient_id: string; kind: string; joint: string | null; movement: string | null; value: number; unit: string; recorded_at: string };
 type D = { id: string; patient_id: string | null; created_at: string };
 
-const BRAND = "#0D9488";
-const ELECTRIC = "#3B82F6";
-const PIE_COLORS = [BRAND, ELECTRIC, "#8B5CF6", "#F59E0B", "#EF4444", "#10B981", "#EC4899", "#6366F1"];
+const BLUE = "#2563eb";
 
 /* ---------- helpers ---------- */
 function weekKey(dateISO: string) {
@@ -28,17 +24,31 @@ function weekKey(dateISO: string) {
 const weekLabel = (t: number) =>
   new Date(t).toLocaleDateString("he-IL", { day: "numeric", month: "short" });
 
-/* ---------- chart tooltip style ---------- */
-const tooltipStyle = {
-  contentStyle: {
-    borderRadius: "10px",
-    border: "1px solid #E2E8F0",
-    boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
-    fontSize: "12px",
-    direction: "rtl" as const,
-  },
-  labelStyle: { fontWeight: 700, color: "#1E293B" },
-};
+/* ---------- chart primitives (SVG, RTL-safe via dir=ltr canvas) ---------- */
+// Line and Donut imported from @/components/charts
+
+function Bars({ data, color = BLUE }: { data: { label: string; value: number }[]; color?: string }) {
+  const W = 520, H = 180, P = { t: 12, b: 26, s: 8 };
+  const max = Math.max(...data.map((d) => d.value), 1);
+  const bw = (W - P.s * 2) / data.length;
+  return (
+    <svg style={{ direction: "ltr" }} viewBox={`0 0 ${W} ${H}`} className="w-full">
+      {data.map((d, i) => {
+        const h = (d.value / max) * (H - P.t - P.b);
+        const x = P.s + i * bw;
+        return (
+          <g key={i}>
+            <rect x={x + bw * 0.18} y={H - P.b - h} width={bw * 0.64} height={Math.max(h, 2)} rx={5} fill={color} opacity={0.9} />
+            {d.value > 0 && (
+              <text x={x + bw / 2} y={H - P.b - h - 5} fontSize={10} fontWeight={600} fill="#475569" textAnchor="middle">{d.value}</text>
+            )}
+            <text x={x + bw / 2} y={H - 8} fontSize={9} fill="#94a3b8" textAnchor="middle">{d.label}</text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
 
 /* ---------- page ---------- */
 export default function AnalyticsClient({
@@ -49,6 +59,7 @@ export default function AnalyticsClient({
   therapists: { id: string; name: string }[]; isManager: boolean;
   scaleLabel: string; scaleImprovementLower: boolean; templateName: string;
 }) {
+  const t = useT();
   const [patientId, setPatientId] = useState<string>("");
   const [patientQ, setPatientQ] = useState("");
   const [patientOpen, setPatientOpen] = useState(false);
@@ -97,28 +108,25 @@ export default function AnalyticsClient({
       .map(([k, vals]) => ({ label: weekLabel(k), value: Math.round(avg(vals) * 10) / 10 }));
   }, [fT, patientId]);
 
-  /* treatment types for BarChart */
+  /* treatment types donut */
   const typeDonut = useMemo(() => {
     const c = new Map<string, number>();
     fT.forEach((t) => c.set(t.type, (c.get(t.type) ?? 0) + 1));
     return Array.from(c.entries()).sort((a, b) => b[1] - a[1])
-      .map(([k, v]) => ({ name: TREATMENT_TYPE_HE[k] ?? k, value: v }));
+      .map(([k, v]) => ({ label: TREATMENT_TYPE_HE[k] ?? k, value: v }));
   }, [fT]);
 
-  /* patient status pie */
-  const statusPie = useMemo(() => {
-    const statusLabels: Record<string, string> = { active: "פעיל", discharged: "שוחרר", on_hold: "בהמתנה" };
+  /* clinic view: patients by kupah · patient view: ROM progress */
+  const kupahBars = useMemo(() => {
     const c = new Map<string, number>();
-    patients.forEach((p) => {
-      const label = statusLabels[p.status] ?? p.status;
-      c.set(label, (c.get(label) ?? 0) + 1);
-    });
-    return Array.from(c.entries()).map(([name, value]) => ({ name, value }));
+    patients.forEach((p) => c.set(p.kupah ?? "אחר", (c.get(p.kupah ?? "אחר") ?? 0) + 1));
+    return Array.from(c.entries()).sort((a, b) => b[1] - a[1]).map(([label, value]) => ({ label, value }));
   }, [patients]);
 
   const romSeries = useMemo(() => {
     const rom = fM.filter((m) => m.kind === "ROM");
     if (!rom.length) return null;
+    // most-measured joint+movement
     const groups = new Map<string, M[]>();
     rom.forEach((m) => {
       const k = `${m.joint ?? ""} · ${m.movement ?? ""}`;
@@ -188,19 +196,16 @@ export default function AnalyticsClient({
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      {/* Page header */}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="eyebrow">אנליטיקות</p>
-          <h1 className="page-title">נתוני קליניקה</h1>
-          <p className="mt-1 text-sm text-ink-400">מדדים ומגמות — 6 החודשים האחרונים · <span className="text-ink-300">{templateName}</span></p>
+          <h1 className="text-2xl font-bold text-slate-900">{t.analytics.title}</h1>
+          <p className="mt-1 text-sm text-slate-500">{t.analytics.subtitle} · <span className="text-slate-400">{templateName}</span></p>
         </div>
-        {/* Patient filter */}
         <div className="relative w-64">
-          <label className="label">סינון לפי מטופל</label>
+          <label className="label">{t.analytics.filterByPatient}</label>
           <input
             className="input"
-            placeholder="כל הקליניקה"
+            placeholder={t.analytics.allClinic}
             value={patientQ}
             onFocus={() => setPatientOpen(true)}
             onChange={(e) => {
@@ -219,7 +224,7 @@ export default function AnalyticsClient({
               <ul className="absolute z-20 mt-1 w-full rounded-xl border border-line bg-white py-1 shadow-lg">
                 {q && (
                   <li
-                    className="cursor-pointer px-4 py-2 text-[13px] text-ink-400 hover:bg-slate-50"
+                    className="cursor-pointer px-4 py-2 text-[13px] text-slate-500 hover:bg-slate-50"
                     onMouseDown={() => { setPatientId(""); setPatientQ(""); setPatientOpen(false); }}
                   >
                     כל הקליניקה
@@ -228,7 +233,7 @@ export default function AnalyticsClient({
                 {matches.map((p) => (
                   <li
                     key={p.id}
-                    className="cursor-pointer px-4 py-2 text-[13px] text-ink-800 hover:bg-brand-50"
+                    className="cursor-pointer px-4 py-2 text-[13px] text-slate-800 hover:bg-brand-50"
                     onMouseDown={() => { setPatientId(p.id); setPatientQ(`${p.first_name} ${p.last_name}`); setPatientOpen(false); }}
                   >
                     {p.first_name} {p.last_name}
@@ -245,8 +250,8 @@ export default function AnalyticsClient({
         {kpis.map((k) => (
           <div key={k.label} className="card p-5">
             <div className={`mb-3 grid h-9 w-9 place-items-center rounded-lg ${k.tint}`}><k.icon size={18} /></div>
-            <div className="text-2xl font-bold tracking-tight text-ink-900">{k.value}</div>
-            <div className="mt-0.5 text-[12.5px] text-ink-400">{k.label}</div>
+            <div className="text-2xl font-bold text-slate-900">{k.value}</div>
+            <div className="mt-0.5 text-[12.5px] text-slate-500">{k.label}</div>
             {k.sub && <div className={`mt-1 text-xs font-semibold ${k.subClass}`}>{k.sub}</div>}
           </div>
         ))}
@@ -257,63 +262,63 @@ export default function AnalyticsClient({
         <div className="space-y-4">
           <div className="flex items-center gap-2">
             <Crown size={16} className="text-amber-500" />
-            <h2 className="section-label">לוח בקרה מנהלי</h2>
+            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500">לוח בקרה מנהלי</h2>
           </div>
 
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
             <div className="card p-5">
               <div className="mb-3 grid h-9 w-9 place-items-center rounded-lg bg-sky-50 text-sky-600"><UserPlus size={18} /></div>
-              <div className="text-2xl font-bold tracking-tight text-ink-900">{opsKpis.newPatients}</div>
-              <div className="mt-0.5 text-[12.5px] text-ink-400">מטופלים חדשים החודש</div>
+              <div className="text-2xl font-bold text-slate-900">{opsKpis.newPatients}</div>
+              <div className="mt-0.5 text-[12.5px] text-slate-500">מטופלים חדשים החודש</div>
             </div>
             <div className="card p-5">
               <div className="mb-3 grid h-9 w-9 place-items-center rounded-lg bg-rose-50 text-rose-600"><Activity size={18} /></div>
-              <div className="text-2xl font-bold tracking-tight text-ink-900">{opsKpis.perPatient}</div>
-              <div className="mt-0.5 text-[12.5px] text-ink-400">ממוצע טיפולים למטופל</div>
+              <div className="text-2xl font-bold text-slate-900">{opsKpis.perPatient}</div>
+              <div className="mt-0.5 text-[12.5px] text-slate-500">ממוצע טיפולים למטופל</div>
             </div>
             <div className="card p-5">
               <div className="mb-3 grid h-9 w-9 place-items-center rounded-lg bg-indigo-50 text-indigo-600"><CalendarClock size={18} /></div>
-              <div className="text-2xl font-bold tracking-tight text-ink-900">{opsKpis.peakDay}</div>
-              <div className="mt-0.5 text-[12.5px] text-ink-400">יום השיא בקליניקה</div>
+              <div className="text-2xl font-bold text-slate-900">{opsKpis.peakDay}</div>
+              <div className="mt-0.5 text-[12.5px] text-slate-500">יום השיא בקליניקה</div>
             </div>
             <div className="card p-5">
               <div className="mb-3 grid h-9 w-9 place-items-center rounded-lg bg-amber-50 text-amber-600"><Crown size={18} /></div>
-              <div className="truncate text-2xl font-bold tracking-tight text-ink-900">{opsKpis.topTherapist}</div>
-              <div className="mt-0.5 text-[12.5px] text-ink-400">מוביל/ת בטיפולים (6 ח׳)</div>
+              <div className="truncate text-2xl font-bold text-slate-900">{opsKpis.topTherapist}</div>
+              <div className="mt-0.5 text-[12.5px] text-slate-500">מוביל/ת בטיפולים (6 ח׳)</div>
             </div>
           </div>
 
           {therapistRows.length > 1 && (
             <div className="card overflow-hidden">
-              <div className="card-head">
-                <h3 className="section-title">השוואת מטפלים — 6 החודשים האחרונים</h3>
+              <div className="border-b border-line px-5 py-3.5">
+                <h3 className="text-sm font-bold text-slate-900">השוואת מטפלים — 6 החודשים האחרונים</h3>
               </div>
               <div className="overflow-x-auto">
-                <table className="data-table">
+                <table className="w-full text-right text-[13px]">
                   <thead>
-                    <tr>
-                      <th>מטפל/ת</th>
-                      <th>טיפולים</th>
-                      <th>ב‑30 ימים</th>
-                      <th>מטופלים</th>
-                      <th>מגמת {scaleLabel}</th>
+                    <tr className="border-b border-line bg-slate-50 text-[11.5px] font-semibold uppercase tracking-wide text-slate-400">
+                      <th className="px-5 py-2.5">מטפל/ת</th>
+                      <th className="px-4 py-2.5">טיפולים</th>
+                      <th className="px-4 py-2.5">ב‑30 ימים</th>
+                      <th className="px-4 py-2.5">מטופלים</th>
+                      <th className="px-4 py-2.5">מגמת {scaleLabel}</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="divide-y divide-line">
                     {therapistRows.map((r, i) => (
-                      <tr key={r.id}>
-                        <td className="font-semibold text-ink-800">
+                      <tr key={r.id} className="hover:bg-slate-50">
+                        <td className="px-5 py-3 font-semibold text-slate-800">
                           <span className="flex items-center gap-2">
                             {i === 0 && r.total > 0 && <Crown size={13} className="text-amber-500" />}
                             {r.name}
                           </span>
                         </td>
-                        <td>{r.total}</td>
-                        <td>{r.month}</td>
-                        <td>{r.patients}</td>
-                        <td>
+                        <td className="px-4 py-3 text-slate-600">{r.total}</td>
+                        <td className="px-4 py-3 text-slate-600">{r.month}</td>
+                        <td className="px-4 py-3 text-slate-600">{r.patients}</td>
+                        <td className="px-4 py-3">
                           {r.vasDelta === null ? (
-                            <span className="text-ink-300">—</span>
+                            <span className="text-slate-300">—</span>
                           ) : (scaleImprovementLower ? r.vasDelta <= 0 : r.vasDelta >= 0) ? (
                             <span className="font-semibold text-emerald-600">{scaleImprovementLower ? "▼" : "▲"} {Math.abs(r.vasDelta).toFixed(1)} שיפור</span>
                           ) : (
@@ -331,175 +336,47 @@ export default function AnalyticsClient({
       )}
 
       {fT.length === 0 ? (
-        <div className="empty-state">
-          <div className="empty-icon"><Activity size={28} /></div>
-          <p className="mt-3 text-[13px] text-ink-400">
-            אין נתוני טיפולים {patientId ? "למטופל זה" : "בקליניקה"} בתקופה — הגרפים יתמלאו עם התיעוד.
-          </p>
+        <div className="card px-6 py-14 text-center text-sm text-slate-400">
+          אין נתוני טיפולים {patientId ? "למטופל זה" : "בקליניקה"} בתקופה — הגרפים יתמלאו עם התיעוד.
         </div>
       ) : (
         <div className="grid gap-6 lg:grid-cols-2">
-          {/* Treatments over time — AreaChart */}
           <div className="card p-5">
-            <h2 className="section-title mb-1">טיפולים לפי שבוע</h2>
-            <p className="mb-4 text-[12px] text-ink-400">10 שבועות אחרונים</p>
-            <div dir="ltr">
-              <ResponsiveContainer width="100%" height={200}>
-                <AreaChart data={weeklyBars} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="grad-brand" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="10%" stopColor={BRAND} stopOpacity={0.2} />
-                      <stop offset="95%" stopColor={BRAND} stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#94A3B8" }} tickLine={false} axisLine={false} />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: "#94A3B8" }} tickLine={false} axisLine={false} />
-                  <Tooltip
-                    {...tooltipStyle}
-                    formatter={(v) => [v, "טיפולים"]}
-                  />
-                  <Area type="monotone" dataKey="value" name="טיפולים" stroke={BRAND} strokeWidth={2} fill="url(#grad-brand)" dot={{ r: 3, fill: BRAND }} activeDot={{ r: 5 }} />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
+            <h2 className="mb-3 text-sm font-bold text-slate-900">טיפולים לפי שבוע</h2>
+            <Bars data={weeklyBars} />
           </div>
 
-          {/* VAS trend — AreaChart */}
           <div className="card p-5">
-            <h2 className="section-title mb-1">
+            <h2 className="mb-3 text-sm font-bold text-slate-900">
               מגמת {scaleLabel} {patientId ? "(לפי טיפול)" : "(ממוצע שבועי)"}
             </h2>
-            <p className="mb-4 text-[12px] text-ink-400">ציון ממוצע לאורך זמן</p>
-            {vasLine.length >= 2 ? (
-              <div dir="ltr">
-                <ResponsiveContainer width="100%" height={200}>
-                  <AreaChart data={vasLine} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="grad-electric" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="10%" stopColor={ELECTRIC} stopOpacity={0.2} />
-                        <stop offset="95%" stopColor={ELECTRIC} stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#94A3B8" }} tickLine={false} axisLine={false} />
-                    <YAxis domain={[0, 10]} tick={{ fontSize: 10, fill: "#94A3B8" }} tickLine={false} axisLine={false} />
-                    <Tooltip
-                      {...tooltipStyle}
-                      formatter={(v) => [v, scaleLabel]}
-                    />
-                    <Area type="monotone" dataKey="value" name={scaleLabel} stroke={ELECTRIC} strokeWidth={2} fill="url(#grad-electric)" dot={{ r: 3, fill: ELECTRIC }} activeDot={{ r: 5 }} />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <div className="flex h-[200px] items-center justify-center">
-                <p className="text-[13px] text-ink-400">נדרשים לפחות שני תיעודי VAS.</p>
-              </div>
+            {vasLine.length >= 2 ? <Line points={vasLine} yMax={10} /> : (
+              <p className="py-10 text-center text-[13px] text-slate-400">נדרשים לפחות שני תיעודי VAS.</p>
             )}
           </div>
 
-          {/* Treatment type breakdown — BarChart */}
           <div className="card p-5">
-            <h2 className="section-title mb-1">התפלגות סוגי טיפול</h2>
-            <p className="mb-4 text-[12px] text-ink-400">לפי מספר פגישות</p>
-            {typeDonut.length > 0 ? (
-              <div dir="ltr">
-                <ResponsiveContainer width="100%" height={200}>
-                  <BarChart data={typeDonut} layout="vertical" margin={{ top: 0, right: 16, left: 8, bottom: 0 }}>
-                    <XAxis type="number" tick={{ fontSize: 10, fill: "#94A3B8" }} tickLine={false} axisLine={false} allowDecimals={false} />
-                    <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: "#475569" }} tickLine={false} axisLine={false} width={90} />
-                    <Tooltip
-                      {...tooltipStyle}
-                      formatter={(v) => [v, "טיפולים"]}
-                    />
-                    <Bar dataKey="value" name="טיפולים" fill={BRAND} radius={[0, 6, 6, 0]} maxBarSize={20} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <div className="flex h-[200px] items-center justify-center">
-                <p className="text-[13px] text-ink-400">אין נתונים.</p>
-              </div>
-            )}
+            <h2 className="mb-3 text-sm font-bold text-slate-900">התפלגות סוגי טיפול</h2>
+            <Donut data={typeDonut} />
           </div>
 
-          {/* Patient status / ROM — PieChart or AreaChart */}
           <div className="card p-5">
             {patientId ? (
               romSeries ? (
                 <>
-                  <h2 className="section-title mb-1">טווח תנועה (ROM) — {romSeries.key}</h2>
-                  <p className="mb-4 text-[12px] text-ink-400">מעלות לאורך זמן</p>
-                  <div dir="ltr">
-                    <ResponsiveContainer width="100%" height={200}>
-                      <AreaChart data={romSeries.points} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
-                        <defs>
-                          <linearGradient id="grad-rom" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="10%" stopColor={BRAND} stopOpacity={0.2} />
-                            <stop offset="95%" stopColor={BRAND} stopOpacity={0} />
-                          </linearGradient>
-                        </defs>
-                        <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#94A3B8" }} tickLine={false} axisLine={false} />
-                        <YAxis domain={[0, romSeries.yMax]} tick={{ fontSize: 10, fill: "#94A3B8" }} tickLine={false} axisLine={false} />
-                        <Tooltip
-                          {...tooltipStyle}
-                          formatter={(v) => [`${v}°`, "ROM"]}
-                        />
-                        <Area type="monotone" dataKey="value" name="ROM" stroke={BRAND} strokeWidth={2} fill="url(#grad-rom)" dot={{ r: 3, fill: BRAND }} activeDot={{ r: 5 }} />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  </div>
+                  <h2 className="mb-3 text-sm font-bold text-slate-900">טווח תנועה (ROM) — {romSeries.key}</h2>
+                  <Line points={romSeries.points} yMax={romSeries.yMax} suffix="°" />
                 </>
               ) : (
                 <>
-                  <h2 className="section-title mb-4">טווח תנועה (ROM)</h2>
-                  <div className="flex h-[200px] items-center justify-center">
-                    <p className="text-[13px] text-ink-400">אין מדידות ROM למטופל זה.</p>
-                  </div>
+                  <h2 className="mb-3 text-sm font-bold text-slate-900">טווח תנועה (ROM)</h2>
+                  <p className="py-10 text-center text-[13px] text-slate-400">אין מדידות ROM למטופל זה.</p>
                 </>
               )
             ) : (
               <>
-                <h2 className="section-title mb-1">סטטוס מטופלים</h2>
-                <p className="mb-2 text-[12px] text-ink-400">התפלגות לפי מצב</p>
-                {statusPie.length > 0 ? (
-                  <div dir="ltr" className="flex items-center">
-                    <ResponsiveContainer width="60%" height={200}>
-                      <PieChart>
-                        <Pie
-                          data={statusPie}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={55}
-                          outerRadius={85}
-                          paddingAngle={3}
-                          dataKey="value"
-                          nameKey="name"
-                        >
-                          {statusPie.map((_, index) => (
-                            <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                          ))}
-                        </Pie>
-                        <Tooltip
-                          {...tooltipStyle}
-                          formatter={(v, name) => [v, name]}
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
-                    <div className="flex flex-col gap-2 ps-4" dir="rtl">
-                      {statusPie.map((entry, i) => (
-                        <div key={entry.name} className="flex items-center gap-2 text-[12px]">
-                          <span className="inline-block h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }} />
-                          <span className="text-ink-600">{entry.name}</span>
-                          <span className="font-bold text-ink-900">{entry.value}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex h-[200px] items-center justify-center">
-                    <p className="text-[13px] text-ink-400">אין נתונים.</p>
-                  </div>
-                )}
+                <h2 className="mb-3 text-sm font-bold text-slate-900">מטופלים לפי קופת חולים</h2>
+                <Bars data={kupahBars} color="#8b5cf6" />
               </>
             )}
           </div>
