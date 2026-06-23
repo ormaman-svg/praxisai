@@ -5,7 +5,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveClinicId } from "@/lib/clinic";
-import { logoutInstance } from "@/lib/whatsapp/evolution-api";
+import { logoutInstance, setWebhook } from "@/lib/whatsapp/evolution-api";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -48,8 +48,22 @@ export async function POST(request: Request) {
     return Response.json({ error: "Evolution API לא מוגדר." }, { status: 400 });
   }
 
+  function appOrigin(req: Request): string {
+    const h = req.headers;
+    const host = h.get("x-forwarded-host") ?? h.get("host");
+    const proto = h.get("x-forwarded-proto") ?? "https";
+    if (host) return `${proto}://${host}`;
+    const env = process.env.NEXT_PUBLIC_APP_URL;
+    if (env) return env.replace(/\/$/, "");
+    return new URL(req.url).origin;
+  }
+
+  const creds = { host, apiKey, instance };
   try {
-    await logoutInstance({ host, apiKey, instance });
+    // Re-register the webhook BEFORE logging out so Evolution knows where to
+    // send the next CONNECTION_UPDATE event when a new QR is scanned.
+    await setWebhook(creds, `${appOrigin(request)}/api/whatsapp/evolution`).catch(() => {});
+    await logoutInstance(creds);
     return Response.json({ ok: true });
   } catch (e: any) {
     console.error("[evolution/disconnect]", e);

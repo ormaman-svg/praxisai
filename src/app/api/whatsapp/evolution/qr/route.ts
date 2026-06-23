@@ -66,13 +66,15 @@ export async function GET(request: Request) {
   const reset = url.searchParams.get("reset") === "1";
 
   const creds = { host, apiKey, instance };
+  // Always (re)register the webhook on every poll so Evolution knows our URL
+  // regardless of whether the settings page was open when the phone connected.
+  // This is idempotent and cheap — it ensures self-healing after any reconnect.
+  const webhookUrl = `${appOrigin(request)}/api/whatsapp/evolution`;
+  setWebhook(creds, webhookUrl).catch(() => {}); // fire-and-forget, don't block
+
   try {
     const state = await getConnectionState(creds);
     if (state === "open") {
-      // Connected → make sure Evolution is pointed at our webhook. This is the
-      // reliable place to (re)register it: a disconnect+QR reconnect doesn't go
-      // through the save flow, so without this inbound messages never arrive.
-      await setWebhook(creds, `${appOrigin(request)}/api/whatsapp/evolution`);
       return Response.json({ state, qrBase64: null });
     }
 
