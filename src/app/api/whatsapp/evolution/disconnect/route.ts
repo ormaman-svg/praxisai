@@ -5,7 +5,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveClinicId } from "@/lib/clinic";
-import { logoutInstance, setWebhook } from "@/lib/whatsapp/evolution-api";
+import { logoutInstance, restartInstance, setWebhook } from "@/lib/whatsapp/evolution-api";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -64,6 +64,11 @@ export async function POST(request: Request) {
     // send the next CONNECTION_UPDATE event when a new QR is scanned.
     await setWebhook(creds, `${appOrigin(request)}/api/whatsapp/evolution`).catch(() => {});
     await logoutInstance(creds);
+    // Restart the Baileys session so the instance is clean and ready to emit a
+    // fresh QR immediately — without this the process can get stuck and require
+    // a manual Railway redeploy to recover.
+    await new Promise((res) => setTimeout(res, 800));
+    await restartInstance(creds).catch(() => {});
     return Response.json({ ok: true });
   } catch (e: any) {
     console.error("[evolution/disconnect]", e);

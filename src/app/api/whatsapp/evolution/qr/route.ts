@@ -89,10 +89,17 @@ export async function GET(request: Request) {
     const qr = await getQrCode(creds);
     const stateAfter = await getConnectionState(creds);
 
+    // If Baileys returned no QR and state is still "close", the process is
+    // stuck (e.g. after a Railway restart or trial expiry). Auto-restart the
+    // instance so the next poll gets a fresh QR — no manual redeploy needed.
+    if (!qr.base64 && stateAfter === "close" && !reset) {
+      console.log("[evolution/qr] no QR + state=close — auto-restarting instance");
+      await restartInstance(creds).catch(() => {});
+    }
+
     return Response.json({
       state: stateAfter,
       qrBase64: qr.base64,
-      // Surfaced only when no QR was produced, to aid debugging from the UI.
       debug: qr.base64 ? undefined : { status: qr.status, raw: qr.raw },
     });
   } catch (e: any) {
