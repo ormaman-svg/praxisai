@@ -14,7 +14,7 @@ import { AI_RECS_KEY, type ClinicalTemplate } from "@/lib/clinic-templates";
 type Mode = "command" | "manual";
 type Phase = "standby" | "idle" | "recording" | "transcribing" | "generating" | "review";
 
-/* ── voice command matching ───────────────────────────────────────── */
+/* ── voice command matching ────────────────────────────────────────────────────────── */
 
 const START_COMMANDS = ["קליני תרשום", "קליני הקלט", "קליני תקליט", "תרשום", "התחל הקלטה", "תתחיל הקלטה"];
 const STOP_COMMANDS  = ["קליני סיים", "קליני תסכם", "קליני עצור", "סיים הקלטה", "תסכם", "עצור הקלטה"];
@@ -24,7 +24,7 @@ function matchesAny(text: string, commands: string[]): boolean {
   return commands.some((c) => clean.includes(c.toLowerCase()));
 }
 
-/* ── steps bar ────────────────────────────────────────────────────── */
+/* ── steps bar ─────────────────────────────────────────────────────────── */
 
 const STEPS = [
   { id: "record",    label: "הקלטה",   icon: Mic },
@@ -41,7 +41,7 @@ function stepIndex(phase: Phase, hasNote: boolean, saved: boolean) {
   return 0;
 }
 
-/* ── timer format ─────────────────────────────────────────────────── */
+/* ── timer format ──────────────────────────────────────────────────────────── */
 const fmt = (s: number) =>
   `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 
@@ -111,7 +111,7 @@ export default function ScribeClient({ template, initialPatientId = "" }: { temp
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* ── Speech Recognition ─────────────────────────────────────── */
+  /* ── Speech Recognition ────────────────────────────────────────────────────────── */
 
   function buildSR() {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -188,7 +188,7 @@ export default function ScribeClient({ template, initialPatientId = "" }: { temp
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, phase]);
 
-  /* ── Visualizer ─────────────────────────────────────────────── */
+  /* ── Visualizer ──────────────────────────────────────────────────────────── */
 
   function startVisualizer(stream: MediaStream) {
     const AC = window.AudioContext || (window as any).webkitAudioContext;
@@ -228,7 +228,7 @@ export default function ScribeClient({ template, initialPatientId = "" }: { temp
     audioCtxRef.current = null;
   }
 
-  /* ── Recording ──────────────────────────────────────────────── */
+  /* ── Recording ────────────────────────────────────────────────────────────────── */
 
   const handleStop = useCallback(async (chunks: Blob[]) => {
     setPhase("transcribing");
@@ -308,7 +308,7 @@ export default function ScribeClient({ template, initialPatientId = "" }: { temp
     setPaused(false);
   }
 
-  /* ── Note generation ────────────────────────────────────────── */
+  /* ── Note generation ────────────────────────────────────────────────────────────────── */
 
   async function generateNote(text: string) {
     if (!text.trim()) { setPhase("review"); return; }
@@ -330,7 +330,7 @@ export default function ScribeClient({ template, initialPatientId = "" }: { temp
     setPhase("review");
   }
 
-  /* ── Save ───────────────────────────────────────────────────── */
+  /* ── Save ────────────────────────────────────────────────────────────────────────────────── */
 
   async function saveRecord() {
     if (!patientId) { setError("יש לבחור מטופל לפני השמירה."); return; }
@@ -357,14 +357,14 @@ export default function ScribeClient({ template, initialPatientId = "" }: { temp
     setCmdStatus("ממתין לפקודה…");
   }
 
-  /* ── derived ────────────────────────────────────────────────── */
+  /* ── derived ──────────────────────────────────────────────────────────────────────────── */
 
   // SOAP content excludes the AI-recommendations field (rendered separately).
   const aiRecs = note[AI_RECS_KEY] ?? "";
   const hasNote = Object.entries(note).some(([k, v]) => k !== AI_RECS_KEY && Boolean(v));
   const activeStep = stepIndex(phase, hasNote, saved);
 
-  /* ── render ─────────────────────────────────────────────────── */
+  /* ── render ───────────────────────────────────────────────────────────────────────────────────── */
 
   const SRSupported = typeof window !== "undefined" &&
     (!!(window as any).SpeechRecognition || !!(window as any).webkitSpeechRecognition);
