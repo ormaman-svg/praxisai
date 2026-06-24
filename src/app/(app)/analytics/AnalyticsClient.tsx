@@ -178,7 +178,7 @@ export default function AnalyticsClient({
 
   const isImprovement = scaleImprovementLower ? vasDelta <= 0 : vasDelta >= 0;
   const kpis = [
-    { label: "טיפולים ב‑30 הימים האחרונים", value: tMonth, icon: Activity, tint: "bg-brand-50 text-brand" },
+    { label: "טיפולים ב‑שלושים הימים האחרונים", value: tMonth, icon: Activity, tint: "bg-brand-50 text-brand" },
     {
       label: `${scaleLabel} ממוצע`,
       value: vasValues.length ? vasRecent.toFixed(1) : "—",
@@ -297,7 +297,7 @@ export default function AnalyticsClient({
                     <tr className="border-b border-line bg-slate-50 text-[11.5px] font-semibold uppercase tracking-wide text-slate-400">
                       <th className="px-5 py-2.5">מטפל/ת</th>
                       <th className="px-4 py-2.5">טיפולים</th>
-                      <th className="px-4 py-2.5">ב‑30 ימים</th>
+                      <th className="px-4 py-2.5">ב‑שלושים ימים</th>
                       <th className="px-4 py-2.5">מטופלים</th>
                       <th className="px-4 py-2.5">מגמת {scaleLabel}</th>
                     </tr>
