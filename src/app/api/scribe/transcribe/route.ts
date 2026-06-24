@@ -1,7 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
-import { transcribeAudio as heidiTranscribe } from "@/lib/heidi/client";
 
-export const maxDuration = 60; // transcription can take a while on long recordings
+export const maxDuration = 60; // whisper transcription can take a while on long recordings
 
 async function deepgram(model: string, buffer: ArrayBuffer, contentType: string) {
   return fetch(
@@ -22,13 +21,21 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
+  if (!process.env.DG_KEY) {
+    return Response.json({ error: "DG_KEY חסר בהגדרות הסביבה של Vercel." }, { status: 500 });
+  }
+
   const form = await request.formData();
   const audio = form.get("audio") as Blob | null;
   if (!audio) return Response.json({ error: "No audio" }, { status: 400 });
 
   const buffer = await audio.arrayBuffer();
+  // Browsers differ: Chrome records audio/webm, Safari audio/mp4 — forward the real type.
+  // Strip any ";codecs=..." suffix; Deepgram only needs the base container type.
   const contentType = (audio.type || "audio/webm").split(";")[0];
 
+  // Empty/too-short capture (e.g. mic muted, permission glitch) — fail clearly
+  // instead of sending Deepgram a few bytes that come back as a vague error.
   if (buffer.byteLength < 2000) {
     return Response.json(
       { error: "לא נקלט אודיו (ההקלטה ריקה או קצרה מדי). בדקו שהמיקרופון פעיל ונסו שוב." },
@@ -36,24 +43,8 @@ export async function POST(request: Request) {
     );
   }
 
-  // Heidi path — enabled when HEIDI_API_KEY is configured
-  if (process.env.HEIDI_API_KEY) {
-    try {
-      const transcript = await heidiTranscribe(user.id, buffer, contentType);
-      return Response.json({ transcript });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.error("[heidi] transcription failed, falling back to Deepgram:", msg);
-      // Fall through to Deepgram
-    }
-  }
-
-  // Deepgram path (default / fallback)
-  if (!process.env.DG_KEY) {
-    return Response.json({ error: "DG_KEY חסר בהגדרות הסביבה של Vercel." }, { status: 500 });
-  }
-
   // nova-2 first (fast, supports Hebrew); fall back to whisper-large on failure.
+  // Track each model's failure detail so the logs pinpoint why it broke.
   let res = await deepgram("nova-2", buffer, contentType);
   if (!res.ok) {
     const err = await res.text().catch(() => "");
